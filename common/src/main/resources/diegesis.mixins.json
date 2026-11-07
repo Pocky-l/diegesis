@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "com.pockyl.diegesis.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "diegesis.refmap.json",
   "mixins": [],
   "client": [
     "client.CameraMixin",

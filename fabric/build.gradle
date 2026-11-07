@@ -56,6 +56,11 @@ tasks.named('processResources', ProcessResources) {
     filesMatching('fabric.mod.json') {
         expand replaceProperties
     }
+    // Forge finds its SRG names through the refmap the mixin config names; Loom remaps the mixins in the jar itself
+    // and writes none, so the Fabric jar leaves the line out.
+    filesMatching('diegesis.mixins.json') {
+        filter { String line -> line.contains('"refmap"') ? null : line }
+    }
 }
 
 publishMods {
