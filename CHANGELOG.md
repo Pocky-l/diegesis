@@ -4,8 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.1] - Unreleased
-
+## [1.0.0-beta.1] - 2026-11-07
 ### Added
 - Stations: blocks whose use flies the camera to the block instead of opening a GUI.
 - Scenes in JSON files with Blockbench models, items and blocks; reloaded with F3+T.
