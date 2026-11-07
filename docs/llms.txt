@@ -1,0 +1,176 @@
+# Diegesis
+
+> Library mod for Minecraft 1.20.1 (Forge and Fabric): in-world block interfaces. Using a station block flies the
+> camera to the block; the player drags items onto it, carries 3D objects, pours liquids, flips levers and turns knobs,
+> without a GUI screen. A mod writes a station (Java, both sides) and a scene (JSON resource). Public API:
+> com.pockyl.diegesis.api (everything else is internal). Docs: https://github.com/Pocky-l/diegesis/tree/main/docs
+
+## Model
+
+- Station = StationType (Java, common code, registered on both sides): blocks, Authority (SERVER default | CLIENT),
+  StationSchema (slot groups, tanks, controls, outputs), StationLogic (server rules), scene id (= station id).
+- Scene = assets/<ns>/diegesis/scenes/<path>.json: camera + tree of nodes. Nodes bind to schema names.
+- Client = optional StationBehavior (animations, sounds) registered with DiegesisClient in client setup only.
+- SERVER stations: server validates every action, syncs state to all players, relays carried objects. Needs Diegesis
+  on the server; without it the block behaves as without the library.
+- CLIENT stations: work on any server, local only, cannot have slots or outputs (no item moves).
+
+## Units and space (most common source of mistakes)
+
+- Blockbench pixels: 16 = one block. Angles in degrees. Rotation applied y, then x, then z.
+- Origin = block's lower north-west corner; scene authored for a block FACING NORTH: front = -Z side.
+  Player stands at z < 0 looking towards +Z. +X appears on the SCREEN'S LEFT, -X on the right. y up.
+- Top of a full block = y 16 (default work_plane). Table-top objects: pos y = 16, x/z in 0..16.
+- Visual anchor default [8,0,8] = middle of the model's bottom, so pos = the point the object stands on.
+- A full 16 px model (all ready controls) needs scale ~0.4-0.6 to be a prop on a block top.
+- Coordinates beyond 0..16 reach neighbour blocks (multiblocks, the camera).
+- Typical camera: {"position": [8, 34..40, -8..-15], "target": [8, 16, 4..8], "fov": 55}.
+
+## Java: station
+
+```java
+public static final StationType STILL = Diegesis.station(new ResourceLocation("mymod", "still"))
+        .block(MyBlocks.STILL)                 // Supplier<Block> (RegistryObject) or .blocks(Block...) or .tag(TagKey)
+        .schema(StationSchema.builder()
+                .slots("input", 2)             // input[0], input[1]; SlotRules.DEFAULT: any item, returned on close
+                .slots("shelf", 3, SlotRules.DEFAULT.maxStack(16).accepts(s -> s.is(Items.GLASS_BOTTLE)).kept())
+                .tank("boiler", TankSpec.of(1000).accepts(id -> true).pourRate(500).kept())
+                .control("heat", ControlSpec.stepped(0, 3, 3, 0))   // range(min,max,init) | stepped | toggle(bool) | button()
+                .control("lit", ControlSpec.toggle(false).locked())  // locked: only the logic sets it
+                .output("result")
+                .build())
+        .logic(StillLogic::new)                // StationLogic.Factory: StationContext -> StationLogic
+        .build();
+// mod setup on both sides: Diegesis.register(STILL);
+```
+
+Builder also: when(Predicate<BlockState>), anchor(Anchor) for multiblocks (resolve(level,pos,state) -> main pos),
+clientOnly() / authority(..), scene(id), openWhen(OpenCondition), orientation(AUTO|BLOCK|PLAYER|FIXED), reach(6.0),
+exclusive(), hidesBlock() (the block's model is not drawn while in use: the scene shows it), idleLogic() (clients run the logic's tick while nobody works here: idle_visible scenes show a foreign block's state), seat(Seat.at(id,x,y,z) | Seat.sitting(id,x,y,z)) (places in scene px: a player takes the free one nearest
+to them, sees camera.seats[id], and with sitting() sits down on that surface for all to see; no free seat = the rig's view). Names: [a-z0-9_]+, unique across slots/tanks/controls/outputs. kept() slots/tanks need a block entity
+implementing StationHost { StationState stationState(); } that saves state.save()/load(tag) and syncs its update tag.
+On the last close, NOT-kept slots return their items and NOT-kept tanks reset to filledWith (hosted too); controls
+stay. StationLogic.tick runs only while in use: tick the block entity for work that goes on without players.
+
+StationLogic (all default no-op; runs on the server for SERVER stations; schema checks already done):
+onOpen(ctx, player), onClose(ctx, player), mayPlace(ctx, player, SlotRef, ItemStack), mayTake(ctx, player, SlotRef),
+onTaken(ctx, player, SlotRef, ItemStack) (experience, recipes of a result slot),
+updateOutputs(ctx) -> ctx.state().setOutput(name, stack), takeOutput(ctx, player, output) -> ItemStack (consume
+inputs; EMPTY = refuse), onSlotChanged(ctx, SlotRef), onControlChanged(ctx, player, name, value), onButton(ctx, player,
+name), mayPour(ctx, player, from, to, TankContents), onPoured(ctx, player, from, to, TankContents),
+onCustomAction(ctx, player, action, CompoundTag), onPoseChanged(ctx, player, SlotRef, ItemPose), tick(ctx).
+StationContext: type, level, pos, blockState, facing, state, users, blockEntity, effect(id, node, data), seatOf(player),
+playerAt(seat).
+StationState: getItem/setItem(SlotRef), getItems(group), getControl/setControl(name), getOutput/setOutput,
+getTank/setTank(name, TankContents), getPose/setPose(SlotRef, ItemPose) (a freely placed item), data()/setData(CompoundTag) (the logic's own values: saved, sent to all clients in one
+piece, Changes.data() tells; a board position, a score). TankContents: EMPTY, of(id, mb), amount(), main(), amountOf(id), plus, take(mb).
+Another mod's block: in the logic's constructor state.bindSlots(group, SlotStorage.of(container, start, count)) (or own
+size/get/set): the group reads and writes that inventory directly, changes there reach the players by themselves, kept()
+groups need no StationHost then. openWhen is (player, pos, state).
+SlotRef.of("grid", 4) = "grid[4]". Diegesis.open(serverPlayer, pos) / close(player) / activeStation(level, pos).
+
+## Java: client (client setup only)
+
+DiegesisClient.registerBehavior(stationId, MyBehavior::new); registerEffect(id, (view, node, data) -> ..);
+registerParticle(id, ParticleStyle.builder(spriteIds..).color().size(min,max).life(min,max).gravity().drag()
+.emissive().stretch().grow().pop().wobble().fadeIn(part).surface(styleId).build()); registerLiquid(id, LiquidLook.of(argb)[.glowing()][.thick(0..1)]);
+registerModel(modelId) (models outside models/diegesis/); registerItemShape(item, stack -> MeshShape, texture) (an item's look
+from its data; MeshShape.builder().corner(x,y,z,u,v,nx,ny,nz), 4 per face, CCW from outside, pixels, stands on y 0); registerScene(id, SceneDefinition); setDebugView(bool).
+StationBehavior (default no-op, render thread): onSceneReady(view) (nodes are new: at first and after F3+T), onOpen(view),
+onClose(view), tick(view), frame(view, dt), onStateChanged(view, StationState.Changes), onEvent(view, SceneEvent),
+onItemClick(view, node, stack, button, shift) -> true when handled (a click with a stack on the cursor, before it goes anywhere), onEffect(view, id, node, data). One object per station shown: also for watchers and passers-by, not only the user.
+StationView: state() (read only), node(id) -> Optional<NodeView>, sendAction(action, CompoundTag) -> server
+onCustomAction, spawnParticles(style, node, count, argbOr0), spawnInLiquid(style, tankNode, count, argbOr0, velocity), spawnOnLiquid(style, tankNode, count, argbOr0, velocity), spawnAtLiquidEdge(style, tankNode, count, argbOr0, scale), cursorOn(height) -> Optional<Vector3f>, pointerOn(node, height) -> Optional<Vector3f> (node pixels), showOverlay(ScreenOverlay|null) (2D drawn by the mod over the scene, takes the mouse; render, mouseClicked -> false closes, mouseScrolled, onClosed),
+playSound(SoundEvent, node, vol, pitch), loopSound(name, SoundEvent, vol, pitch) (goes on and glides; vol 0 fades it out), toWorld(x,y,z), seat(), showCaption(Component|null, seconds; 0 = until replaced).
+NodeView: setVisible, setEnabled (off: visible, but the cursor passes through it), setOutlined (hover outline by code), moveTo(x,y,z,sec), hopTo(x,y,z,height,sec)
+(over an arc), isMoving, rotateTo(x,y,z,sec), scaleTo(f,sec), spin(x,y,z deg/s; 0s stop),
+shake(px, sec), setTint(argb), setVisual(Visual|null), setShape(MeshShape|null, texture[, glowing]) (polygons made by code; see-through with a tint alpha below 255), setTooltip(Component|null), setEmitting, setEmitRate,
+setAgitation(0..1), setLiquidColor(argb; 0 = its own), setFloating(List<Floater(sprite, rgb, size)>, count) (flat sprites on the liquid, rising up one by one; Floater.COIN CHUNK NUGGET SHRED LEAF DROP), setFloatingObstacles(x, z, radius, ...), setMottle(0..1) (uneven surface), setEdgeBoil(0..1) (foam along the walls), leaveWake(x, z[, width, strength]) (a furrow that stays and fades), setWakeLook(seconds, contrast), setFloatingWake(0..1) (trails of what floats, 0 = none), setCurrent(rad/s), setPainter(NodePainter|null) (draw by code at the node: paint(poseStack, buffers, light)), setLight(0..15), sceneMatrix()/scenePosition() (scene px, also while carried), extra(),
+isHovered, isHeld.
+SceneEvent: Hover(node), Click(node, button) [role-less node with collider], Stroke(node, phase HOVER|START|MOVE|END, button, point) [node with
+strokes: every frame while held or hovered; point on the upright plane through the node facing the camera], Grab(node), Release(node, target),
+Contact(node, other, touching, speed), ControlMoved(control, value), ButtonPressed(control).
+Built-ins: DiegesisParticles.SPARK BUBBLE BUBBLE_POP DROPLET SPLASH STEAM SMOKE GLINT DUST FLAME (also effect ids:
+ctx.effect(DiegesisParticles.STEAM, "node"), data count/color). DiegesisSounds.PICK_UP PUT_DOWN GRAB SET_DOWN TOGGLE
+BUTTON DETENT POUR SLOSH BUBBLE SPARK STEAM.
+
+## Scene JSON (strict: unknown fields and bad values fail the scene; "$..." keys ignored)
+
+Schema: https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/schema/scene.schema.json
+Colours: "#RRGGBB" | "#AARRGGBB" | int. vec3 = [x,y,z]. Defaults in parentheses.
+
+scene: camera, work_plane (16), idle_visible (true; needs block entity), nodes [], inventory | inventory_drawer (not
+  both), interface, carry_planes [], pouring, placing, captions {edge (top | bottom), color (#FFFFFFFF), background (#80000000)},
+  clear_view {entities (true), particles (true), radius (16), soft (12)} (what stands between camera and station dissolves).
+camera: position ([8,36,-12]), target ([8,16,7]), fov (0 = player's; 0..170), transition (0.6 s),
+  inventory {position, target, fov (0)} (shot used while the scene inventory is shown),
+  glances [{id (required), edge (left|right|top|bottom; none = code only; one per edge, not the drawer's), zone (0.1),
+  delay (0.12 s), position, target (required), fov (0 = rig's), time (0.45 s), back_on_take (true), back_zone (0.12; 0 =
+  none), hint (true), hint_color}] (cursor resting at the edge glides the camera there; a taken stack or the opposite
+  edge glides it back; code: StationView.glance(id)/glanceBack()/currentGlance(), event SceneEvent.Glance),
+  seats {"<seat id>": {position, target, fov}} (the view from each seat of the station).
+node: id (required, [a-z0-9_]+, unique), template, repeat {count [x,y,z], step [x,y,z]} (one node per grid cell, ids <id>_0,
+  <id>_1..., x fastest; a board's 64 squares in one entry), pos ([0,0,0]), rotation ([0,0,0]), scale (1 | vec3), visual,
+  collider {from,to} (node pixels; derived from visual), trigger (false: contact-only zone, cursor passes),
+  pickable (true; false = decoration without hit box, no role allowed), precise (false; a mesh is hit on its polygons, not
+  its box: objects close together), strokes (false; role-less: a press starts a stroke), drop_zone (slot group: stacks clicked or let go here go into it; the
+  cursor passes through while nothing fits; needs collider, no role), tooltip (lang key; hoverable),
+  ONE OF grabbable | slot | output | control (more roles -> child nodes), tank, emitter, light, hidden (false),
+  extra {}, children [].
+visual: EXACTLY ONE of model ("ns:diegesis/x" = assets/ns/models/diegesis/x.json, auto-loaded) | mesh ("ns:x" =
+  assets/ns/diegesis/meshes/x.obj, polygons from any 3D tool, units = pixels; needs texture ("ns:block/x", a block atlas
+  sprite)) | item (id) | block ("minecraft:lever[face=floor]"); anchor ([8,0,8]; a mesh's own origin), tint (#FFFFFFFF; alpha<FF = see-through),
+  translucent (false; see-through textures), emissive (false), double_sided (false; inner walls of open glass),
+  glass (0; 0..1 clear face-on, thick at grazing angles; 0.8 for vessels; implies translucent).
+grabbable: lift (4, 0..64), sway (1, 0..4), stay (false), grip (vec3, node px; hit box middle), plane {point,
+  normal ([0,0,-1]), bounds {from,to}}, contact {from,to}, hold (auto = click keeps it in the hand, drag carries it |
+  drag | click).
+carry_planes[]: from [x,z], to [x,z] (required), height, blend (4), closed (false), nodes [ids].
+slot: slot ("grid[4]" | "fuel", required), display (flat | upright | floating | hidden: not drawn, the scene shows it its own way; flat), size (6, 1..64), item_size, counts (always | hover | never), highlight (true).
+output: output (required), display (floating), size (8).
+control: control (required), type (button | toggle | knob | slider, required), axis, range [a,b] (deg for
+  knob/toggle, px for slider/button; defaults button [0,-1,0] [0,1]; toggle [1,0,0] [-25,25]; knob [0,1,0]
+  [135,-135]; slider [1,0,0] [0,8]), circular (true), pivot ([0,0,0]), base (visual that stays still),
+  smoothing (0.05 s half-way; 0.25 for a gauge needle). A node on a LOCKED control is display-only (needle).
+tank: tank (required), inner {from,to} (required), round (false), spout (vec3; pours), pour_range (2.5: cursor reach
+  round the other tank), pour_angle (100: deepest tip; over 90 empties a necked bottle), opening (vec3; top-middle of
+  inner), pour_height (3: spout over the opening). Player points the vessel at a tank; it tips until the liquid reaches
+  the spout; wheel = flow.
+emitter: particle (required, e.g. "diegesis:steam"), rate (4/s), offset, velocity (px/s), spread (0.5), color,
+  enabled (true), scale (1), in_liquid (false).
+light: level (14), radius (16), color (#80FFD9A0 = surface pool), flicker (0.12), offset ([0,0,0] node px).
+Particle sizes (px at scale 1): spark .5-.8, bubble .25-.5, droplet .3-.45, splash .4-.7, steam/smoke ~1 growing,
+glint .4-.7, dust .15-.3, flame .35-.6 (a burner at scale 0.5 wants emitter scale 3-4).
+inventory: pos (required), rotation, spacing (2.6), size (2.1), surface (block state), slot_color (#66000000),
+  show (always | toggle).
+inventory_drawer: side (left | right | top | bottom; right), align (0.5), icon (item; minecraft:bundle), icon_texture,
+  hover_zone (10 GUI px; 0 = icon only), open_delay (0.08), close_delay (0.35), slide_time (0.18), margin (4),
+  style (panel | minimal), background (#C0101216), slot_color (#66000000), always_open (false: out from the start, no icon, Escape
+  leaves at once). Slides over the scene and takes priority.
+placing: free placing of the slot group's items, rules SlotRules.DEFAULT.maxStack(1).placed().kept(): group (required), surfaces
+  (required) [{from [x,z], to [x,z], height (required), clearance (64: room above), aim_height (0 = cursor on the surface; a
+  shelf seen from the front: a slope up to this height over the back edge), wall (z of a wall light falls on)}], item_size (6:
+  longest side at size 1), turn_step (15), scale_range ([0.5,1.5]), scale_step (0.1), turn_speed (1.2), stacking (true),
+  block_models (true: lantern, torch stand as blocks), item_light (true), light_radius (11), light_color (#C0FFC888), shadows
+  (true), snap (0.25), preview_color (#A0FFFFFF). Click puts down or takes, drag moves, wheel turns, Shift+wheel tips,
+  Control+wheel sizes, right button held turns freely.
+pouring: hints (true), hint_color (#40FFFFFF), meter (true), stream (true), stream_width (1.4).
+interface: hide_hud (true), hide_chat (true), hide_player (false), inventory_panel (true), show_counts (true),
+  counts_on_top (true), highlight_color (#4DFFFFFF), shadows (true), shadow_opacity (0.5), carry_lift (2.5),
+  carry_stick (false), carry_sway (1), carry_margin (none = no limit), sounds (true), hover_outline (true),
+  outline_color (#FFE6E6E6).
+
+Ready controls (node templates): "template": "diegesis:control/lever" | "switch" (toggles), "button", "knob",
+"slider". Usage: {"id": "gas", "template": "diegesis:control/knob", "pos": [12, 16, 4], "scale": 0.55,
+"control": {"control": "gas"}}. The node's fields merge over the template (objects field by field, lists/values
+replaced, null removes). Own templates: assets/<ns>/diegesis/nodes/<path>.json (a node without id).
+
+## Pitfalls
+
+- Plane-made vanilla blocks (torch, flower) have a full 16 px box: give them a small explicit collider.
+- Nothing in a scene is solid; use carry_planes (height to lift over, closed to keep out).
+- Slots need no visual (invisible pads). Two slots closer than their size overlap.
+- Client-only stations cannot hold items. A station on a block with a GUI replaces that GUI.
+- Call DiegesisClient only from client code; StationType registration on both sides.
+- Test: F3+T reloads scenes (errors in the log: "Scene <id> (<file>) is broken: ..."); F3+B or /diegesis debug shows
+  hit boxes, ids, work plane, camera target.
