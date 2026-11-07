@@ -51,6 +51,26 @@ legacyForge {
     }
 }
 
+// Local test driver (src/devtools, not in the repository): run `shots` with job.txt in run-shots/ naming a script
+// in tools/shots/; it plays the script in a flat creative world and saves screenshots.
+if (file('src/devtools').isDirectory()) {
+    sourceSets {
+        devtools {
+            compileClasspath += sourceSets.main.output
+            runtimeClasspath += sourceSets.main.output
+        }
+    }
+    legacyForge.addModdingDependenciesTo(sourceSets.devtools)
+    legacyForge.mods.register('diegesis_devtools') { sourceSet(sourceSets.devtools) }
+    legacyForge.runs.register('shots') {
+        client()
+        sourceSet = sourceSets.devtools
+        gameDirectory = project.file('run-shots')
+        systemProperty 'diegesis.shots', rootProject.file('tools/shots').absolutePath
+        programArguments.addAll('--width', '1280', '--height', '720')
+    }
+}
+
 // Refmaps translate the mixin targets to the SRG names Forge uses at runtime.
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
