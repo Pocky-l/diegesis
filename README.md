@@ -44,8 +44,7 @@ dragging, keeps the state in sync with the server and shows it to other players.
 - **Hot reload** - F3+T reloads scene files while the game runs, and a mistyped field is reported with its name.
 - **Debug view** - F3+B or `/diegesis debug` shows every hit box, node id and slot.
 - **Shaders** - scenes are drawn like entities and item frames, so shader packs handle them the same way.
-- **Documentation** - a guide, a cookbook, a JSON schema for scene files and a one-page API reference for coding
-  assistants, with a ready skill for Claude Code.
+- **Documentation** - a guide, a cookbook and a JSON schema for scene files.
 
 ## Quick start
 
@@ -108,8 +107,6 @@ react to the state and to what the player does.
 - [Scenes](docs/scenes.md), [Stations](docs/stations.md), [Client](docs/client.md), [Cookbook](docs/cookbook.md).
 - [JSON Schema](docs/schema/scene.schema.json) of scene files: add
   `"$schema": "https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/schema/scene.schema.json"` to a scene.
-- [`docs/llms.txt`](docs/llms.txt) - the API on one page for AI coding assistants;
-  [Claude Code skill and project notes](integrations/claude-code/README.md).
 
 ## Installation
 
