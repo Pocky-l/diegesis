@@ -40,7 +40,7 @@ Made something with Diegesis? Open an issue and it will be listed here.
 ## Features
 
 - 🎥 **Camera** - using a station block moves the camera to a point set in the scene. Other players see you look at the
-  block.
+  block. With stations side by side, the cursor at the edge of the screen or A and D fly the camera over to the next one.
 - 🧱 **Scenes from Blockbench** - nodes show [Blockbench](https://www.blockbench.net) models, items or blocks. They can
   be nested, moved, turned, scaled, faded and made to glow.
 - 📦 **Item slots** - clicks work as in a vanilla menu, including shift-click, double click and dragging a stack across
@@ -140,7 +140,8 @@ react to the state and to what the player does.
 
 1. Install [Forge](https://files.minecraftforge.net) or [Fabric](https://fabricmc.net) (with
    [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)) for Minecraft 1.20.1.
-2. Put the jar into the `mods` folder of the client, and of the server for server stations.
+2. Put the jar into the `mods` folder of the client, and of the server for server stations. Client and server need the
+   same version of Diegesis.
 
 ## Building
 
