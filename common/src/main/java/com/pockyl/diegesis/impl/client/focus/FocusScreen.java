@@ -20,6 +20,9 @@ import com.pockyl.diegesis.impl.action.StationAction.Target;
 import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.scene.NodeInstance;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * The screen that is open while the player works at a station. It draws no background - the world is the interface.
  * For stations with item slots it shows the player's inventory as the vanilla inventory panel along the bottom (same
@@ -36,6 +39,10 @@ public final class FocusScreen extends Screen {
     @SuppressWarnings("removal")
     private static final ResourceLocation PANEL = new ResourceLocation("textures/gui/container/generic_54.png");
     private static final int PANEL_WIDTH = 176;
+    /** A compact drawer: the gap round its slots, their pitch, how many in a row. */
+    private static final int COMPACT_PAD = 3;
+    private static final int PITCH = 18;
+    private static final int COMPACT_COLUMNS = 9;
     /** Top border (3 px of the chest texture) + the inventory part of it (from the label row to the bottom edge). */
     private static final int BORDER = 3;
     private static final int INVENTORY_V = 125;
@@ -64,6 +71,13 @@ public final class FocusScreen extends Screen {
     private static final int NO_PANEL = Integer.MIN_VALUE;
     private static int panelLeft = NO_PANEL;
     private static int panelTop = NO_PANEL;
+    /** The panel's size, and how much of its top is not drawn (the minimal drawer has no label row). */
+    private static int panelWidth = PANEL_WIDTH;
+    private static int panelHeight = PANEL_HEIGHT;
+    private static int panelSkip;
+    /** The inventory slots a compact drawer shows, in their order on it, and the station they were picked for. */
+    private static final List<Integer> compactSlots = new ArrayList<>();
+    private static ClientStation compactFor;
     private long lastFrame = Util.getNanos();
 
     /** Set by the development test driver, which cannot press real keys. */
@@ -98,16 +112,44 @@ public final class FocusScreen extends Screen {
 
     /** Whether a GUI point lies over the world (not over the inventory panel). */
     static boolean isOverWorld(double mouseX, double mouseY) {
-        return panelTop == NO_PANEL || mouseY < panelY() || mouseY >= panelTop + PANEL_HEIGHT || mouseX < panelLeft
-                || mouseX >= panelLeft + PANEL_WIDTH;
+        return panelTop == NO_PANEL || mouseY < panelY() || mouseY >= panelTop + panelHeight || mouseX < panelLeft
+                || mouseX >= panelLeft + panelWidth;
     }
 
     /** The GUI centre of an inventory slot; for the development test driver. */
     @ApiStatus.Internal
     public static int[] slotCenter(int slot) {
+        InventoryDrawer drawer = drawer();
+        if (drawer != null && drawer.compact()) {
+            int index = compactSlots.indexOf(slot);
+            if (index < 0) {
+                return new int[] {OFF_SCREEN, OFF_SCREEN};
+            }
+            return new int[] {panelLeft + COMPACT_PAD + index % COMPACT_COLUMNS * PITCH + PITCH / 2,
+                    panelTop + COMPACT_PAD + index / COMPACT_COLUMNS * PITCH + PITCH / 2};
+        }
         int x = panelLeft + 8 + (slot % 9) * 18 + 8;
         int y = panelTop + (slot < 9 ? HOTBAR_Y : MAIN_Y + (slot / 9 - 1) * 18) + 8;
         return new int[] {x, y};
+    }
+
+    /** Whether the inventory slot is on show now: a stack got there can fly into it. */
+    static boolean isSlotShown(int slot) {
+        if (!showsInventory() || panelTop == NO_PANEL || slotCenter(slot)[0] == OFF_SCREEN) {
+            return false;
+        }
+        return drawer() == null || FocusInput.get().drawer().shown() >= 1.0F;
+    }
+
+    /** What the player got at the station, flying in; a stack whose slot is not on show stands next to the drawer for a moment. */
+    private void renderGains(GuiGraphics graphics, FocusInput input) {
+        float asideX = width / 2.0F;
+        float asideY = height - 24.0F;
+        if (panelTop != NO_PANEL && panelWidth > 0 && showsInventory()) {
+            asideX = panelLeft + panelWidth + 14.0F;
+            asideY = panelTop + panelHeight / 2.0F;
+        }
+        input.gains().render(graphics, font, asideX, asideY);
     }
 
     /** The panel shows for stations with items whose scene does not lay the inventory out itself, and for every drawer. */
@@ -126,10 +168,9 @@ public final class FocusScreen extends Screen {
         return station == null || station.scene() == null ? null : station.scene().definition().inventoryDrawer().orElse(null);
     }
 
-    /** Where the panel's visible part starts: the minimal drawer has no label row. */
+    /** Where the panel's visible part starts. */
     private static int panelY() {
-        InventoryDrawer drawer = drawer();
-        return panelTop + (drawer != null && drawer.style() == InventoryDrawer.Style.MINIMAL ? MINIMAL_TOP : 0);
+        return panelTop + panelSkip;
     }
 
     @Override
@@ -139,6 +180,15 @@ public final class FocusScreen extends Screen {
 
     private void layout() {
         InventoryDrawer drawer = drawer();
+        panelWidth = PANEL_WIDTH;
+        panelHeight = PANEL_HEIGHT;
+        panelSkip = drawer != null && drawer.style() == InventoryDrawer.Style.MINIMAL ? MINIMAL_TOP : 0;
+        if (drawer != null && drawer.compact()) {
+            int rows = (compactSlots.size() + COMPACT_COLUMNS - 1) / COMPACT_COLUMNS;
+            panelWidth = compactSlots.isEmpty() ? 0 : Math.min(compactSlots.size(), COMPACT_COLUMNS) * PITCH + 2 * COMPACT_PAD;
+            panelHeight = compactSlots.isEmpty() ? 0 : rows * PITCH + 2 * COMPACT_PAD;
+            panelSkip = 0;
+        }
         if (drawer != null) {
             layoutDrawer(drawer, FocusInput.get().drawer().shown());
         } else if (showsInventory()) {
@@ -152,23 +202,23 @@ public final class FocusScreen extends Screen {
 
     /** Places the panel for a drawer {@code out} of the way out: from just past the screen's edge to its place. */
     private void layoutDrawer(InventoryDrawer drawer, float out) {
-        int visibleHeight = PANEL_HEIGHT - (drawer.style() == InventoryDrawer.Style.MINIMAL ? MINIMAL_TOP : 0);
-        int hidden = drawer.style() == InventoryDrawer.Style.MINIMAL ? MINIMAL_TOP : 0;
+        int visibleHeight = panelHeight - panelSkip;
+        int hidden = panelSkip;
         int margin = Math.round(drawer.margin());
-        int acrossX = Math.round((width - PANEL_WIDTH) * drawer.align());
+        int acrossX = Math.round((width - panelWidth) * drawer.align());
         int acrossY = Math.round((height - visibleHeight) * drawer.align()) - hidden;
         switch (drawer.side()) {
             case LEFT -> {
-                panelLeft = Math.round(-PANEL_WIDTH + (PANEL_WIDTH + margin) * out);
+                panelLeft = Math.round(-panelWidth + (panelWidth + margin) * out);
                 panelTop = acrossY;
             }
             case RIGHT -> {
-                panelLeft = Math.round(width - (PANEL_WIDTH + margin) * out);
+                panelLeft = Math.round(width - (panelWidth + margin) * out);
                 panelTop = acrossY;
             }
             case TOP -> {
                 panelLeft = acrossX;
-                panelTop = Math.round(-PANEL_HEIGHT + (visibleHeight + margin) * out);
+                panelTop = Math.round(-panelHeight + (visibleHeight + margin) * out);
             }
             case BOTTOM -> {
                 panelLeft = acrossX;
@@ -180,12 +230,12 @@ public final class FocusScreen extends Screen {
     /** The icon's box: x, y, width, height, on the panel's edge that faces the middle of the screen. */
     private static int[] tab(InventoryDrawer drawer) {
         int top = panelY();
-        int visibleHeight = panelTop + PANEL_HEIGHT - top;
+        int visibleHeight = panelTop + panelHeight - top;
         return switch (drawer.side()) {
-            case LEFT -> new int[] {panelLeft + PANEL_WIDTH, top + (visibleHeight - TAB_LENGTH) / 2, TAB_DEPTH, TAB_LENGTH};
+            case LEFT -> new int[] {panelLeft + panelWidth, top + (visibleHeight - TAB_LENGTH) / 2, TAB_DEPTH, TAB_LENGTH};
             case RIGHT -> new int[] {panelLeft - TAB_DEPTH, top + (visibleHeight - TAB_LENGTH) / 2, TAB_DEPTH, TAB_LENGTH};
-            case TOP -> new int[] {panelLeft + (PANEL_WIDTH - TAB_LENGTH) / 2, panelTop + PANEL_HEIGHT, TAB_LENGTH, TAB_DEPTH};
-            case BOTTOM -> new int[] {panelLeft + (PANEL_WIDTH - TAB_LENGTH) / 2, top - TAB_DEPTH, TAB_LENGTH, TAB_DEPTH};
+            case TOP -> new int[] {panelLeft + (panelWidth - TAB_LENGTH) / 2, panelTop + panelHeight, TAB_LENGTH, TAB_DEPTH};
+            case BOTTOM -> new int[] {panelLeft + (panelWidth - TAB_LENGTH) / 2, top - TAB_DEPTH, TAB_LENGTH, TAB_DEPTH};
         };
     }
 
@@ -225,6 +275,44 @@ public final class FocusScreen extends Screen {
         layoutDrawer(drawer, input.drawer().shown());
     }
 
+    /**
+     * Which slots a compact drawer shows: the stacks the station's filter lets through, new ones at the end. What no longer
+     * shows leaves only while nothing is carried and the cursor is away, and a stack on the cursor gets an empty slot.
+     */
+    private static void pickCompact(double mouseX, double mouseY) {
+        InventoryDrawer drawer = drawer();
+        ClientStation station = FocusController.get().station();
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (drawer == null || !drawer.compact() || station == null || player == null) {
+            return;
+        }
+        if (compactFor != station) {
+            compactFor = station;
+            compactSlots.clear();
+        }
+        Inventory inventory = player.getInventory();
+        java.util.function.Predicate<ItemStack> filter = station.inventoryFilter();
+        boolean carrying = FocusInput.get().carried() != null || !player.inventoryMenu.getCarried().isEmpty();
+        if (!carrying && isOverWorld(mouseX, mouseY)) {
+            compactSlots.removeIf(slot -> inventory.getItem(slot).isEmpty() || !filter.test(inventory.getItem(slot)));
+        }
+        // The hotbar first, as the player knows it, then the rest.
+        for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!stack.isEmpty() && filter.test(stack) && !compactSlots.contains(slot)) {
+                compactSlots.add(slot);
+            }
+        }
+        if (carrying && compactSlots.stream().noneMatch(slot -> inventory.getItem(slot).isEmpty())) {
+            for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
+                if (inventory.getItem(slot).isEmpty()) {
+                    compactSlots.add(slot);
+                    break;
+                }
+            }
+        }
+    }
+
     @Override
     public boolean isPauseScreen() {
         return false;
@@ -249,6 +337,7 @@ public final class FocusScreen extends Screen {
     }
 
     private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY) {
+        pickCompact(mouseX, mouseY);
         layout();
         InventoryDrawer drawer = drawer();
         if (drawer != null) {
@@ -267,6 +356,7 @@ public final class FocusScreen extends Screen {
         } else if (panelTop != NO_PANEL) {
             renderPanel(graphics, player.getInventory(), hoveredSlot);
         }
+        renderGains(graphics, input);
         renderMeter(graphics, input, mouseX, mouseY);
         renderCaption(graphics);
         FocusInput.Carried carried = input.carried();
@@ -353,22 +443,32 @@ public final class FocusScreen extends Screen {
                 continue;
             }
             if (current == null) {
-                renderHint(graphics, glance, glance.edge().get(), glance.zone(), 1.0F - away, u, v);
+                renderHint(graphics, glance.hintColor(), glance.edge().get(), glance.zone(), 1.0F - away, HINT_FAR, u, v);
             } else if (current == glance && glance.backZone() > 0.0F) {
-                renderHint(graphics, glance, Glance.opposite(glance.edge().get()), glance.backZone(), away, u, v);
+                renderHint(graphics, glance.hintColor(), Glance.opposite(glance.edge().get()), glance.backZone(), away, HINT_FAR, u, v);
+            }
+        }
+        if (!input.mayGoOver()) {
+            return;
+        }
+        // A neighbour's arrow shows only as the cursor comes near its edge: a kitchen is not to be full of arrows.
+        for (Neighbors.Neighbor neighbor : input.neighbors().found().values()) {
+            if (neighbor.rules().hint()) {
+                renderHint(graphics, neighbor.rules().hintColor(), neighbor.edge(), neighbor.rules().zone(), 1.0F - away, 0.0F, u, v);
             }
         }
     }
 
-    private void renderHint(GuiGraphics graphics, CameraGlance glance, InventoryDrawer.Side edge, float zone, float shown, float u, float v) {
-        // Faint across the screen, full at the strip: it answers the cursor coming closer.
+    private void renderHint(GuiGraphics graphics, int hintColor, InventoryDrawer.Side edge, float zone, float shown, float faint, float u,
+            float v) {
+        // Faint across the screen ({@code faint}), full at the strip: it answers the cursor coming closer.
         float near = 1.0F - Math.min(1.0F, Math.max(0.0F, (Glance.distance(edge, u, v) - zone) / 0.3F));
-        float strength = shown * (HINT_FAR + (1.0F - HINT_FAR) * near);
-        int alpha = Math.round((glance.hintColor() >>> 24) * strength);
+        float strength = shown * (faint + (1.0F - faint) * near);
+        int alpha = Math.round((hintColor >>> 24) * strength);
         if (alpha < 4) {
             return;
         }
-        int color = alpha << 24 | glance.hintColor() & 0xFFFFFF;
+        int color = alpha << 24 | hintColor & 0xFFFFFF;
         boolean horizontal = edge == InventoryDrawer.Side.TOP || edge == InventoryDrawer.Side.BOTTOM;
         int length = horizontal ? width : height;
         int across = horizontal ? height : width;
@@ -391,7 +491,7 @@ public final class FocusScreen extends Screen {
         graphics.pose().pushPose();
         graphics.pose().translate(0.0F, 0.0F, 100.0F);
         if (FocusInput.get().drawer().shown() > 0.0F) {
-            if (drawer.style() == InventoryDrawer.Style.MINIMAL) {
+            if (drawer.style() == InventoryDrawer.Style.MINIMAL || drawer.compact()) {
                 renderMinimal(graphics, drawer, inventory, hoveredSlot);
             } else {
                 renderPanel(graphics, inventory, hoveredSlot);
@@ -434,9 +534,12 @@ public final class FocusScreen extends Screen {
     }
 
     private void renderMinimal(GuiGraphics graphics, InventoryDrawer drawer, Inventory inventory, int hoveredSlot) {
-        graphics.fill(panelLeft, panelY(), panelLeft + PANEL_WIDTH, panelTop + PANEL_HEIGHT, drawer.background());
+        graphics.fill(panelLeft, panelY(), panelLeft + panelWidth, panelTop + panelHeight, drawer.background());
         for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
             int[] center = slotCenter(slot);
+            if (center[0] == OFF_SCREEN) {
+                continue;
+            }
             graphics.fill(center[0] - 8, center[1] - 8, center[0] + 8, center[1] + 8, drawer.slotColor());
         }
         renderSlots(graphics, inventory, hoveredSlot);
@@ -465,12 +568,21 @@ public final class FocusScreen extends Screen {
     private void renderSlots(GuiGraphics graphics, Inventory inventory, int hoveredSlot) {
         for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
             int[] center = slotCenter(slot);
+            if (center[0] == OFF_SCREEN) {
+                continue;
+            }
             int x = center[0] - 8;
             int y = center[1] - 8;
             ItemStack stack = inventory.getItem(slot);
             if (!stack.isEmpty()) {
-                graphics.renderItem(stack, x, y);
-                graphics.renderItemDecorations(font, stack, x, y);
+                // A stack that has just landed here bounces.
+                float scale = FocusInput.get().gains().slotScale(slot);
+                graphics.pose().pushPose();
+                graphics.pose().translate(center[0], center[1], 0.0F);
+                graphics.pose().scale(scale, scale, 1.0F);
+                graphics.renderItem(stack, -8, -8);
+                graphics.renderItemDecorations(font, stack, -8, -8);
+                graphics.pose().popPose();
             }
             if (slot == hoveredSlot || FocusInput.get().isSpreadTarget(new Target.Inventory(slot))) {
                 graphics.fillGradient(net.minecraft.client.renderer.RenderType.guiOverlay(), x, y, x + 16, y + 16, SLOT_HIGHLIGHT,
@@ -575,12 +687,34 @@ public final class FocusScreen extends Screen {
         if (keyCode == GLFW.GLFW_KEY_TAB && FocusInput.get().toggleInventory()) {
             return true;
         }
+        InventoryDrawer.Side edge = edgeOf(keyCode, scanCode);
+        if (edge != null && FocusInput.get().goOverByKey(edge)) {
+            return true;
+        }
         // Escape takes back what is on top first: a pinned drawer, then the station.
         if (keyCode == GLFW.GLFW_KEY_ESCAPE && drawer() != null && FocusInput.get().drawer().isPinned()) {
             FocusInput.get().drawer().setPinned(false);
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** The edge of the screen a movement key or an arrow key points to, or null. */
+    private static InventoryDrawer.Side edgeOf(int keyCode, int scanCode) {
+        var options = Minecraft.getInstance().options;
+        if (keyCode == GLFW.GLFW_KEY_LEFT || options.keyLeft.matches(keyCode, scanCode)) {
+            return InventoryDrawer.Side.LEFT;
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT || options.keyRight.matches(keyCode, scanCode)) {
+            return InventoryDrawer.Side.RIGHT;
+        }
+        if (keyCode == GLFW.GLFW_KEY_UP || options.keyUp.matches(keyCode, scanCode)) {
+            return InventoryDrawer.Side.TOP;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DOWN || options.keyDown.matches(keyCode, scanCode)) {
+            return InventoryDrawer.Side.BOTTOM;
+        }
+        return null;
     }
 
     @Override

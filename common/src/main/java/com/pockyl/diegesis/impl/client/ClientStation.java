@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * A station shown on this client: in use by the local player, watched while someone nearby uses it, or idle (a block
@@ -82,6 +83,10 @@ public final class ClientStation implements StationView, StationContext {
     private final Matrix4f toWorldMatrix = new Matrix4f();
     private float age;
     private boolean focused;
+    /** Whether the local player came by using the block, not over from a neighbour. */
+    private boolean openedByUse;
+    private Predicate<ItemStack> inventoryFilter;
+    private boolean carriedHidden;
     private boolean inSession;
     private String seat;
     private Component caption;
@@ -204,6 +209,11 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     @Override
+    public boolean isInUse() {
+        return isInSession();
+    }
+
+    @Override
     public float age() {
         return age;
     }
@@ -304,6 +314,59 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     @Override
+    public void setInventoryFilter(Predicate<ItemStack> filter) {
+        inventoryFilter = filter;
+    }
+
+    @Override
+    public void setCarriedHidden(boolean hidden) {
+        carriedHidden = hidden;
+    }
+
+    @Override
+    public void holdStroke() {
+        if (focused) {
+            FocusInput.get().holdStroke(this);
+        }
+    }
+
+    @Override
+    public boolean openedByUse() {
+        return focused && openedByUse;
+    }
+
+    /** Set by the focus as the player comes: by using the block, or over from a neighbour. */
+    public void setOpenedByUse(boolean value) {
+        openedByUse = value;
+    }
+
+    @Override
+    public void takeFromInventory(int slot) {
+        if (focused && slot >= 0 && slot < net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE) {
+            perform(new StationAction.Click(new StationAction.Target.Inventory(slot), 0, StationAction.ClickKind.PICKUP));
+        }
+    }
+
+    @Override
+    public void putAwayCarried() {
+        Player player = Minecraft.getInstance().player;
+        if (focused && player != null && !player.inventoryMenu.getCarried().isEmpty()
+                && perform(new StationAction.Click(new StationAction.Target.Inventory(0), 1, StationAction.ClickKind.PUT_AWAY))) {
+            com.pockyl.diegesis.impl.client.focus.UiSounds.putDown(pos().getCenter());
+        }
+    }
+
+    /** Whether the station draws the stack on the cursor itself, while the local player works here. */
+    public boolean isCarriedHidden() {
+        return carriedHidden && focused;
+    }
+
+    /** What a compact drawer shows: never null. */
+    public Predicate<ItemStack> inventoryFilter() {
+        return inventoryFilter == null ? stack -> true : inventoryFilter;
+    }
+
+    @Override
     public void setInventoryOpen(boolean open) {
         if (focused) {
             FocusInput.get().setInventoryOpen(open);
@@ -401,6 +464,7 @@ public final class ClientStation implements StationView, StationContext {
         }
         focused = value;
         if (!value) {
+            carriedHidden = false;
             // The server tells nobody who leaves by themselves; if others stay there, its next update brings the session back.
             inSession = false;
         }
@@ -451,6 +515,10 @@ public final class ClientStation implements StationView, StationContext {
         if (action instanceof StationAction.Click click && click.target() instanceof StationAction.Target.Output output) {
             // Outputs need the server's logic: only guess that something is there to take.
             done = !state.getOutput(output.output()).isEmpty();
+        } else if (action instanceof StationAction.Click click && click.kind() == StationAction.ClickKind.PUT_AWAY) {
+            // Never guessed: the slot it goes back to is remembered by the server. A guess from the client's own memory put a knife
+            // into a slot the server never filled, and the server, seeing no change there, never took that phantom back.
+            done = !player.inventoryMenu.getCarried().isEmpty();
         } else if (!(action instanceof StationAction.Custom) && !(action instanceof StationAction.Press)) {
             // Show the result at once; the server's answer confirms or corrects it.
             done = ActionHandler.apply(this, StationLogic.NONE, player, action);
@@ -592,6 +660,15 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     /** Offers a click with a stack on the cursor to the behaviour; true when it took it. */
+    public boolean inventoryShiftClick(int slot, ItemStack stack) {
+        try {
+            return behavior.onInventoryShiftClick(this, slot, stack);
+        } catch (RuntimeException e) {
+            DiegesisMod.LOGGER.error("Client code of station {} at {} failed", type.id(), pos, e);
+            return false;
+        }
+    }
+
     public boolean itemClick(String node, ItemStack stack, int button, boolean shift) {
         try {
             return behavior.onItemClick(this, node, stack, button, shift);

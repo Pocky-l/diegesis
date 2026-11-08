@@ -51,7 +51,9 @@ public sealed interface StationAction {
         /** Shift-click: moves the stack between the station and the inventory. */
         QUICK_MOVE,
         /** Double click: gathers matching items onto the cursor. */
-        PICKUP_ALL
+        PICKUP_ALL,
+        /** A right click nothing takes: the carried stack goes back into the inventory; the target does not matter. */
+        PUT_AWAY
     }
 
     /** A place an item can be clicked: a station slot, an inventory slot or a station output. */

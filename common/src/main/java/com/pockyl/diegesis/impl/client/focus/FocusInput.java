@@ -19,6 +19,7 @@ import com.pockyl.diegesis.api.scene.CarryPlane;
 import com.pockyl.diegesis.api.scene.ControlBinding;
 import com.pockyl.diegesis.api.scene.Grabbable;
 import com.pockyl.diegesis.api.scene.InterfaceOptions;
+import com.pockyl.diegesis.api.scene.InventoryDrawer;
 import com.pockyl.diegesis.api.scene.InventoryLayout;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.SlotBinding;
@@ -37,6 +38,7 @@ import com.pockyl.diegesis.impl.action.StationAction;
 import com.pockyl.diegesis.impl.action.StationAction.ClickKind;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
 import com.pockyl.diegesis.impl.client.ClientStation;
+import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.anim.Easing;
 import com.pockyl.diegesis.impl.client.anim.Spring;
 import com.pockyl.diegesis.impl.client.fx.PourStreams;
@@ -84,6 +86,8 @@ public final class FocusInput {
     /** The inventory slot laid out in the scene under the cursor, or -1. */
     private int sceneInventory = -1;
     private Gesture gesture;
+    /** The stroke whose END the behaviour is hearing now, for {@link #holdStroke}. */
+    private Stroke ending;
     private double mouseX;
     private double mouseY;
     private long lastPresence;
@@ -118,6 +122,8 @@ public final class FocusInput {
 
     private final Drawer drawer = new Drawer();
     private final Glance glance = new Glance();
+    private final Neighbors neighbors = new Neighbors();
+    private final Gains gains = new Gains();
     private final Placer placer = new Placer();
 
     private FocusInput() {
@@ -152,6 +158,14 @@ public final class FocusInput {
 
     Drawer drawer() {
         return drawer;
+    }
+
+    Neighbors neighbors() {
+        return neighbors;
+    }
+
+    Gains gains() {
+        return gains;
     }
 
     Glance look() {
@@ -308,8 +322,8 @@ public final class FocusInput {
     void press(double x, double y, int button, boolean shift, int inventorySlot) {
         mouseMoved(x, y, inventorySlot);
         ClientStation station = station();
-        if (gesture instanceof NodeGrab grab && grab.isKept()) {
-            // The object stayed in the hand after a click: the next click lets it go.
+        if (gesture instanceof NodeGrab grab && grab.isKept() || gesture instanceof Stroke stroke && stroke.held) {
+            // The object stayed in the hand after a click, or the stroke went on: the next click lets it go.
             finishGesture();
             return;
         }
@@ -338,6 +352,11 @@ public final class FocusInput {
             clickItem(station, target, button, shift, node);
             return;
         }
+        if (button == 1 && !carriedStack().isEmpty() && station.scene().definition().putAway()) {
+            // A right click nothing took puts the stack in the hand away, a knife after cutting.
+            station.putAwayCarried();
+            return;
+        }
         if (node == null || !carriedStack().isEmpty()) {
             return;
         }
@@ -349,7 +368,7 @@ public final class FocusInput {
             UiSounds.grab(node.worldPosition());
             station.onEvent(new SceneEvent.Grab(node.id()));
         } else if (definition.strokes()) {
-            gesture = new Stroke(station, node, button);
+            gesture = new Stroke(station, node, button, false);
         } else {
             station.onEvent(new SceneEvent.Click(node.id(), button));
         }
@@ -417,6 +436,10 @@ public final class FocusInput {
         lastButton = button;
         lastClickTime = now;
         Vec3 at = node != null ? node.worldPosition() : station.pos().getCenter();
+        if (shift && target instanceof Target.Inventory inventory && carried.isEmpty()
+                && station.inventoryShiftClick(inventory.index(), itemAt(station, target))) {
+            return;
+        }
         if (shift) {
             if (station.perform(new StationAction.Click(target, button, ClickKind.QUICK_MOVE))) {
                 UiSounds.pickUp(at);
@@ -611,9 +634,13 @@ public final class FocusInput {
             return;
         }
         frameDt = dt;
+        watchGains(station, dt);
         float revealTarget = isInventoryShown() ? 1.0F : 0.0F;
         inventoryReveal += Math.signum(revealTarget - inventoryReveal) * Math.min(Math.abs(revealTarget - inventoryReveal), dt * 4.0F);
         updateGlance(station, dt);
+        if (updateNeighbors(station, dt)) {
+            return;
+        }
         if (gesture != null) {
             gesture.frame();
             if (gesture != null && station.type().authority() == Authority.SERVER) {
@@ -663,6 +690,49 @@ public final class FocusInput {
         CameraGlance before = glance.current();
         glance.watch(glances, u, v, dt, free, carriedStack());
         reportGlance(station, before);
+    }
+
+    /** What came into the inventory at this station flies in from the station's middle on the screen. */
+    private void watchGains(ClientStation station, float dt) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        org.joml.Vector3fc target = FocusController.get().baseTarget();
+        org.joml.Vector2f from = Projector.toScreen(station.toWorld(target.x(), target.y(), target.z()));
+        var window = Minecraft.getInstance().getWindow();
+        if (from == null) {
+            from = new org.joml.Vector2f(window.getGuiScaledWidth() / 2.0F, window.getGuiScaledHeight() / 2.0F);
+        }
+        gains.watch(player.getInventory(), carriedStack(), dt, station.scene().definition().gains(), from);
+    }
+
+    /** The cursor resting at the edge a neighbouring station stands on goes over to it; true when it did. */
+    private boolean updateNeighbors(ClientStation station, float dt) {
+        var window = Minecraft.getInstance().getWindow();
+        float u = (float) (mouseX / window.getGuiScaledWidth());
+        float v = (float) (mouseY / window.getGuiScaledHeight());
+        Neighbors.Neighbor next = neighbors.watch(station, u, v, dt, mayGoOver());
+        return next != null && DiegesisClientRuntime.goOver(next.pos(), next.rules().time());
+    }
+
+    /**
+     * A movement or arrow key towards {@code edge}: goes over at once to the neighbour standing there, as the cursor resting at that
+     * edge does; true when it did. Where the cursor is does not matter to a key.
+     */
+    boolean goOverByKey(InventoryDrawer.Side edge) {
+        Neighbors.Neighbor next = neighbors.found().get(edge);
+        if (next == null || !next.rules().keys() || isBusy() || FocusScreen.isCovered() || !carriedStack().isEmpty()
+                || glance.current() != null || glance.amount() > 0.0F) {
+            return false;
+        }
+        return DiegesisClientRuntime.goOver(next.pos(), next.rules().time());
+    }
+
+    /** Nothing keeps the player at this station: an empty hand, no drag, nothing over the cursor, the look on the rig. */
+    boolean mayGoOver() {
+        return !isBusy() && hoveredInventory == -1 && !FocusScreen.isCovered() && carriedStack().isEmpty() && glance.current() == null
+                && glance.amount() <= 0.0F;
     }
 
     /** The carried stack follows the cursor over the surface, leans as it moves and sticks to the slot under it. */
@@ -1068,11 +1138,14 @@ public final class FocusInput {
         private final ClientStation station;
         private final NodeInstance node;
         private final int button;
+        /** Kept going after its button came up ({@link #holdStroke}): the next press ends it and does nothing else. */
+        private final boolean held;
 
-        Stroke(ClientStation station, NodeInstance node, int button) {
+        Stroke(ClientStation station, NodeInstance node, int button, boolean held) {
             this.station = station;
             this.node = node;
             this.button = button;
+            this.held = held;
             report(SceneEvent.Stroke.Phase.START);
         }
 
@@ -1091,17 +1164,33 @@ public final class FocusInput {
 
         @Override
         public void release() {
-            report(SceneEvent.Stroke.Phase.END);
+            // While the behaviour hears this END it may keep the stroke going.
+            ending = this;
+            try {
+                report(SceneEvent.Stroke.Phase.END);
+            } finally {
+                ending = null;
+            }
         }
 
         @Override
         public void cancel() {
-            release();
+            report(SceneEvent.Stroke.Phase.END);
         }
 
         @Override
         public Presence presence() {
             return null;
+        }
+    }
+
+    /**
+     * The behaviour heard a stroke end and keeps it going: a fresh stroke on the same node, reported from START, which the next press
+     * ends instead of doing anything else. Only while that END is heard, and only when nothing else has started meanwhile.
+     */
+    public void holdStroke(ClientStation station) {
+        if (ending != null && ending.station == station && gesture == null) {
+            gesture = new Stroke(station, ending.node, ending.button, true);
         }
     }
 

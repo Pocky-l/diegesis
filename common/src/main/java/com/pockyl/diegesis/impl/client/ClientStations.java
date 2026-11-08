@@ -5,6 +5,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -24,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The stations this client shows: the one the player works at, the ones others use nearby (the server sends their
@@ -39,6 +41,8 @@ public final class ClientStations {
 
     private final Map<BlockPos, ClientStation> stations = new HashMap<>();
     private ClientLevel level;
+    /** The station types the server has; null until it says (and on a server that never does). */
+    private Set<ResourceLocation> serverTypes;
     private int ticks;
 
     private ClientStations() {
@@ -83,8 +87,19 @@ public final class ClientStations {
         Minecraft.getInstance().execute(() -> stations.values().forEach(ClientStation::rebuildScene));
     }
 
+    /**
+     * Whether the server this client plays on has the station type: false only once the server has said which it has and this one
+     * is not among them (its addon is missing there).
+     */
+    public boolean serverHas(StationType type) {
+        return serverTypes == null || serverTypes.contains(type.id());
+    }
+
     public void tick() {
         Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.getConnection() == null) {
+            serverTypes = null;
+        }
         if (minecraft.level != level) {
             stations.clear();
             level = minecraft.level;
@@ -153,6 +168,11 @@ public final class ClientStations {
     // ---------------------------------------------------------------------------------------------------------------
 
     public void handle(Packets.ServerPacket packet) {
+        if (packet instanceof Packets.Stations known) {
+            // It comes as the player joins, maybe before the level is there.
+            serverTypes = Set.copyOf(known.types());
+            return;
+        }
         if (level == null) {
             level = Minecraft.getInstance().level;
             if (level == null) {

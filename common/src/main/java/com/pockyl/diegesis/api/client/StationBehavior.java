@@ -60,6 +60,17 @@ public interface StationBehavior {
     }
 
     /** The station logic played an effect ({@code StationContext.effect}); runs after the effect itself. */
+    /**
+     * Shift + click on a stack of the player's inventory while working at the station. Return true when the station takes care
+     * of it (it sends its own action); false lets the library move the stack into the station's slots as usual.
+     *
+     * @param slot  the inventory slot, 0-35
+     * @param stack what lies there
+     */
+    default boolean onInventoryShiftClick(StationView view, int slot, ItemStack stack) {
+        return false;
+    }
+
     default void onEffect(StationView view, ResourceLocation effect, String node, CompoundTag data) {
     }
 

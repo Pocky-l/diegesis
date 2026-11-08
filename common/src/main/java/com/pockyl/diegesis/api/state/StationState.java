@@ -404,6 +404,12 @@ public final class StationState {
             ItemStack[] group = slots.get(ref.group());
             if (group != null && ref.index() < group.length) {
                 group[ref.index()] = stack;
+                // A client that binds the group (idle logic) reads the storage: what the server says must land there too, or a
+                // guess the server turned down would stay on show.
+                SlotStorage storage = storages.get(ref.group());
+                if (storage != null) {
+                    storage.set(ref.index(), stack.copy());
+                }
                 dirtySlots.add(ref);
             }
         }
