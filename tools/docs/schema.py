@@ -80,6 +80,9 @@ obj("scene", "SceneDefinition",
         "pouring": field({"$ref": "#/definitions/pouring"}, "How pouring looks."),
         "captions": field({"$ref": "#/definitions/captions"}, "How the lines of StationView.showCaption look."),
         "clear_view": field({"$ref": "#/definitions/clear_view"}, "What stands between the camera and the station dissolves."),
+        "gains": field({"$ref": "#/definitions/gains"}, "What the player gets at the station flies into the inventory."),
+        "put_away": field(BOOL, "A right click with a stack on the cursor that nothing in the scene takes puts the stack back"
+                                " into the inventory, to the slot it came from while that is free.", True),
         "placing": field({"$ref": "#/definitions/placing"}, "Lets items be put down anywhere on the scene's surfaces, turned and"
                                                             " sized freely."),
     })
@@ -97,6 +100,31 @@ obj("camera", "CameraRig", "The camera rig used while a player works at the stat
     "glances": field({"type": "array", "items": {"$ref": "#/definitions/camera_glance"}},
                      "Other places the player's look can go to: the cursor resting at an edge of the screen, or code,"
                      " glides the camera there and back."),
+    "neighbors": field({"$ref": "#/definitions/camera_neighbors"},
+                       "Going over to a station standing next to this one: the cursor resting at the edge of the screen on"
+                       " its side flies the camera there."),
+})
+
+obj("gains", "GainOptions", "What the player gets at the station, seen going into the inventory; every field is optional.", {
+    "enabled": field(BOOL, "A stack that comes into the inventory, other than from the player's own cursor, flies from the station to"
+                           " its slot, which bounces as it lands.", True),
+    "time": field(num(0.05, 3), "Seconds a stack flies.", 0.45),
+    "hold": field(num(0, 10), "Seconds a stack whose slot the drawer does not show stands next to the drawer.", 1.6),
+    "sound": field(BOOL, "A soft pop as it lands.", True),
+})
+
+obj("camera_neighbors", "CameraNeighbors", "Going over to neighbouring stations without leaving; every field is optional.", {
+    "enabled": field(BOOL, "Neighbours are reachable from this station, and this station from theirs.", True),
+    "range": field({"type": "integer", "minimum": 1, "maximum": 8},
+                   "How far another station may stand, blocks along the floor; one up or down counts too.", 3),
+    "zone": field(num(0.005, 0.3), "How far from the edge the cursor counts as being at it, as a part of the screen.", 0.03),
+    "delay": field(num(0, 2), "Seconds the cursor must rest there, so that passing by moves nothing.", 0.3),
+    "time": field(num(0.05, 5), "Seconds the camera takes to fly over.", 0.65),
+    "hint": field(BOOL, "Draw a small arrow at an edge that leads to a neighbour, as the cursor comes near it.", True),
+    "hint_color": field(COLOR, "Colour of the arrow; its alpha is the strongest it gets, with the cursor at the edge.",
+                        "#D0FFFFFF"),
+    "keys": field(BOOL, "The movement and arrow keys go over at once to the neighbour on their side: A, D and left,"
+                         " right; W and up to the top edge, S and down to the bottom one.", True),
 })
 
 obj("camera_glance", "CameraGlance", "A place the player's look can go to while working at the station.", {
@@ -368,6 +396,8 @@ obj("inventory_drawer", "InventoryDrawer",
         "slot_color": field(COLOR, "Colour of a slot in the minimal style.", "#66000000"),
         "always_open": field(BOOL, "It slides out when the station opens and stays out, without an icon; Escape leaves"
                                    " the station at once.", False),
+        "compact": field(BOOL, "Only the stacks the station can use (StationView.setInventoryFilter), in rows of up to"
+                               " nine, the drawer no bigger than they are.", False),
     })
 
 obj("pouring", "PourOptions", "How pouring looks; every field is optional.", {

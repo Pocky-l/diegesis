@@ -177,6 +177,10 @@ cursor at the bottom of the screen glides it down to the slots, and taking a sta
 The same works for anything out of frame: a shelf behind the table on `"edge": "top"`, a gauge the logic wants seen with
 `view.glance("gauge")`.
 
+Stations standing side by side need nothing: the cursor at the left or right edge flies the camera over to the next one,
+and the player works there without leaving. Keep a station to itself with `"neighbors": {"enabled": false}` in its
+`camera`.
+
 ## A torch that lights a burner
 
 The torch is a grabbable whose flame is its contact part; the burner's mouth is a trigger zone; a closed carry plane

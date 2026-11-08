@@ -35,6 +35,7 @@ scene for completion and checks in VS Code, IntelliJ and other editors.
 | `inventory` | none | Lay the player's inventory out in the scene instead of the screen panel. |
 | `inventory_drawer` | none | Keep the inventory in a drawer at a side of the screen. Not together with `inventory`. |
 | `clear_view` | see below | What stands between the camera and the station dissolves. |
+| `put_away` | `true` | A right click with a stack on the cursor that nothing in the scene takes (no slot, zone or station code) puts the stack back into the inventory, to the slot it came from while that is free. Code: `StationView.putAwayCarried()` does the same, for a station that uses right clicks itself. |
 | `interface` | defaults | How the interface behaves and looks. |
 | `carry_planes` | `[]` | Levels carried objects rise to over parts of the scene, or areas closed to them. |
 | `pouring` | defaults | How pouring looks. |
@@ -50,6 +51,7 @@ scene for completion and checks in VS Code, IntelliJ and other editors.
 | `transition` | `0.6` | Seconds the camera takes to fly in and out. |
 | `inventory` | none | A second shot, `{"position", "target", "fov"}`, the camera glides to while the scene's inventory is shown (Tab with `"show": "toggle"`, or an item on the cursor) and back when it hides. Frame the inventory together with the slots it fills, so the laid-out inventory never has to cover the controls. |
 | `glances` | `[]` | Other places the player's look can go to, see below. |
+| `neighbors` | on | Going over to a station standing next to this one, see below. |
 
 Frame the shot with the debug view on (F3+B): it marks the camera target. A camera much closer than ~16 pixels to the
 objects makes carried things look huge.
@@ -92,6 +94,53 @@ panel covers that strip.
 
 Client code: `StationView.glance(id)`, `glanceBack()`, `currentGlance()`, `SceneEvent.Glance`. In code:
 `rig.withGlance(CameraGlance.at("inventory", Side.BOTTOM, position, target))`.
+
+### gains
+
+What the player gets at the station is seen going into the inventory: a stack that comes into it while they work there,
+other than from their own cursor (a soup scooped with a bowl, pieces cut off, a dish taken), flies from the middle of the
+station to its slot, which bounces as it lands. When the drawer does not show that slot (a `compact` drawer shows only
+what the station uses), the stack stands next to the drawer for a moment with its count. On by default.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | Gains are shown. |
+| `time` | `0.45` | Seconds a stack flies. |
+| `hold` | `1.6` | Seconds a stack whose slot is not on show stands next to the drawer. |
+| `sound` | `true` | A soft pop as it lands. |
+
+In code: `SceneDefinition.builder().gains(GainOptions.OFF)`.
+
+### camera.neighbors
+
+Stations standing side by side work as one place: the cursor resting at the edge of the screen on the side another
+station stands flies the camera over to it, and the player works there without leaving. The edge is the side the
+station is on as the rig sees it: left, right, top for one further away, bottom for one behind. Both scenes must allow
+it; it is on by default.
+
+```json
+"camera": {
+  "position": [10, 32, -12], "target": [10, 1, 5.5],
+  "neighbors": {"range": 2, "delay": 0.4}
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | Neighbours are reachable from this station, and this station from theirs. |
+| `range` | `3` | How far another station may stand, blocks along the floor; one up or down counts too. The nearest one on each edge wins. |
+| `zone` | `0.03` | How far from the edge the cursor counts as being at it, as a part of the screen. |
+| `delay` | `0.3` | Seconds the cursor must rest there, so that passing by moves nothing. |
+| `time` | `0.65` | Seconds the camera takes to fly over. |
+| `hint` | `true` | Draw a small arrow at an edge that leads to a neighbour; it shows only as the cursor comes near. |
+| `hint_color` | `#D0FFFFFF` | The arrow's colour; its alpha is the strongest it gets. |
+| `keys` | `true` | The movement and arrow keys go over at once to the neighbour on their side: A, D and left, right; W and up to the top edge, S and down to the bottom one. Where the cursor is does not matter. |
+
+A station counts when the player could open it from where they stand: its open condition holds and it is within its
+reach. An edge used by a glance or by the `inventory_drawer` stays theirs. Nothing moves while a stack is on the cursor,
+an object is in the hand or a glance is away, by the cursor or by a key. A cursor still at the edge on arrival has to leave it first, so the camera
+never flies on by itself. The server ends the use of the station left as it opens the next one; the cursor stack goes
+back to the inventory as on leaving. In code: `rig.withNeighbors(CameraNeighbors.NONE)`.
 
 ## Nodes
 
@@ -366,8 +415,9 @@ dragged straight out of it and let go over a slot in the scene.
 | `background` | `"#C0101216"` | Background of the `minimal` style. |
 | `slot_color` | `"#66000000"` | Colour of a slot in the `minimal` style. |
 | `always_open` | `false` | It slides out when the station opens and stays out, without an icon; Escape leaves the station at once. For stations worked from the inventory all the time. |
+| `compact` | `false` | Only the stacks the station can use, in rows of up to nine, the drawer no bigger than they are; the `minimal` look. Client code picks them with `StationView.setInventoryFilter`, without one every stack that is not empty shows. A stack on the cursor gets one empty slot to go into. It changes shape only while the cursor is away from it. |
 
-Client code: `StationView.setInventoryOpen(boolean)`, `isInventoryOpen()`, `SceneEvent.InventoryDrawer`.
+Client code: `StationView.setInventoryOpen(boolean)`, `isInventoryOpen()`, `setInventoryFilter(Predicate<ItemStack>)`, `SceneEvent.InventoryDrawer`.
 
 ## pouring
 

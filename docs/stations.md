@@ -220,7 +220,8 @@ tick, and `save()` leaves it out. Declare such groups `kept()`: nothing is hande
 
 Values the block's menu shows (progress, heat) go into locked controls or the station's data from `tick`. With
 `hidesBlock()` the scene draws the block itself, so its parts can move: rebuild the block's shape from its model, read its
-state in `onSceneReady` and turn the scene's copy when the station faces another way than the block. A player without your
+state in `onSceneReady`, show the copy while `StationView.isInUse()` and turn it when the station faces another way than the
+block. A player without your
 mod, or on a server without it, keeps the block's menu.
 
 ## Opening from code
