@@ -13,25 +13,46 @@
 
 <hr>
 
-<h2 style="text-align:center">For players</h2>
+<h2 style="text-align:center">🎮 For players</h2>
 <p style="text-align:center">Put it in the mods folder next to the mod that needs it. Minecraft 1.20.1, on <a href="https://files.minecraftforge.net">Forge</a> or <a href="https://fabricmc.net">Fabric</a> (with <a href="https://www.curseforge.com/minecraft/mc-mods/fabric-api">Fabric API</a>).</p>
 
-<h2 style="text-align:center">For modders</h2>
+<h2 style="text-align:center">🛠️ For modders</h2>
 <p style="text-align:center">An interface is two things. A <strong>station</strong> in Java says which blocks it opens on, what state it keeps and what the rules are. A <strong>scene</strong> in JSON says what is drawn where and what can be touched. Models come straight from <a href="https://www.blockbench.net">Blockbench</a>, and scenes reload with F3+T while the game runs.</p>
 
 <ul>
-<li><strong>Camera and scenes:</strong> a camera rig per scene, nodes that nest, move, turn, scale, fade and glow.</li>
-<li><strong>Items on the block:</strong> clicks work as in a vanilla menu, including shift-click, splitting and dragging a stack across slots. The inventory can be a drawer or laid out in the world.</li>
-<li><strong>Carried objects:</strong> held by a grip point, with weight and lean, a shadow of their own shape and triggers on touch.</li>
-<li><strong>Liquids and pouring:</strong> tanks hold real volumes and mixtures that rock and ripple. The server paces and checks every pour.</li>
-<li><strong>Ready controls:</strong> lever, rocker switch, push button, knob and slider, one line of JSON each.</li>
-<li><strong>Particles, light and sound:</strong> emitters, boiling surfaces, glowing nodes that light what is near.</li>
-<li><strong>Seats and multiblocks:</strong> a station can span several blocks and seat several players, each with their own view.</li>
-<li><strong>Client-only or server:</strong> client stations work on any server. Server stations check every action, so items cannot be duplicated, and share one state between players.</li>
+<li>🎥 <strong>Camera and scenes:</strong> a camera rig per scene, nodes that nest, move, turn, scale, fade and glow.</li>
+<li>📦 <strong>Items on the block:</strong> clicks work as in a vanilla menu, including shift-click, splitting and dragging a stack across slots. The inventory can be a drawer or laid out in the world.</li>
+<li>✋ <strong>Carried objects:</strong> held by a grip point, with weight and lean, a shadow of their own shape and triggers on touch.</li>
+<li>💧 <strong>Liquids and pouring:</strong> tanks hold real volumes and mixtures that rock and ripple. The server paces and checks every pour.</li>
+<li>🎛️ <strong>Ready controls:</strong> lever, rocker switch, push button, knob and slider, one line of JSON each.</li>
+<li>✨ <strong>Particles, light and sound:</strong> emitters, boiling surfaces, glowing nodes that light what is near.</li>
+<li>🪑 <strong>Seats and multiblocks:</strong> a station can span several blocks and seat several players, each with their own view.</li>
+<li>🌐 <strong>Client-only or server:</strong> client stations work on any server. Server stations check every action, so items cannot be duplicated, and share one state between players.</li>
 </ul>
 
-<p style="text-align:center">Guides, a cookbook and a JSON schema for scene files are on <a href="https://github.com/Pocky-l/diegesis">GitHub</a>.</p>
+<p style="text-align:center">📚 Guides, a cookbook and a JSON schema for scene files are on <a href="https://github.com/Pocky-l/diegesis">GitHub</a>.</p>
+
+<h3 style="text-align:center">Compatibility</h3>
+<p style="text-align:center"><a href="https://www.curseforge.com/minecraft/mc-mods/embeddium"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/compat/embeddium.png" width="24" alt="Embeddium"></a> ✅ <a href="https://www.curseforge.com/minecraft/mc-mods/embeddium"><strong>Embeddium</strong></a> and <a href="https://www.curseforge.com/minecraft/mc-mods/oculus"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/compat/oculus.png" width="24" alt="Oculus"></a> ✅ <a href="https://www.curseforge.com/minecraft/mc-mods/oculus"><strong>Oculus</strong></a>: scenes, liquids and particles draw as usual, with or without a shader pack</p>
 
 <hr>
+
+<!-- more-mods:start icons -->
+<p style="text-align:center"><b>More mods by Pocky</b></p>
+<p style="text-align:center">
+<a href="https://www.curseforge.com/minecraft/mc-mods/hoarfrost-snow-blizzards"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/hoarfrost.png" width="48" height="48" alt="Hoarfrost: Snow &amp; Blizzards" title="Hoarfrost: Snow &amp; Blizzards - seven kinds of snowfall, a living wind and soft snow on the land"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/petrichor-rain-storms"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/petrichor.png" width="48" height="48" alt="Petrichor: Rain &amp; Storms" title="Petrichor: Rain &amp; Storms - realistic rain, puddles, drips and branching lightning"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/rustling-leaves"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/rustling_leaves.png" width="48" height="48" alt="Rustling Leaves" title="Rustling Leaves - falling leaves and leaf piles you can wade through and rake, client-side"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/lumen-rigs"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/lumen_rigs.png" width="48" height="48" alt="Lumen Rigs" title="Lumen Rigs - aimable spotlights and floodlights with colored light and visible beams"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/neon-glowsticks"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/neon_glowsticks.png" width="48" height="48" alt="Neon Glowsticks" title="Neon Glowsticks - throwable glowsticks that bounce, roll and light up the dark"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/turbo-for-distant-horizons"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/dhturbo.png" width="48" height="48" alt="Turbo for Distant Horizons" title="Turbo for Distant Horizons - Distant Horizons terrain generated several times faster"></a>
+<a href="https://www.curseforge.com/minecraft/shaders/pocky-shaders"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/pocky_shaders.png" width="48" height="48" alt="Pocky Shaders" title="Pocky Shaders - a cosy, natural shader pack that shows the weather of these mods"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/holy-staff"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/holy_staff.png" width="48" height="48" alt="Holy Staff" title="Holy Staff - a healing staff with three skills and flying heal numbers"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/ranchers-vacpack"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/vacpack.png" width="48" height="48" alt="Rancher's Vacpack" title="Rancher's Vacpack - a Slime Rancher vacuum gun for items and small mobs"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/hextale"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/hextale.png" width="48" height="48" alt="HexTale" title="HexTale - hextech magic to research, distil and bind with runes, inspired by Arcane and Thaumcraft"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/mekanism-advancedgenerators"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/mekanismadvancedgenerators.png" width="48" height="48" alt="Mekanism Advanced Generators" title="Mekanism Advanced Generators - nine tiers of solar panels, big solar generators, cubes and cables for Mekanism"></a>
+<a href="https://www.curseforge.com/minecraft/mc-mods/inventory-backups"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/more-mods/inventorybackups.png" width="48" height="48" alt="Inventory Backups" title="Inventory Backups - inventory and ender chest backups with one-click restore for admins"></a>
+</p>
+<!-- more-mods:end -->
 
 <p style="text-align:center"><span style="font-size:12px">Made by Pocky. Source on <a href="https://github.com/Pocky-l/diegesis">GitHub</a> under the MIT license.</span></p>
