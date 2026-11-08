@@ -34,6 +34,10 @@ final class FabricNetwork {
         });
     }
 
+    static net.minecraft.resources.ResourceLocation channel() {
+        return DiegesisNetwork.CHANNEL;
+    }
+
     static boolean canSend(ServerPlayer player) {
         return ServerPlayNetworking.canSend(player, DiegesisNetwork.CHANNEL);
     }

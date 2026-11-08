@@ -138,6 +138,12 @@ public final class StationManager {
         }
     }
 
+    public void sendStationTypes(ServerPlayer player) {
+        if (Platform.INSTANCE.hasChannel(player)) {
+            Platform.INSTANCE.send(player, new Packets.Stations(StationRegistry.all().stream().map(StationType::id).toList()));
+        }
+    }
+
     public void onLogout(ServerPlayer player) {
         close(player, false);
         actionLimits.remove(player.getUUID());
@@ -178,6 +184,10 @@ public final class StationManager {
     private void handleAction(ServerPlayer player, Packets.Action packet) {
         ActiveStation station = byPlayer.get(player.getUUID());
         if (station == null || !station.pos().equals(packet.pos())) {
+            return;
+        }
+        // The block may have gone in this tick, before the station's own check: an action would act on a block entity that is gone.
+        if (!station.canStay(player)) {
             return;
         }
         if (!actionLimits.computeIfAbsent(player.getUUID(), uuid -> new RateLimit(ACTION_BUDGET_PER_SECOND)).take()) {

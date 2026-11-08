@@ -16,7 +16,7 @@ import java.util.function.Consumer;
  */
 public final class DiegesisNetwork {
     public static final ResourceLocation CHANNEL = DiegesisMod.id("main");
-    public static final String PROTOCOL_VERSION = "1";
+    public static final String PROTOCOL_VERSION = "2";
 
     /** Set by the client part of the library; a dedicated server never loads client classes through this. */
     private static volatile Consumer<Packets.ServerPacket> clientHandler = packet -> {

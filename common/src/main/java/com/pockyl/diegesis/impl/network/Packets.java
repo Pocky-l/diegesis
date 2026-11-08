@@ -36,7 +36,7 @@ public final class Packets {
     }
 
     /** Server to client. */
-    public sealed interface ServerPacket extends Packet permits Opened, Denied, Closed, StateSync, PresenceRelay, Effect {
+    public sealed interface ServerPacket extends Packet permits Opened, Denied, Closed, StateSync, PresenceRelay, Effect, Stations {
     }
 
     public static ClientPacket readClient(FriendlyByteBuf buf) {
@@ -62,6 +62,7 @@ public final class Packets {
             case 14 -> new PresenceRelay(buf.readBlockPos(), buf.readUUID(), Presence.read(buf));
             case 15 -> new Effect(buf.readBlockPos(), buf.readResourceLocation(), buf.readUtf(64),
                     Objects.requireNonNullElseGet(buf.readNbt(), CompoundTag::new));
+            case 16 -> new Stations(buf.readList(FriendlyByteBuf::readResourceLocation));
             default -> throw new IllegalArgumentException("Unknown server message " + id);
         };
     }
@@ -204,6 +205,22 @@ public final class Packets {
             buf.writeResourceLocation(effect);
             buf.writeUtf(node, 64);
             buf.writeNbt(data);
+        }
+    }
+
+    /**
+     * The station types the server has, sent when a player joins: the client opens only those, and a block whose addon the server
+     * lacks keeps its own use (a menu) instead of a station the server would deny.
+     */
+    public record Stations(java.util.List<ResourceLocation> types) implements ServerPacket {
+        @Override
+        public int id() {
+            return 16;
+        }
+
+        @Override
+        public void writeBody(FriendlyByteBuf buf) {
+            buf.writeCollection(types, FriendlyByteBuf::writeResourceLocation);
         }
     }
 }

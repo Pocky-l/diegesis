@@ -24,6 +24,11 @@ public final class DiegesisForge {
                 DiegesisMod.onServerTick(event.getServer());
             }
         });
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                DiegesisMod.onChannelReady(player);
+            }
+        });
         MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 DiegesisMod.onPlayerLogout(player);
