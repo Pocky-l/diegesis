@@ -14,7 +14,7 @@
 <hr>
 
 <h2 style="text-align:center">🎮 For players</h2>
-<p style="text-align:center">Put it in the mods folder next to the mod that needs it. Minecraft 1.20.1, on <a href="https://files.minecraftforge.net">Forge</a> or <a href="https://fabricmc.net">Fabric</a> (with <a href="https://www.curseforge.com/minecraft/mc-mods/fabric-api">Fabric API</a>).</p>
+<p style="text-align:center">Put it in the mods folder next to the mod that needs it. Minecraft 1.20.1 on <a href="https://files.minecraftforge.net">Forge</a>, 1.21.1 on <a href="https://neoforged.net">NeoForge</a>, and both on <a href="https://fabricmc.net">Fabric</a> (with <a href="https://www.curseforge.com/minecraft/mc-mods/fabric-api">Fabric API</a>).</p>
 
 <h2 style="text-align:center">🛠️ For modders</h2>
 <p style="text-align:center">An interface is two things. A <strong>station</strong> in Java says which blocks it opens on, what state it keeps and what the rules are. A <strong>scene</strong> in JSON says what is drawn where and what can be touched. Models come straight from <a href="https://www.blockbench.net">Blockbench</a>, and scenes reload with F3+T while the game runs.</p>
