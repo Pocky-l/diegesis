@@ -203,8 +203,7 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
         public SceneDefinition build() {
             SceneDefinition scene = new SceneDefinition(camera, workPlane, idleVisible, nodes, Optional.ofNullable(inventory), ui,
                     carryPlanes, Optional.ofNullable(inventoryDrawer), pouring, captions, Optional.ofNullable(placing), clearView);
-            return validate(scene).getOrThrow(false, error -> {
-            });
+            return validate(scene).getOrThrow();
         }
     }
 }

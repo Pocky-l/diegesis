@@ -36,7 +36,6 @@ public final class DiegesisParticles {
     }
 
     /** The styles of the built-in particles. */
-    @SuppressWarnings("removal")
     public static Map<ResourceLocation, ParticleStyle> builtIn() {
         Map<ResourceLocation, ParticleStyle> styles = new LinkedHashMap<>();
         styles.put(SPARK, new ParticleStyle(ParticleStyle.frames("spark", 8), 0xFFFFC870, new float[] {0.5F, 0.8F}, new float[] {0.25F, 0.6F}, 60.0F, 0.6F, true,
@@ -50,7 +49,7 @@ public final class DiegesisParticles {
             popping.add(DiegesisMod.id("bubble_pop_" + i));
         }
         styles.put(BUBBLE_POP, ParticleStyle.builder(popping).color(0xDDFFFFFF).size(0.8F, 1.3F).life(0.45F, 0.85F).drag(1.0F).grow(1.3F).pop().build());
-        styles.put(DROPLET, ParticleStyle.builder(new ResourceLocation("minecraft", "drip_fall")).color(0xFF3F76E4).size(0.3F, 0.45F)
+        styles.put(DROPLET, ParticleStyle.builder(ResourceLocation.withDefaultNamespace("drip_fall")).color(0xFF3F76E4).size(0.3F, 0.45F)
                 .life(0.5F, 0.9F).gravity(60.0F).drag(0.1F).stretch().pop().build());
         styles.put(SPLASH, new ParticleStyle(ParticleStyle.frames("splash", 4), 0xFF3F76E4, new float[] {0.4F, 0.7F},
                 new float[] {0.25F, 0.45F}, 40.0F, 0.3F, false, false, 1.0F, false, 0.0F));
@@ -58,11 +57,11 @@ public final class DiegesisParticles {
                 .wobble(0.5F).fadeIn(0.45F).emissive().build());
         styles.put(SMOKE, new ParticleStyle(ParticleStyle.frames("big_smoke", 12), 0xCC303030, new float[] {0.8F, 1.3F},
                 new float[] {1.5F, 2.5F}, -3.0F, 0.9F, false, false, 2.5F, true, 0.5F));
-        styles.put(GLINT, ParticleStyle.builder(new ResourceLocation("minecraft", "glint")).color(0xFFFFFFFF).size(0.4F, 0.7F)
+        styles.put(GLINT, ParticleStyle.builder(ResourceLocation.withDefaultNamespace("glint")).color(0xFFFFFFFF).size(0.4F, 0.7F)
                 .life(0.3F, 0.7F).drag(1.0F).emissive().grow(0.2F).build());
         styles.put(DUST, new ParticleStyle(ParticleStyle.frames("generic", 8), 0x99C0B090, new float[] {0.15F, 0.3F},
                 new float[] {1.0F, 2.0F}, 1.0F, 0.95F, false, false, 1.0F, true, 0.3F));
-        styles.put(FLAME, ParticleStyle.builder(new ResourceLocation("minecraft", "flame")).color(0xFFFFFFFF).size(0.35F, 0.6F)
+        styles.put(FLAME, ParticleStyle.builder(ResourceLocation.withDefaultNamespace("flame")).color(0xFFFFFFFF).size(0.35F, 0.6F)
                 .life(0.25F, 0.5F).gravity(-12.0F).drag(0.85F).emissive().grow(0.3F).wobble(0.15F).build());
         return styles;
     }

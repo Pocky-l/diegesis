@@ -14,5 +14,3 @@ Diegesis turns a block's GUI into an interface inside the world. A mod describes
 | [Client](client.md) | Behaviours, node animation, scene events, effects, particles, liquids, sounds. |
 | [Cookbook](cookbook.md) | A board game, crafting on a block, a lever and a lamp, a gauge, pouring, a torch and a burner. |
 | [`schema/scene.schema.json`](schema/scene.schema.json) | JSON Schema of scene files (and [`node.schema.json`](schema/node.schema.json) for node templates). |
-| [`llms.txt`](llms.txt) | The whole API on one page, for AI coding assistants. |
-| [AI assistants](../integrations/claude-code/README.md) | A skill and a project notes template for Claude Code. |

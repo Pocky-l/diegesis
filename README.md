@@ -6,74 +6,45 @@
 </p>
 
 <p align="center">
-  <img alt="Minecraft 1.20.1" src="https://img.shields.io/badge/Minecraft-1.20.1-62B47A">
-  <a href="https://files.minecraftforge.net"><img alt="Forge" src="https://img.shields.io/badge/Loader-Forge-1E2D3D"></a>
+  <img alt="Minecraft 1.21.1" src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A">
+  <a href="https://neoforged.net"><img alt="NeoForge" src="https://img.shields.io/badge/Loader-NeoForge-D7742F"></a>
   <a href="https://fabricmc.net"><img alt="Fabric" src="https://img.shields.io/badge/Loader-Fabric-DBD0B4"></a>
   <img alt="License MIT" src="https://img.shields.io/badge/License-MIT-blue">
 </p>
 
-Diegesis adds nothing to the game by itself. It is a bridge for mods: a mod describes an interface as a **station**
-(which blocks, what state, what rules - Java) and a **scene** (what is drawn where and what can be touched - a JSON
-file), and the library does the rest: intercepts the block's use, flies the camera to the block, lets the player drag
-items onto it, carry objects, flip levers and turn knobs, keeps everything in sync with the server and shows it to the
-players around.
+Diegesis adds nothing to the game by itself. Other mods use it to build block interfaces without menu screens. A
+mod describes a **station** in Java (which blocks open it, what state it keeps, what the rules are) and a **scene** in
+JSON (what is drawn where and what can be touched). Diegesis moves the camera to the block, handles the clicks and
+dragging, keeps the state in sync with the server and shows it to other players.
 
 <p align="center"><img alt="The cooking pot of Hands-On Delight, built with Diegesis" src="docs/showcase/soup.gif"></p>
 
 ## Features
 
-- **Camera focus** - using a station block flies the camera to a rig defined in the scene, with its own field of view;
-  the player's body stays visible to others, who see them look at the block.
-- **Scenes from Blockbench** - nodes show Blockbench block models (`models/diegesis/` loads by itself), items or block
-  states; nodes nest, move, turn, scale, fade and glow.
-- **Items on the block, clicked like a vanilla GUI** - the vanilla inventory panel sits under the block; left and right
-  clicks pick up, put down, split and swap, shift-click moves between inventory and block, double click gathers,
-  dragging a stack spreads it. Items lie, stand or float in the block's slots; results (crafting) float beside them.
-- **The inventory in the scene** - a scene may lay the player's 36 slots out in the world instead of the screen panel:
-  floating by the block as see-through black slots, or on any surface; stack counts are written next to every item.
-  It can stay hidden until Tab (it comes up row by row, and by itself while an item is on the cursor).
-- **Everything is the mod's choice** - an `interface` block in the scene decides what the screen hides (HUD, chat, the
-  player's own body), whether counts and shadows are drawn, how the held stack moves, the highlight colour, sounds.
-- **Hover outline** - with an empty hand, the object under the cursor that the player can use gets a thin outline round
-  its silhouette.
-- **Debug view** - hit boxes of every node coloured by role, node ids, inventory slots, the work plane and the camera
-  target: F3+B, `/diegesis debug` or `DiegesisClient.setDebugView(true)`.
-- **The held stack is in the world** - over the block it follows the cursor, sways as it moves and casts a shadow of its
-  own shape; it can also settle onto the slot under it (`carry_stick`).
-- **Carried objects** - grabbable nodes are held by their grip point (a vial by its top), follow the cursor with weight
-  and lean, cast a shadow of their shape, fly back home or stay where they are put. An object may move in a plane of its
-  own (vials in an upright plane between their rack and the flask: never over the table). Carry planes raise them over parts
-  of the scene (a vial climbs over a tall flask instead of sliding along the table into it) or close areas to them (a
-  torch stays outside the burner it lights).
-- **Liquids and pouring** - station tanks hold liquids and mixtures as real volumes that stay level, rock and ripple;
-  glass stays clear. Point a vessel at a tank that takes its liquid and it tips until the liquid reaches the spout, the
-  wheel sets the flow and a stream runs across (paced and checked by the server); nothing is pulled in from afar.
-- **Inventory drawer** - an icon at any side of the screen; pointing there slides the inventory over the scene, and
-  while it is out it comes first.
-- **Particles, light, sounds** - scene particles (sparks, bubbles, drops, splashes, steam, smoke, glints, dust, flame or
-  your own) from emitters, effects and code, also inside a liquid (bubbles rising to its surface); a boiling surface
-  churns; nodes that shine brighten what is near and light the surface; a set of quiet
-  station sounds a resource pack can replace.
-- **Controls** - toggles, buttons, knobs (grabbed anywhere and turned by circling the mouse round them, or the wheel,
-  with detents) and sliders drive named values; locked
-  controls are set only by the station's logic (a burner that is lit, a progress gauge) and shown like any other.
-- **Ready controls** - a lever, a rocker switch, a push button, a knob on a dial and a slider ship with the library:
-  one line in a scene (`"template": "diegesis:control/knob"`) gives the model, its still base and the movement; scale
-  and tint them like any node.
-- **Node templates** - reuse a node of your own across scenes (`assets/<mod>/diegesis/nodes/<name>.json`); the scene
-  only changes what differs.
-- **Triggers** - a carried object (or only its touching part, such as a torch's flame) reports when it starts and stops
-  touching another node's hit box: knocks, trigger zones (`"trigger": true` - the cursor passes through them), a torch
-  that lights a burner.
-- **Multiblocks** - a station may span several blocks (a long table, a machine): every part opens the one station at
-  its main block, and the scene reaches over the neighbouring blocks.
-- **Client-only or server** - client stations work on any server (visual stations, animations); server stations check
-  every action (no duplication, slot rules, ranges), share one state between players and relay what each player holds.
-- **Hot reload** - scene files reload with F3+T while the game runs; mistakes in them (also a misspelt field name)
-  are reported with the reason.
-- **Documented for people and assistants** - a guide, a JSON Schema for editor completion in scene files, the whole
-  API on one page for AI coding assistants, and a ready skill for Claude Code.
-- **Shader friendly** - scenes draw with the same render types as entities and item frames.
+- **Camera** - using a station block moves the camera to a point set in the scene. Other players see you look at the
+  block.
+- **Scenes from Blockbench** - nodes show Blockbench models, items or blocks. They can be nested, moved, turned,
+  scaled, faded and made to glow.
+- **Item slots** - clicks work as in a vanilla menu, including shift-click, double click and dragging a stack across
+  slots. The inventory stays at the bottom of the screen, slides in as a drawer or is laid out in the scene.
+- **Carried objects** - the player picks objects up and moves them over the block. They lag slightly behind the cursor,
+  lean and cast a shadow.
+- **Controls** - toggles, buttons, knobs and sliders. A lever, a switch, a button, a knob and a slider come ready to
+  use with one line in a scene.
+- **Liquids and pouring** - tanks hold real amounts of liquid that sway and ripple. Point a vessel at a tank to pour
+  into it. The server checks every pour.
+- **Particles, light and sound** - sparks, bubbles, steam, smoke and more, glowing parts that light up what is near
+  them, and quiet station sounds a resource pack can replace.
+- **Triggers** - a carried object reports when it touches another part of the scene, and zones react to the cursor.
+- **Multiblocks and seats** - a station can cover several blocks and seat several players, each with their own view.
+- **Blocks from other mods** - a station can sit on another mod's block and use that block's inventory, so hoppers keep
+  working.
+- **Client-only or server** - client stations work on any server. Server stations check every action and share one
+  state between all players.
+- **Hot reload** - F3+T reloads scene files while the game runs, and a mistyped field is reported with its name.
+- **Debug view** - F3+B or `/diegesis debug` shows every hit box, node id and slot.
+- **Shaders** - scenes are drawn like entities and item frames, so shader packs handle them the same way.
+- **Documentation** - a guide, a cookbook and a JSON schema for scene files.
 
 ## Quick start
 
@@ -136,20 +107,18 @@ react to the state and to what the player does.
 - [Scenes](docs/scenes.md), [Stations](docs/stations.md), [Client](docs/client.md), [Cookbook](docs/cookbook.md).
 - [JSON Schema](docs/schema/scene.schema.json) of scene files: add
   `"$schema": "https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/schema/scene.schema.json"` to a scene.
-- [`docs/llms.txt`](docs/llms.txt) - the API on one page for AI coding assistants;
-  [Claude Code skill and project notes](integrations/claude-code/README.md).
 
 ## Installation
 
-1. Install [Forge](https://files.minecraftforge.net) or [Fabric](https://fabricmc.net) (with
-   [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)) for Minecraft 1.20.1.
+1. Install [NeoForge](https://neoforged.net) or [Fabric](https://fabricmc.net) (with
+   [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)) for Minecraft 1.21.1.
 2. Put the jar into the `mods` folder of the client, and of the server for server stations.
 
 ## Building
 
 ```sh
-./gradlew build                  # forge/build/libs and fabric/build/libs
-./gradlew :forge:runGameTestServer
+./gradlew build                  # neoforge/build/libs and fabric/build/libs
+./gradlew :neoforge:runGameTestServer
 ```
 
 ## Credits

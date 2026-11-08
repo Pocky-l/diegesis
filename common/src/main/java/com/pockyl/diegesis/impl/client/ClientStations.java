@@ -162,7 +162,7 @@ public final class ClientStations {
         if (packet instanceof Packets.Opened opened) {
             StationRegistry.byId(opened.type()).ifPresentOrElse(type -> {
                 ClientStation station = getOrCreate(type, opened.pos(), opened.facing());
-                station.state().readChanges(DiegesisNetwork.wrap(opened.state()));
+                station.state().readChanges(DiegesisNetwork.wrap(opened.state(), level.registryAccess()));
                 station.setInSession(true);
                 station.setSeat(opened.seat());
                 FocusController.get().confirm(station);
@@ -189,7 +189,7 @@ public final class ClientStations {
             StationRegistry.byId(sync.type()).ifPresent(type -> {
                 ClientStation station = getOrCreate(type, sync.pos(), sync.facing());
                 station.setInSession(true);
-                station.state().readChanges(DiegesisNetwork.wrap(sync.data()));
+                station.state().readChanges(DiegesisNetwork.wrap(sync.data(), level.registryAccess()));
             });
         } else if (packet instanceof Packets.PresenceRelay relay) {
             ClientStation station = stations.get(relay.pos());

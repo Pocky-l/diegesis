@@ -2,6 +2,7 @@ package com.pockyl.diegesis.mixin.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
@@ -20,9 +21,9 @@ import com.pockyl.diegesis.impl.client.render.ClearView;
 @Mixin(LevelRenderer.class)
 abstract class LevelRendererMixin {
     @Inject(method = "renderLevel", at = @At("HEAD"))
-    private void diegesis$beginClearView(PoseStack poseStack, float partialTick, long finishNanos, boolean renderBlockOutline, Camera camera,
-            GameRenderer gameRenderer, LightTexture lightTexture, Matrix4f projection, CallbackInfo callback) {
-        ClearView.begin(poseStack, camera);
+    private void diegesis$beginClearView(DeltaTracker deltaTracker, boolean renderBlockOutline, Camera camera, GameRenderer gameRenderer,
+            LightTexture lightTexture, Matrix4f view, Matrix4f projection, CallbackInfo callback) {
+        ClearView.begin(view, camera);
     }
 
     @Inject(method = "renderEntity", at = @At("HEAD"))

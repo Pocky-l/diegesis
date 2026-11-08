@@ -7,7 +7,7 @@ import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.inventory.InventoryMenu;
@@ -53,9 +53,9 @@ public final class ItemShapes {
     private static final class Entry {
         private final Function<ItemStack, MeshShape> shape;
         private final ResourceLocation texture;
-        private final Map<CompoundTag, BakedModel> baked = new LinkedHashMap<>(16, 0.75F, true) {
+        private final Map<DataComponentPatch, BakedModel> baked = new LinkedHashMap<>(16, 0.75F, true) {
             @Override
-            protected boolean removeEldestEntry(Map.Entry<CompoundTag, BakedModel> eldest) {
+            protected boolean removeEldestEntry(Map.Entry<DataComponentPatch, BakedModel> eldest) {
                 return size() > KEPT_SHAPES;
             }
         };
@@ -66,12 +66,12 @@ public final class ItemShapes {
         }
 
         BakedModel model(ItemStack stack, BakedModel original) {
-            CompoundTag key = stack.hasTag() ? stack.getTag() : new CompoundTag();
+            DataComponentPatch key = stack.getComponentsPatch();
             BakedModel found = baked.get(key);
             if (found == null) {
                 TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(texture);
                 found = new Shaped(original, shape.apply(stack).mesh().quads(sprite));
-                baked.put(key.copy(), found);
+                baked.put(key, found);
             }
             return found;
         }

@@ -15,7 +15,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** What client code registered: behaviours, code-built scenes, extra models, effects. */
-@SuppressWarnings("removal")
 public final class ClientRegistry {
     private static final Map<ResourceLocation, StationBehavior.Factory> BEHAVIORS = new ConcurrentHashMap<>();
     private static final Map<ResourceLocation, SceneDefinition> SCENES = new ConcurrentHashMap<>();
@@ -27,9 +26,9 @@ public final class ClientRegistry {
     private static final LiquidLook UNKNOWN_LIQUID = LiquidLook.of(0xB0A0A0A0);
 
     static {
-        LIQUIDS.put(new ResourceLocation("minecraft", "water"), LiquidLook.of(0xD03F76E4));
-        LIQUIDS.put(new ResourceLocation("minecraft", "lava"), new LiquidLook(0xFFFFFFFF, LiquidLook.LAVA_SPRITE, true));
-        LIQUIDS.put(new ResourceLocation("minecraft", "milk"), LiquidLook.of(0xF0F4F1E8));
+        LIQUIDS.put(ResourceLocation.withDefaultNamespace("water"), LiquidLook.of(0xD03F76E4));
+        LIQUIDS.put(ResourceLocation.withDefaultNamespace("lava"), new LiquidLook(0xFFFFFFFF, LiquidLook.LAVA_SPRITE, true));
+        LIQUIDS.put(ResourceLocation.withDefaultNamespace("milk"), LiquidLook.of(0xF0F4F1E8));
         // Every built-in particle is also an effect: a burst at the node (data: "count", "color").
         PARTICLES.keySet().forEach(id -> EFFECTS.put(id, (view, node, data) -> view.spawnParticles(id, node,
                 data.contains("count") ? data.getInt("count") : 12, data.getInt("color"))));

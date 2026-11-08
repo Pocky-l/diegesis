@@ -172,8 +172,7 @@ public record PlacingOptions(String group, List<PlaceSurface> surfaces, float it
         public PlacingOptions build() {
             PlacingOptions placing = new PlacingOptions(group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed, stacking,
                     blockModels, itemLight, lightRadius, lightColor, shadows, snap, previewColor);
-            return validate(placing).getOrThrow(false, error -> {
-            });
+            return validate(placing).getOrThrow();
         }
     }
 }

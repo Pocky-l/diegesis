@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
  * them while the game runs, so a scene can be tuned without restarting. A broken file is reported in the log with the
  * reason, and its station shows nothing until it is fixed.
  */
-@SuppressWarnings("removal")
 public final class SceneLibrary extends SimplePreparableReloadListener<Map<ResourceLocation, SceneDefinition>> {
     public static final SceneLibrary INSTANCE = new SceneLibrary();
     public static final ResourceLocation ID = DiegesisMod.id("scenes");
@@ -56,7 +55,7 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Resou
         Map<ResourceLocation, Resource> files = manager.listResources(SCENE_DIR, path -> path.getPath().endsWith(".json"));
         files.forEach((file, resource) -> {
             String path = file.getPath().substring(SCENE_DIR.length() + 1, file.getPath().length() - ".json".length());
-            ResourceLocation id = new ResourceLocation(file.getNamespace(), path);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(file.getNamespace(), path);
             try (Reader reader = resource.openAsReader()) {
                 JsonElement json = JsonParser.parseReader(reader);
                 DataResult<SceneDefinition> result = NodeTemplates.expand(json, templates::get)
@@ -76,8 +75,7 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Resou
         Map<ResourceLocation, JsonObject> templates = new HashMap<>();
         String dir = NodeTemplates.DIR;
         manager.listResources(dir, path -> path.getPath().endsWith(".json")).forEach((file, resource) -> {
-            ResourceLocation id = new ResourceLocation(file.getNamespace(),
-                    file.getPath().substring(dir.length() + 1, file.getPath().length() - ".json".length()));
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(file.getNamespace(), file.getPath().substring(dir.length() + 1, file.getPath().length() - ".json".length()));
             try (Reader reader = resource.openAsReader()) {
                 JsonElement json = JsonParser.parseReader(reader);
                 if (json.isJsonObject()) {
@@ -109,8 +107,7 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Resou
      */
     public static Set<ResourceLocation> modelsToLoad(ResourceManager manager) {
         Set<ResourceLocation> models = manager.listResources(MODEL_DIR, path -> path.getPath().endsWith(".json")).keySet().stream()
-                .map(file -> new ResourceLocation(file.getNamespace(),
-                        file.getPath().substring("models/".length(), file.getPath().length() - ".json".length())))
+                .map(file -> ResourceLocation.fromNamespaceAndPath(file.getNamespace(), file.getPath().substring("models/".length(), file.getPath().length() - ".json".length())))
                 .collect(Collectors.toSet());
         models.addAll(ClientRegistry.extraModels());
         return models;

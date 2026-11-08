@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 
 /**
- * Moves the camera to the station while the player works at it. Neither loader has a camera position event on 1.20.1
- * (Forge's ViewportEvent only turns the camera). Runs after vanilla and other mods placed the camera, and only while
+ * Moves the camera to the station while the player works at it. Neither loader has a camera position event on 1.21.1
+ * (NeoForge's ViewportEvent only turns the camera). Runs after vanilla and other mods placed the camera, and only while
  * focused, so third-person and camera mods keep working the rest of the time.
  */
 @Mixin(Camera.class)

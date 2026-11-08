@@ -16,7 +16,7 @@ import com.pockyl.diegesis.impl.client.focus.FocusController;
 @Mixin(ChatComponent.class)
 abstract class ChatComponentMixin {
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-    private void diegesis$hideChat(GuiGraphics graphics, int tickCount, int mouseX, int mouseY, CallbackInfo ci) {
+    private void diegesis$hideChat(GuiGraphics graphics, int tickCount, int mouseX, int mouseY, boolean focused, CallbackInfo ci) {
         FocusController focus = FocusController.get();
         if (focus.isActive() && focus.options().hideChat()) {
             ci.cancel();

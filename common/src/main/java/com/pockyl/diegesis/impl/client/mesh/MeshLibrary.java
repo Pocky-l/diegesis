@@ -40,7 +40,7 @@ public final class MeshLibrary {
         Map<ResourceLocation, Resource> files = manager.listResources(DIR, path -> path.getPath().endsWith(".obj"));
         files.forEach((file, resource) -> {
             String path = file.getPath().substring(DIR.length() + 1, file.getPath().length() - ".obj".length());
-            ResourceLocation id = new ResourceLocation(file.getNamespace(), path);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(file.getNamespace(), path);
             try (BufferedReader reader = resource.openAsReader()) {
                 loaded.put(id, parse(reader));
             } catch (IOException | RuntimeException e) {

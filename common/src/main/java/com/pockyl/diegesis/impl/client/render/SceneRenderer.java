@@ -1,8 +1,7 @@
 package com.pockyl.diegesis.impl.client.render;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultedVertexConsumer;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -69,7 +68,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.SequencedMap;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -92,8 +91,7 @@ public final class SceneRenderer {
      * draws it all later, over the liquid.
      */
     private static MultiBufferSource.BufferSource sceneBuffers;
-    @SuppressWarnings("removal")
-    private static final ResourceLocation HIGHLIGHT_SPRITE = new ResourceLocation("block/white_concrete");
+    private static final ResourceLocation HIGHLIGHT_SPRITE = ResourceLocation.withDefaultNamespace("block/white_concrete");
     /** Shadow lean per pixel of height: light from above, a little from the front left, like the GUI's light. */
     private static final float SHADOW_SHEAR_X = -0.22F;
     private static final float SHADOW_SHEAR_Z = 0.3F;
@@ -112,7 +110,7 @@ public final class SceneRenderer {
     private static long lastFrame = Util.getNanos();
     /** The interface options of the station being drawn. */
     private static InterfaceOptions ui = InterfaceOptions.DEFAULT;
-    /** The frame's camera and level pose (rotation only), for the debug view's labels. */
+    /** The frame's camera and level pose (camera-relative, not turned), for the debug view's labels. */
     private static Camera debugCamera;
     private static PoseStack debugPose;
 
@@ -122,11 +120,13 @@ public final class SceneRenderer {
     /**
      * Called by the loader's level-render hook after the entities.
      *
-     * @param poseStack  the level pose stack: camera rotation, no translation
+     * @param poseStack  the level pose stack: relative to the camera, not turned to it (the view rotation is in the model-view
+     *                   matrix the buffers are drawn with)
+     * @param modelView  the frame's view matrix: the camera's rotation
      * @param projection the frame's projection matrix
      */
-    public static void render(PoseStack poseStack, Matrix4f projection, Camera camera) {
-        Projector.capture(projection, poseStack.last().pose(), camera.getPosition());
+    public static void render(PoseStack poseStack, Matrix4f modelView, Matrix4f projection, Camera camera) {
+        Projector.capture(projection, new Matrix4f(modelView).mul(poseStack.last().pose()), camera.getPosition());
         long now = Util.getNanos();
         float dt = Math.min((now - lastFrame) / 1.0e9F, 0.1F);
         lastFrame = now;
@@ -149,12 +149,12 @@ public final class SceneRenderer {
             return;
         }
         if (clearBuffers == null) {
-            clearBuffers = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
-            Map<RenderType, BufferBuilder> kept = new LinkedHashMap<>();
+            clearBuffers = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+            SequencedMap<RenderType, ByteBufferBuilder> kept = new LinkedHashMap<>();
             for (RenderType type : List.of(Sheets.cutoutBlockSheet(), OVERLAY, SceneParticles.TYPE)) {
-                kept.put(type, new BufferBuilder(1 << 16));
+                kept.put(type, new ByteBufferBuilder(1 << 16));
             }
-            sceneBuffers = MultiBufferSource.immediateWithBuffers(kept, new BufferBuilder(1 << 16));
+            sceneBuffers = MultiBufferSource.immediateWithBuffers(kept, new ByteBufferBuilder(1 << 16));
         }
         RenderType translucent = Sheets.translucentCullBlockSheet();
         MultiBufferSource scene = type -> type == translucent ? clearBuffers.getBuffer(CLEAR) : sceneBuffers.getBuffer(type);
@@ -210,7 +210,7 @@ public final class SceneRenderer {
             draw.accept(silhouettes);
         }
         outline.endOutlineBatch();
-        effect.process(minecraft.getFrameTime());
+        effect.process(minecraft.getTimer().getGameTimeDeltaTicks());
         minecraft.getMainRenderTarget().bindWrite(false);
     }
 
@@ -769,8 +769,8 @@ public final class SceneRenderer {
     private static void vertex(VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z, float u, float v, int argb) {
         Vector3f point = pose.pose().transformPosition(new Vector3f(x, y, z));
         Vector3f normal = pose.normal().transform(new Vector3f(0.0F, 1.0F, 0.0F));
-        consumer.vertex(point.x, point.y, point.z, (argb >> 16 & 0xFF) / 255.0F, (argb >> 8 & 0xFF) / 255.0F, (argb & 0xFF) / 255.0F,
-                (argb >>> 24) / 255.0F, u, v, OverlayTexture.NO_OVERLAY, LightTexture.FULL_BRIGHT, normal.x, normal.y, normal.z);
+        consumer.addVertex(point.x, point.y, point.z, argb, u, v, OverlayTexture.NO_OVERLAY, LightTexture.FULL_BRIGHT, normal.x, normal.y,
+                normal.z);
     }
 
     private static boolean isBlockLike(ItemStack stack, ClientLevel level) {
@@ -960,41 +960,42 @@ public final class SceneRenderer {
     }
 
     /** Swallows what is drawn into it. */
-    private static final class NoVertices extends DefaultedVertexConsumer {
+    private static final class NoVertices implements VertexConsumer {
         static final NoVertices INSTANCE = new NoVertices();
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z) {
+        public VertexConsumer addVertex(float x, float y, float z) {
             return this;
         }
 
         @Override
-        public VertexConsumer color(int red, int green, int blue, int alpha) {
+        public VertexConsumer setColor(int red, int green, int blue, int alpha) {
             return this;
         }
 
         @Override
-        public VertexConsumer uv(float u, float v) {
+        public VertexConsumer setUv(float u, float v) {
             return this;
         }
 
         @Override
-        public VertexConsumer overlayCoords(int u, int v) {
+        public VertexConsumer setUv1(int u, int v) {
             return this;
         }
 
         @Override
-        public VertexConsumer uv2(int u, int v) {
+        public VertexConsumer setUv2(int u, int v) {
             return this;
         }
 
         @Override
-        public VertexConsumer normal(float x, float y, float z) {
+        public VertexConsumer setNormal(float x, float y, float z) {
             return this;
         }
 
         @Override
-        public void endVertex() {
+        public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY,
+                float normalZ) {
         }
     }
 

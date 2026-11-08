@@ -1,12 +1,12 @@
-package com.pockyl.diegesis.forge;
+package com.pockyl.diegesis.neoforge;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.fml.ModList;
+import net.neoforged.fml.ModList;
 
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.Platform;
 
-public final class ForgePlatform implements Platform {
+public final class NeoForgePlatform implements Platform {
     @Override
     public boolean isModLoaded(String modId) {
         return ModList.get().isLoaded(modId);
@@ -14,13 +14,13 @@ public final class ForgePlatform implements Platform {
 
     @Override
     public boolean hasChannel(ServerPlayer player) {
-        return player.connection != null && ForgeNetwork.present(player.connection.connection);
+        return NeoForgeNetwork.canSend(player);
     }
 
     @Override
     public void send(ServerPlayer player, Packets.ServerPacket packet) {
         if (hasChannel(player)) {
-            ForgeNetwork.send(player, packet);
+            NeoForgeNetwork.send(player, packet);
         }
     }
 }

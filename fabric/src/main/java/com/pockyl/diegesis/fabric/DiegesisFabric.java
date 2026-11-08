@@ -11,7 +11,7 @@ public final class DiegesisFabric implements ModInitializer {
     @Override
     public void onInitialize() {
         DiegesisMod.init();
-        FabricNetwork.registerServer();
+        FabricNetwork.register();
         ServerTickEvents.END_SERVER_TICK.register(DiegesisMod::onServerTick);
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> DiegesisMod.onPlayerLogout(handler.getPlayer()));
         ServerLifecycleEvents.SERVER_STOPPED.register(DiegesisMod::onServerStopped);

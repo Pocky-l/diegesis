@@ -153,7 +153,7 @@ public final class Mesh {
             matrix.transform(point);
             normal.set(vertices[i + 5], vertices[i + 6], vertices[i + 7]);
             normalMatrix.transform(normal).normalize();
-            consumer.vertex(point.x, point.y, point.z, 1.0F, 1.0F, 1.0F, 1.0F, u0 + vertices[i + 3] * uSpan, v0 + vertices[i + 4] * vSpan,
+            consumer.addVertex(point.x, point.y, point.z, 0xFFFFFFFF, u0 + vertices[i + 3] * uSpan, v0 + vertices[i + 4] * vSpan,
                     OverlayTexture.NO_OVERLAY, light, normal.x, normal.y, normal.z);
         }
     }

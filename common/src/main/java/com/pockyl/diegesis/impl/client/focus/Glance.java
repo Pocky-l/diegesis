@@ -120,7 +120,7 @@ final class Glance {
 
     /** Whether a stack came onto the cursor since the last frame: one more than before, or another one. */
     private boolean took(ItemStack stack) {
-        boolean took = !stack.isEmpty() && (held.isEmpty() || !ItemStack.isSameItemSameTags(held, stack) || stack.getCount() > held.getCount());
+        boolean took = !stack.isEmpty() && (held.isEmpty() || !ItemStack.isSameItemSameComponents(held, stack) || stack.getCount() > held.getCount());
         held = stack.copy();
         return took;
     }

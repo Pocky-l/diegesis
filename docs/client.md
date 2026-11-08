@@ -1,9 +1,9 @@
 # Client
 
 Client code is optional: a station works with only its scene. Add it for animations, sounds and effects that react to
-the state and to what the player does. Call `DiegesisClient` from client setup only (Forge: behind
-`FMLEnvironment.dist == Dist.CLIENT` or in `FMLClientSetupEvent`; Fabric: `onInitializeClient`) - a dedicated server
-has no client classes.
+the state and to what the player does. Call `DiegesisClient` from client setup only (NeoForge: in a
+`@Mod(value = MOD_ID, dist = Dist.CLIENT)` class or in `FMLClientSetupEvent`; Fabric: `onInitializeClient`) - a dedicated
+server has no client classes.
 
 ## Behaviours
 
@@ -150,7 +150,7 @@ An effect is something the logic plays for everyone who sees the station (`stati
 what it does on the client:
 
 ```java
-DiegesisClient.registerEffect(new ResourceLocation("mymod", "pop"), (view, node, data) -> {
+DiegesisClient.registerEffect(ResourceLocation.fromNamespaceAndPath("mymod", "pop"), (view, node, data) -> {
     view.spawnParticles(DiegesisParticles.SPARK, node, data.getInt("count"), 0);
     view.playSound(SoundEvents.FIRECHARGE_USE, node, 0.3F, 1.5F);
 });
@@ -169,8 +169,8 @@ liquid. `STEAM` is white too and fades in; `SMOKE` is the grey one. A style of y
 `surface(styleId)` for what it becomes where it reaches a liquid's surface:
 
 ```java
-DiegesisClient.registerParticle(new ResourceLocation("mymod", "ember"),
-        ParticleStyle.builder(new ResourceLocation("minecraft", "flame"))
+DiegesisClient.registerParticle(ResourceLocation.fromNamespaceAndPath("mymod", "ember"),
+        ParticleStyle.builder(ResourceLocation.withDefaultNamespace("flame"))
                 .color(0xFFFF9040).size(0.2F, 0.4F).life(0.4F, 0.9F)
                 .gravity(-8.0F).drag(0.9F).emissive().wobble(0.2F).build());
 ```
@@ -185,7 +185,7 @@ Builder: `color`, `size(min, max)` (pixels), `life(min, max)` (seconds), `gravit
 Water and lava have looks; describe any other liquid id your tanks hold:
 
 ```java
-DiegesisClient.registerLiquid(new ResourceLocation("mymod", "ember_tincture"), LiquidLook.of(0xD0FF6020).glowing());
+DiegesisClient.registerLiquid(ResourceLocation.fromNamespaceAndPath("mymod", "ember_tincture"), LiquidLook.of(0xD0FF6020).glowing());
 ```
 
 `LiquidLook(color, sprite, emissive)`: the ARGB colour (alpha = how thick the liquid is: `0xFF` hides what lies behind

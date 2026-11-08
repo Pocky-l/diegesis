@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.FastColor;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -264,8 +265,9 @@ public final class PourStreams {
             float wave = 0.02F + Math.abs(running - (float) Math.floor(running) - 0.5F) * 1.92F;
             float u = sprite.getU0() + (sprite.getU1() - sprite.getU0()) * (0.5F + across * 0.1F);
             float v = sprite.getV0() + (sprite.getV1() - sprite.getV0()) * wave;
-            consumer.vertex(point.x, point.y, point.z, Math.min(r, 1.0F), Math.min(g, 1.0F), Math.min(b, 1.0F), a, u, v, OverlayTexture.NO_OVERLAY,
-                    light, normal.x, normal.y, normal.z);
+            int color = FastColor.ARGB32.colorFromFloat(Math.max(0.0F, Math.min(a, 1.0F)), Math.min(r, 1.0F), Math.min(g, 1.0F),
+                    Math.min(b, 1.0F));
+            consumer.addVertex(point.x, point.y, point.z, color, u, v, OverlayTexture.NO_OVERLAY, light, normal.x, normal.y, normal.z);
         }
     }
 }

@@ -135,7 +135,7 @@ A value only the logic sets (progress, pressure) is a `ControlSpec.range(...).lo
 ## A vial that pours into a flask
 
 ```java
-.tank("vial", TankSpec.of(250).filledWith(new ResourceLocation("minecraft", "water"), 250))
+.tank("vial", TankSpec.of(250).filledWith(ResourceLocation.withDefaultNamespace("water"), 250))
 .tank("flask", TankSpec.of(1000))
 ```
 
@@ -208,7 +208,7 @@ scene, everyone sees the items on the block while nobody works at it.
 No items, no server code: a music box whose crank the player turns, on any server - also one without Diegesis.
 
 ```java
-Diegesis.station(new ResourceLocation("mymod", "music_box")).block(MyBlocks.MUSIC_BOX)
+Diegesis.station(ResourceLocation.fromNamespaceAndPath("mymod", "music_box")).block(MyBlocks.MUSIC_BOX)
         .clientOnly()
         .schema(StationSchema.builder().control("crank", ControlSpec.range(0, 1, 0)).build())
         .register();

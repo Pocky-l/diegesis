@@ -5,7 +5,7 @@ runs on **both sides**: build it with `Diegesis.station(id)` and register it wit
 `.register()` on the builder) during mod setup, the same on the client and the server.
 
 ```java
-public static final StationType STILL = Diegesis.station(new ResourceLocation("mymod", "still"))
+public static final StationType STILL = Diegesis.station(ResourceLocation.fromNamespaceAndPath("mymod", "still"))
         .block(MyBlocks.STILL)
         .schema(StationSchema.builder()
                 .slots("input", 2, SlotRules.DEFAULT.maxStack(16).accepts(stack -> stack.is(MyTags.DISTILLABLE)))
@@ -25,7 +25,7 @@ public static final StationType STILL = Diegesis.station(new ResourceLocation("m
 | Method | Default | Meaning |
 |---|---|---|
 | `blocks(Block...)` | - | Blocks that open the station. |
-| `block(Supplier<? extends Block>)` | - | A block looked up when first needed: a Forge `RegistryObject`, a Fabric field filled in `onInitialize`. |
+| `block(Supplier<? extends Block>)` | - | A block looked up when first needed: a NeoForge `DeferredBlock`, a Fabric field filled in `onInitialize`. |
 | `tag(TagKey<Block>)` | - | Every block in the tag opens it. |
 | `when(Predicate<BlockState>)` | all states | Only some states open it (the lower half of a tall block). |
 | `anchor(Anchor)` | every block alone | Multiblocks: which block the station lives at (below). |
@@ -113,19 +113,19 @@ public class StillBlockEntity extends BlockEntity implements StationHost {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
-        tag.put("station", station.save());
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        tag.put("station", station.save(registries));
     }
 
     @Override
-    public void load(CompoundTag tag) {
-        station.load(tag.getCompound("station"));
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        station.load(tag.getCompound("station"), registries);
     }
 
     // Clients see the items on the block while nobody works at it (idle_visible scenes).
     @Override
-    public CompoundTag getUpdateTag() {
-        return saveWithoutMetadata();
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
     }
 
     @Override
@@ -214,9 +214,9 @@ public PotLogic(StationContext station) {
 }
 ```
 
-`SlotStorage.of` wraps a vanilla `Container`; for anything else implement `size`, `get` and `set` (a Forge `IItemHandler` is
+`SlotStorage.of` wraps a vanilla `Container`; for anything else implement `size`, `get` and `set` (a NeoForge `IItemHandler` is
 three lines). A bound group reads and writes the storage directly, what changes there by itself reaches the players on the next
-tick, and `save()` leaves it out. Declare such groups `kept()`: nothing is handed back on close.
+tick, and `save(registries)` leaves it out. Declare such groups `kept()`: nothing is handed back on close.
 
 Values the block's menu shows (progress, heat) go into locked controls or the station's data from `tick`. With
 `hidesBlock()` the scene draws the block itself, so its parts can move: rebuild the block's shape from its model, read its

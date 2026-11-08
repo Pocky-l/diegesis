@@ -33,8 +33,7 @@ public final class FocusScreen extends Screen {
     /** How far a caption stays from the edge of the screen, in GUI pixels. */
     private static final int CAPTION_MARGIN = 10;
 
-    @SuppressWarnings("removal")
-    private static final ResourceLocation PANEL = new ResourceLocation("textures/gui/container/generic_54.png");
+    private static final ResourceLocation PANEL = ResourceLocation.parse("textures/gui/container/generic_54.png");
     private static final int PANEL_WIDTH = 176;
     /** Top border (3 px of the chest texture) + the inventory part of it (from the label row to the bottom edge). */
     private static final int BORDER = 3;
@@ -231,7 +230,7 @@ public final class FocusScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics) {
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
     }
 
     @Override
@@ -547,7 +546,7 @@ public final class FocusScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double amount) {
         if (overlay != null) {
             overlay.mouseScrolled(mouseX, mouseY, amount);
             return true;

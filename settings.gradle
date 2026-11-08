@@ -15,6 +15,6 @@ plugins {
 
 rootProject.name = 'diegesis'
 
-// common: the API and its implementation, compiled against vanilla Minecraft; forge / fabric: the loader glue. Each
+// common: the API and its implementation, compiled against vanilla Minecraft; neoforge / fabric: the loader glue. Each
 // loader project compiles the common sources into its own jar.
-include 'common', 'forge', 'fabric'
+include 'common', 'neoforge', 'fabric'

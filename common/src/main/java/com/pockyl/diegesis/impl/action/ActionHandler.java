@@ -118,7 +118,7 @@ public final class ActionHandler {
             slot.taken(taken);
             return true;
         }
-        if (ItemStack.isSameItemSameTags(stack, carried)) {
+        if (ItemStack.isSameItemSameComponents(stack, carried)) {
             if (!slot.mayPlace(carried)) {
                 return false;
             }
@@ -175,7 +175,7 @@ public final class ActionHandler {
                 if (there.isEmpty() != emptyPass || !target.mayPlace(stack)) {
                     continue;
                 }
-                if (!emptyPass && !ItemStack.isSameItemSameTags(there, stack)) {
+                if (!emptyPass && !ItemStack.isSameItemSameComponents(there, stack)) {
                     continue;
                 }
                 int moved = Math.min(target.limit(stack) - there.getCount(), stack.getCount());
@@ -206,7 +206,7 @@ public final class ActionHandler {
                     break;
                 }
                 ItemStack there = slot.get();
-                if (there.isEmpty() || !ItemStack.isSameItemSameTags(there, carried) || !slot.mayPickup()
+                if (there.isEmpty() || !ItemStack.isSameItemSameComponents(there, carried) || !slot.mayPickup()
                         || (there.getCount() >= there.getMaxStackSize()) != fullPass) {
                     continue;
                 }
@@ -235,7 +235,7 @@ public final class ActionHandler {
                 return false;
             }
             ItemStack there = slot.get();
-            if (slot.mayPlace(carried) && (there.isEmpty() || ItemStack.isSameItemSameTags(there, carried))) {
+            if (slot.mayPlace(carried) && (there.isEmpty() || ItemStack.isSameItemSameComponents(there, carried))) {
                 slots.add(slot);
             }
         }
@@ -285,7 +285,7 @@ public final class ActionHandler {
                     player.drop(rest, false);
                 }
                 logic.updateOutputs(station);
-                if (!ItemStack.isSameItemSameTags(state.getOutput(output), shown)) {
+                if (!ItemStack.isSameItemSameComponents(state.getOutput(output), shown)) {
                     break;
                 }
             }
@@ -296,7 +296,7 @@ public final class ActionHandler {
         }
         ItemStack shown = state.getOutput(output);
         ItemStack carried = carried(player);
-        if (shown.isEmpty() || !carried.isEmpty() && (!ItemStack.isSameItemSameTags(carried, shown)
+        if (shown.isEmpty() || !carried.isEmpty() && (!ItemStack.isSameItemSameComponents(carried, shown)
                 || carried.getCount() + shown.getCount() > carried.getMaxStackSize())) {
             return false;
         }
@@ -528,7 +528,7 @@ public final class ActionHandler {
             ItemStack there = inventory.getItem(i);
             if (there.isEmpty()) {
                 room += stack.getMaxStackSize();
-            } else if (ItemStack.isSameItemSameTags(there, stack)) {
+            } else if (ItemStack.isSameItemSameComponents(there, stack)) {
                 room += there.getMaxStackSize() - there.getCount();
             }
             if (room >= stack.getCount()) {

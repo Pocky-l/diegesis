@@ -472,7 +472,7 @@ public final class FocusInput {
             return;
         }
         ItemStack there = itemAt(station, target);
-        if (there.isEmpty() || ItemStack.isSameItemSameTags(there, carried)) {
+        if (there.isEmpty() || ItemStack.isSameItemSameComponents(there, carried)) {
             spreadTargets.add(target);
         }
     }
@@ -807,7 +807,7 @@ public final class FocusInput {
             ItemStack there = station.state().getItem(ref);
             if (there.isEmpty()) {
                 empty = empty == null ? ref : empty;
-            } else if (ItemStack.isSameItemSameTags(there, stack) && there.getCount() < slots.rules().limitFor(there)) {
+            } else if (ItemStack.isSameItemSameComponents(there, stack) && there.getCount() < slots.rules().limitFor(there)) {
                 return ref;
             }
         }

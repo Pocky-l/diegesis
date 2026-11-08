@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import org.joml.Quaternionf;
@@ -427,7 +428,8 @@ public final class LiquidPieces {
         private static void corner(VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z, float u, float v, float red, float green,
                 float blue, int light, Vector3f normal) {
             Vector3f point = pose.pose().transformPosition(new Vector3f(x, y, z));
-            consumer.vertex(point.x, point.y, point.z, red, green, blue, 1.0F, u, v, OverlayTexture.NO_OVERLAY, light, normal.x, normal.y, normal.z);
+            int color = FastColor.ARGB32.colorFromFloat(1.0F, red, green, blue);
+            consumer.addVertex(point.x, point.y, point.z, color, u, v, OverlayTexture.NO_OVERLAY, light, normal.x, normal.y, normal.z);
         }
     }
 }

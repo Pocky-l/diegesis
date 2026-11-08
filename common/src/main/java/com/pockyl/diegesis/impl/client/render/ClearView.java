@@ -1,7 +1,6 @@
 package com.pockyl.diegesis.impl.client.render;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -28,7 +27,8 @@ import java.util.regex.Pattern;
  * Keeps the camera's view of the station free ({@link ClearViewOptions}). A cone runs from the camera to what it looks at; every
  * vertex of what is inside fades by how deep it lies in the cone, so a figure dissolves softly from the middle of the view
  * outwards. Entities are drawn before the scene and, faded, write no depth: the scene comes out whole, wherever they stand.
- * Everything here is in view space (the camera at the origin), where the level's pose stack puts the entities' vertices.
+ * Everything here is in view space (the camera at the origin); entities and particles arrive relative to the camera but not yet
+ * turned to it (the level's view rotation is in the model-view matrix), so their vertices are turned here.
  */
 public final class ClearView {
     /** Width of the cone at the camera, in blocks. */
@@ -59,9 +59,9 @@ public final class ClearView {
     /**
      * Called at the start of the level's rendering.
      *
-     * @param poseStack the level pose stack: the camera's rotation, no translation
+     * @param view the level's view matrix: the camera's rotation, no translation
      */
-    public static void begin(PoseStack poseStack, Camera camera) {
+    public static void begin(Matrix4f view, Camera camera) {
         strength = 0.0F;
         FocusController focus = FocusController.get();
         ClientStation station = focus.station();
@@ -72,7 +72,7 @@ public final class ClearView {
         Vec3 eye = camera.getPosition();
         Vector3fc looked = focus.baseTarget();
         Vec3 target = station.toWorld(looked.x(), looked.y(), looked.z());
-        VIEW.set(poseStack.last().pose());
+        VIEW.set(view);
         VIEW.transformDirection(AXIS.set((float) (target.x - eye.x), (float) (target.y - eye.y), (float) (target.z - eye.z)));
         length = AXIS.length();
         if (length < 0.01F) {
@@ -148,7 +148,7 @@ public final class ClearView {
         }
         // The state's texture is out of reach of code that is no render state, but every type prints it.
         Matcher matcher = TEXTURE.matcher(type.toString());
-        return matcher.find() ? Optional.of(DiegesisRenderTypes.ghostEntity(new ResourceLocation(matcher.group(1)))) : Optional.empty();
+        return matcher.find() ? Optional.of(DiegesisRenderTypes.ghostEntity(ResourceLocation.parse(matcher.group(1)))) : Optional.empty();
     }
 
     /** What a particle draws into: its vertices are relative to the camera, not yet turned to it. */
@@ -157,82 +157,62 @@ public final class ClearView {
             return consumer;
         }
         PARTICLES.delegate = consumer;
-        PARTICLES.turned = true;
         return PARTICLES;
     }
 
     /** Passes vertices on with their alpha scaled by where they are. */
     private static final class Fading implements VertexConsumer {
         private VertexConsumer delegate;
-        private boolean turned;
         private float fade = 1.0F;
 
         private void look(float x, float y, float z) {
-            if (turned) {
-                VIEW.transformDirection(POINT.set(x, y, z));
-                fade = ClearView.fade(POINT.x, POINT.y, POINT.z);
-            } else {
-                fade = ClearView.fade(x, y, z);
-            }
+            VIEW.transformDirection(POINT.set(x, y, z));
+            fade = ClearView.fade(POINT.x, POINT.y, POINT.z);
         }
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z) {
-            look((float) x, (float) y, (float) z);
-            delegate.vertex(x, y, z);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer color(int red, int green, int blue, int alpha) {
-            delegate.color(red, green, blue, Math.round(alpha * fade));
-            return this;
-        }
-
-        @Override
-        public VertexConsumer uv(float u, float v) {
-            delegate.uv(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer overlayCoords(int u, int v) {
-            delegate.overlayCoords(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer uv2(int u, int v) {
-            delegate.uv2(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer normal(float x, float y, float z) {
-            delegate.normal(x, y, z);
-            return this;
-        }
-
-        @Override
-        public void endVertex() {
-            delegate.endVertex();
-        }
-
-        @Override
-        public void vertex(float x, float y, float z, float red, float green, float blue, float alpha, float u, float v, int overlay, int light,
-                float normalX, float normalY, float normalZ) {
+        public VertexConsumer addVertex(float x, float y, float z) {
             look(x, y, z);
-            delegate.vertex(x, y, z, red, green, blue, alpha * fade, u, v, overlay, light, normalX, normalY, normalZ);
+            delegate.addVertex(x, y, z);
+            return this;
         }
 
         @Override
-        public void defaultColor(int red, int green, int blue, int alpha) {
-            delegate.defaultColor(red, green, blue, alpha);
+        public VertexConsumer setColor(int red, int green, int blue, int alpha) {
+            delegate.setColor(red, green, blue, Math.round(alpha * fade));
+            return this;
         }
 
         @Override
-        public void unsetDefaultColor() {
-            delegate.unsetDefaultColor();
+        public VertexConsumer setUv(float u, float v) {
+            delegate.setUv(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv1(int u, int v) {
+            delegate.setUv1(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv2(int u, int v) {
+            delegate.setUv2(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setNormal(float x, float y, float z) {
+            delegate.setNormal(x, y, z);
+            return this;
+        }
+
+        @Override
+        public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY,
+                float normalZ) {
+            look(x, y, z);
+            int alpha = Math.round((color >>> 24) * fade);
+            delegate.addVertex(x, y, z, alpha << 24 | color & 0xFFFFFF, u, v, overlay, light, normalX, normalY, normalZ);
         }
     }
 }

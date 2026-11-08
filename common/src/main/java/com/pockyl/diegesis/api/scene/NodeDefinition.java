@@ -80,7 +80,7 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
         ).apply(instance, Flags::new));
     }
 
-    public static final Codec<NodeDefinition> CODEC = ExtraCodecs.lazyInitializedCodec(() -> StrictCodecs.<NodeDefinition>record(instance -> instance.group(
+    public static final Codec<NodeDefinition> CODEC = Codec.lazyInitialized(() -> StrictCodecs.<NodeDefinition>record(instance -> instance.group(
             ID_CODEC.fieldOf("id").forGetter(NodeDefinition::id),
             Transform.MAP_CODEC.forGetter(NodeDefinition::transform),
             StrictCodecs.optional(Visual.CODEC, "visual").forGetter(NodeDefinition::visual),
@@ -158,8 +158,7 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
         private final List<NodeDefinition> children = new ArrayList<>();
 
         private Builder(String id) {
-            this.id = ID_CODEC.parse(JsonOps.INSTANCE, new com.google.gson.JsonPrimitive(id)).getOrThrow(false, error -> {
-            });
+            this.id = ID_CODEC.parse(JsonOps.INSTANCE, new com.google.gson.JsonPrimitive(id)).getOrThrow();
         }
 
         public Builder at(float x, float y, float z) {
@@ -272,8 +271,7 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
             NodeDefinition node = new NodeDefinition(id, transform, Optional.ofNullable(visual), Optional.ofNullable(collider), trigger,
                     pickable, precise, strokes, Optional.ofNullable(dropZone), Optional.ofNullable(tooltip), Optional.ofNullable(grabbable), Optional.ofNullable(slot), Optional.ofNullable(output), Optional.ofNullable(control),
                     Optional.ofNullable(tank), Optional.ofNullable(emitter), Optional.ofNullable(light), hidden, extra, children);
-            return validate(node).getOrThrow(false, error -> {
-            });
+            return validate(node).getOrThrow();
         }
     }
 }

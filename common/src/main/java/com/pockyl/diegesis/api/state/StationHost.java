@@ -8,9 +8,13 @@ package com.pockyl.diegesis.api.state;
  * private final StationState station = new StationState(MyStations.LAB_TABLE.schema());
  *
  * public StationState stationState() { return station; }
- * protected void saveAdditional(CompoundTag tag) { tag.put("station", station.save()); }
- * public void load(CompoundTag tag) { station.load(tag.getCompound("station")); }
- * public CompoundTag getUpdateTag() { return saveWithoutMetadata(); }   // clients see the items while idle
+ * protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+ *     tag.put("station", station.save(registries));
+ * }
+ * protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+ *     station.load(tag.getCompound("station"), registries);
+ * }
+ * public CompoundTag getUpdateTag(HolderLookup.Provider registries) { return saveWithoutMetadata(registries); }   // idle view
  * public Packet<ClientGamePacketListener> getUpdatePacket() { return ClientboundBlockEntityDataPacket.create(this); }
  * }</pre>
  *

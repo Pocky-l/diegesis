@@ -1,12 +1,12 @@
-// The API and everything shared by Forge and Fabric, compiled against plain Minecraft. Nothing here may use a loader
+// The API and everything shared by NeoForge and Fabric, compiled against plain Minecraft. Nothing here may use a loader
 // API: what the loaders do differently goes through platform.Platform / platform.ClientPlatform.
 plugins {
     id 'multiloader-common'
-    id 'net.neoforged.moddev.legacyforge'
+    id 'net.neoforged.moddev'
 }
 
-legacyForge {
-    mcpVersion = minecraft_version
+neoForge {
+    neoFormVersion = neo_form_version
     parchment {
         mappingsVersion = parchment_mappings_version
         minecraftVersion = parchment_minecraft_version
@@ -15,6 +15,7 @@ legacyForge {
 
 dependencies {
     compileOnly 'org.spongepowered:mixin:0.8.5'
+    compileOnly 'org.ow2.asm:asm-tree:9.7.1'
 }
 
 configurations {

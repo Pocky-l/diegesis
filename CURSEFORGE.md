@@ -3,7 +3,7 @@
 
 <p style="text-align:center"><em>A library for interfaces that live on the block itself.</em></p>
 
-<p style="text-align:center"><strong>Using a block flies the camera to it. The player then works with real 3D objects on that block: moves items, pulls levers, turns knobs, pours liquids. Everyone standing nearby sees it happen. There is no menu screen in between.</strong></p>
+<p style="text-align:center"><strong>Using a block flies the camera to it. The player then works with real 3D objects on that block: moves items, pulls levers, turns knobs, pours liquids. Everyone standing nearby sees it happen.</strong></p>
 
 <p style="text-align:center">Diegesis adds nothing to the game on its own. Install it when a mod asks for it, such as <a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-delight">Hands-On Delight</a>.</p>
 

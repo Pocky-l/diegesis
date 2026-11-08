@@ -5,7 +5,7 @@ player turns and a slot they drop an item into.
 
 ## 1. Depend on Diegesis
 
-Diegesis is a library mod for Minecraft 1.20.1 on Forge and Fabric. Players install it next to your mod (client, and
+Diegesis is a library mod for Minecraft 1.21.1 on NeoForge and Fabric. Players install it next to your mod (client, and
 server for server stations). Add it to your build:
 
 ```groovy
@@ -15,17 +15,16 @@ repositories {
 }
 
 dependencies {
-    // Forge, ModDevGradle (legacyforge)
-    modImplementation "curse.maven:diegesis-<project-id>:<forge-file-id>"
-    // Forge, ForgeGradle
-    implementation fg.deobf("curse.maven:diegesis-<project-id>:<forge-file-id>")
+    // NeoForge, ModDevGradle (a mod on the classpath is loaded in dev runs)
+    implementation "curse.maven:diegesis-<project-id>:<neoforge-file-id>"
     // Fabric, Loom
-    modImplementation "maven.modrinth:diegesis:<version>-fabric"
+    modImplementation "maven.modrinth:diegesis:<fabric-version>"
 }
 ```
 
 `<project-id>` and the file ids are on the mod's CurseForge page (the file's URL ends with its id). Declare the
-dependency in `mods.toml` (`modId="diegesis"`) or `fabric.mod.json` (`"depends": {"diegesis": "*"}`).
+dependency in `neoforge.mods.toml` (`modId="diegesis"`, `type="required"`) or `fabric.mod.json`
+(`"depends": {"diegesis": "*"}`).
 
 Everything you use is in `com.pockyl.diegesis.api`. The rest (`impl`, `platform`, `mixin`) is internal and may change
 in any version.
@@ -33,12 +32,12 @@ in any version.
 ## 2. Declare the station (common code)
 
 A **station** says which blocks open an interface and what state it keeps. Create it in code that runs on both sides,
-during mod setup (Forge: your mod constructor; Fabric: `onInitialize`).
+during mod setup (NeoForge: your mod constructor; Fabric: `onInitialize`).
 
 ```java
 public final class MyStations {
-    public static final StationType STILL = Diegesis.station(new ResourceLocation("mymod", "still"))
-            .block(MyBlocks.STILL)                       // a RegistryObject / any Supplier<Block>, looked up late
+    public static final StationType STILL = Diegesis.station(ResourceLocation.fromNamespaceAndPath("mymod", "still"))
+            .block(MyBlocks.STILL)                       // a DeferredBlock / any Supplier<Block>, looked up late
             .schema(StationSchema.builder()
                     .slots("input", 1)                   // one slot: "input[0]", or "input" for short
                     .control("heat", ControlSpec.range(0, 1, 0))

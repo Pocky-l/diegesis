@@ -1,6 +1,6 @@
 package com.pockyl.diegesis.impl.network;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Vector3f;
 
@@ -37,10 +37,10 @@ public record Presence(String node, int inventorySlot, ItemStack carried, Vector
         return node.isEmpty() && inventorySlot < 0 && carried.isEmpty();
     }
 
-    public void write(FriendlyByteBuf buf) {
+    public void write(RegistryFriendlyByteBuf buf) {
         buf.writeUtf(node, 64);
         buf.writeVarInt(inventorySlot + 1);
-        buf.writeItem(carried);
+        ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, carried);
         buf.writeVector3f(pos);
         buf.writeVector3f(rotation);
         buf.writeVector3f(tilt);
@@ -49,8 +49,8 @@ public record Presence(String node, int inventorySlot, ItemStack carried, Vector
         buf.writeFloat(flow);
     }
 
-    public static Presence read(FriendlyByteBuf buf) {
-        return new Presence(buf.readUtf(64), buf.readVarInt() - 1, buf.readItem(), buf.readVector3f(), buf.readVector3f(),
+    public static Presence read(RegistryFriendlyByteBuf buf) {
+        return new Presence(buf.readUtf(64), buf.readVarInt() - 1, ItemStack.OPTIONAL_STREAM_CODEC.decode(buf), buf.readVector3f(), buf.readVector3f(),
                 buf.readVector3f(), buf.readFloat(), buf.readUtf(64), buf.readFloat());
     }
 

@@ -3,7 +3,7 @@ package com.pockyl.diegesis.impl.network;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
 import com.pockyl.diegesis.impl.action.StationAction;
@@ -12,8 +12,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Every message of the library. All travel on one channel ({@link DiegesisNetwork#CHANNEL}); the first byte names the
- * message. Optional on both sides: a client without the library never gets them, a server without it never answers, and
+ * Every message of the library. All travel in two payloads, one per direction ({@link DiegesisNetwork.ToServer},
+ * {@link DiegesisNetwork.ToClient}); the first byte names the message. Optional on both sides: a client without the library never gets them, a server without it never answers, and
  * then blocks keep their vanilla behaviour.
  */
 public final class Packets {
@@ -23,9 +23,9 @@ public final class Packets {
     public sealed interface Packet permits ClientPacket, ServerPacket {
         int id();
 
-        void writeBody(FriendlyByteBuf buf);
+        void writeBody(RegistryFriendlyByteBuf buf);
 
-        default void write(FriendlyByteBuf buf) {
+        default void write(RegistryFriendlyByteBuf buf) {
             buf.writeByte(id());
             writeBody(buf);
         }
@@ -39,7 +39,7 @@ public final class Packets {
     public sealed interface ServerPacket extends Packet permits Opened, Denied, Closed, StateSync, PresenceRelay, Effect {
     }
 
-    public static ClientPacket readClient(FriendlyByteBuf buf) {
+    public static ClientPacket readClient(RegistryFriendlyByteBuf buf) {
         int id = buf.readByte();
         return switch (id) {
             case 0 -> new Open(buf.readBlockPos());
@@ -50,7 +50,7 @@ public final class Packets {
         };
     }
 
-    public static ServerPacket readServer(FriendlyByteBuf buf) {
+    public static ServerPacket readServer(RegistryFriendlyByteBuf buf) {
         int id = buf.readByte();
         return switch (id) {
             case 10 -> new Opened(buf.readBlockPos(), buf.readResourceLocation(), buf.readEnum(Direction.class), buf.readByteArray(),
@@ -74,7 +74,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
         }
     }
@@ -87,7 +87,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
         }
     }
 
@@ -98,7 +98,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
             action.write(buf);
         }
@@ -111,7 +111,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
             presence.write(buf);
         }
@@ -125,7 +125,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
             buf.writeResourceLocation(type);
             buf.writeEnum(facing);
@@ -142,7 +142,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
         }
     }
@@ -155,7 +155,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
         }
     }
@@ -168,7 +168,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
             buf.writeResourceLocation(type);
             buf.writeEnum(facing);
@@ -185,7 +185,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
             buf.writeUUID(player);
             presence.write(buf);
@@ -199,7 +199,7 @@ public final class Packets {
         }
 
         @Override
-        public void writeBody(FriendlyByteBuf buf) {
+        public void writeBody(RegistryFriendlyByteBuf buf) {
             buf.writeBlockPos(pos);
             buf.writeResourceLocation(effect);
             buf.writeUtf(node, 64);

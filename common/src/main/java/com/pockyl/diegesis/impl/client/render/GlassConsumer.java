@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 /**
  * Passes vertices on with their alpha set by the angle they are seen at, as glass behaves: nearly nothing where a face
  * looks straight at the camera, thick at a grazing angle. Colour stays as it is, so a pale glass texture no longer
- * washes out what is behind it. Positions and normals reach this already in view space, the eye at the origin.
+ * washes out what is behind it. Positions and normals reach this relative to the camera, the eye at the origin.
  */
 final class GlassConsumer implements VertexConsumer {
     private final VertexConsumer delegate;
@@ -24,60 +24,45 @@ final class GlassConsumer implements VertexConsumer {
     }
 
     @Override
-    public void vertex(float px, float py, float pz, float red, float green, float blue, float alphaValue, float u, float v, int overlay,
-            int light, float nx, float ny, float nz) {
-        delegate.vertex(px, py, pz, red, green, blue, alphaValue * keep(px, py, pz, nx, ny, nz), u, v, overlay, light, nx, ny, nz);
+    public void addVertex(float px, float py, float pz, int color, float u, float v, int overlay, int light, float nx, float ny, float nz) {
+        int alphaValue = Math.round((color >>> 24) * keep(px, py, pz, nx, ny, nz));
+        delegate.addVertex(px, py, pz, alphaValue << 24 | color & 0xFFFFFF, u, v, overlay, light, nx, ny, nz);
     }
 
     @Override
-    public VertexConsumer vertex(double px, double py, double pz) {
-        delegate.vertex(px, py, pz);
+    public VertexConsumer addVertex(float px, float py, float pz) {
+        delegate.addVertex(px, py, pz);
         return this;
     }
 
     @Override
-    public VertexConsumer color(int red, int green, int blue, int alphaValue) {
+    public VertexConsumer setColor(int red, int green, int blue, int alphaValue) {
         // Built piece by piece the normal is not known yet: the clear value.
-        delegate.color(red, green, blue, Math.round(alphaValue * (1.0F - clarity)));
+        delegate.setColor(red, green, blue, Math.round(alphaValue * (1.0F - clarity)));
         return this;
     }
 
     @Override
-    public VertexConsumer uv(float u, float v) {
-        delegate.uv(u, v);
+    public VertexConsumer setUv(float u, float v) {
+        delegate.setUv(u, v);
         return this;
     }
 
     @Override
-    public VertexConsumer overlayCoords(int u, int v) {
-        delegate.overlayCoords(u, v);
+    public VertexConsumer setUv1(int u, int v) {
+        delegate.setUv1(u, v);
         return this;
     }
 
     @Override
-    public VertexConsumer uv2(int u, int v) {
-        delegate.uv2(u, v);
+    public VertexConsumer setUv2(int u, int v) {
+        delegate.setUv2(u, v);
         return this;
     }
 
     @Override
-    public VertexConsumer normal(float nx, float ny, float nz) {
-        delegate.normal(nx, ny, nz);
+    public VertexConsumer setNormal(float nx, float ny, float nz) {
+        delegate.setNormal(nx, ny, nz);
         return this;
-    }
-
-    @Override
-    public void endVertex() {
-        delegate.endVertex();
-    }
-
-    @Override
-    public void defaultColor(int red, int green, int blue, int alphaValue) {
-        delegate.defaultColor(red, green, blue, alphaValue);
-    }
-
-    @Override
-    public void unsetDefaultColor() {
-        delegate.unsetDefaultColor();
     }
 }

@@ -173,7 +173,7 @@ final class ActiveStation implements StationContext {
         subscribers.add(player.getUUID());
         // What onOpen changed goes out first: the snapshot below forgets what is pending, and the others would never hear of it.
         flush();
-        byte[] full = DiegesisNetwork.toBytes(buf -> state.writeChanges(buf, true));
+        byte[] full = DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, true));
         Platform.INSTANCE.send(player, new Packets.Opened(pos, type.id(), facing, full, seats.getOrDefault(player.getUUID(), "")));
         refreshWatchers();
     }
@@ -223,7 +223,7 @@ final class ActiveStation implements StationContext {
         state.pollStorages();
         boolean dirty = state.isDirty();
         if (dirty) {
-            byte[] delta = DiegesisNetwork.toBytes(buf -> state.writeChanges(buf, false));
+            byte[] delta = DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, false));
             Packets.StateSync packet = new Packets.StateSync(pos, type.id(), facing, false, delta);
             forEachRecipient(player -> {
                 if (subscribers.contains(player.getUUID())) {
@@ -246,7 +246,7 @@ final class ActiveStation implements StationContext {
             }
         });
         if (!newcomers.isEmpty()) {
-            byte[] full = DiegesisNetwork.toBytes(buf -> state.writeChanges(buf, true));
+            byte[] full = DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, true));
             Packets.StateSync packet = new Packets.StateSync(pos, type.id(), facing, true, full);
             for (ServerPlayer player : newcomers) {
                 subscribers.add(player.getUUID());

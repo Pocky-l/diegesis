@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import org.joml.Matrix4fc;
@@ -262,8 +263,8 @@ public final class SceneParticles {
     private static void corner(VertexConsumer consumer, PoseStack.Pose pose, float x, float y, float z, float u, float v, int color,
             float alpha, int light) {
         Vector3f point = pose.pose().transformPosition(new Vector3f(x, y, z));
-        consumer.vertex(point.x, point.y, point.z, (color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F, (color & 0xFF) / 255.0F,
-                alpha, u, v, OverlayTexture.NO_OVERLAY, light, 0.0F, 1.0F, 0.0F);
+        consumer.addVertex(point.x, point.y, point.z, FastColor.ARGB32.color(Math.round(Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F), color), u, v,
+                OverlayTexture.NO_OVERLAY, light, 0.0F, 1.0F, 0.0F);
     }
 
     private static final class Particle {

@@ -14,8 +14,8 @@ import com.pockyl.diegesis.impl.client.focus.FocusController;
  */
 @Mixin(Gui.class)
 abstract class GuiMixin {
-    @Inject(method = {"renderHotbar", "renderCrosshair", "renderEffects", "renderPlayerHealth", "renderVehicleHealth",
-            "renderJumpMeter", "renderExperienceBar", "renderSelectedItemName"}, at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = {"renderHotbarAndDecorations", "renderCrosshair", "renderEffects", "renderExperienceLevel"}, at = @At("HEAD"),
+            cancellable = true, require = 0)
     private void diegesis$hideHud(CallbackInfo ci) {
         if (FocusController.get().isActive() && FocusController.get().options().hideHud()) {
             ci.cancel();

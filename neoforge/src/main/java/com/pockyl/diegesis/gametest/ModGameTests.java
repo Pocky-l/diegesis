@@ -23,24 +23,28 @@ import com.mojang.serialization.JsonOps;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.gametest.GameTestHolder;
-import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Vector3f;
 
 import com.pockyl.diegesis.DiegesisMod;
@@ -87,12 +91,9 @@ public final class ModGameTests {
     private static final String STATUS = "status";
     private static final String SHELF = "shelf";
 
-    @SuppressWarnings("removal")
-    private static final ResourceLocation WATER = new ResourceLocation("minecraft", "water");
-    @SuppressWarnings("removal")
-    private static final ResourceLocation OIL = new ResourceLocation("diegesis", "test_oil");
-    @SuppressWarnings("removal")
-    private static final ResourceLocation ACID = new ResourceLocation("diegesis", "test_acid");
+    private static final ResourceLocation WATER = ResourceLocation.withDefaultNamespace("water");
+    private static final ResourceLocation OIL = ResourceLocation.fromNamespaceAndPath("diegesis", "test_oil");
+    private static final ResourceLocation ACID = ResourceLocation.fromNamespaceAndPath("diegesis", "test_acid");
 
     /** Grid of 4 any-item slots, a fuel slot for coal only (max 16), an output, a stepped dial, a lever and a button. */
     static final StationSchema SCHEMA = StationSchema.builder()
@@ -154,7 +155,7 @@ public final class ModGameTests {
     @GameTest(template = "empty")
     public static void clicksMoveStacksLikeVanilla(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         player.getInventory().setItem(0, new ItemStack(Items.STICK, 5));
         // Left click on the inventory slot picks the whole stack up; left click on an empty station slot puts it down.
         check(helper, click(station, player, inv(0), 0), "pick up from the inventory");
@@ -183,7 +184,7 @@ public final class ModGameTests {
     @GameTest(template = "empty")
     public static void boundSlotsAreAWindowOnTheirStorage(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         net.minecraft.world.SimpleContainer chest = new net.minecraft.world.SimpleContainer(6);
         chest.setItem(2, new ItemStack(Items.FLINT, 3));
         station.state.bindSlots(GRID, com.pockyl.diegesis.api.state.SlotStorage.of(chest, 2, 4));
@@ -200,14 +201,14 @@ public final class ModGameTests {
         check(helper, station.state.takeChanges().slots().contains(SlotRef.of(GRID, 1)), "a change in the storage is noticed");
         station.state.pollStorages();
         check(helper, station.state.takeChanges().isEmpty(), "and only once");
-        check(helper, !station.state.save().getCompound("slots").contains(GRID), "the owner saves bound slots");
+        check(helper, !station.state.save(registries(helper)).getCompound("slots").contains(GRID), "the owner saves bound slots");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
     public static void clicksRespectSlotRules(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         player.getInventory().setItem(0, new ItemStack(Items.STICK, 8));
         player.getInventory().setItem(1, new ItemStack(Items.COAL, 64));
         click(station, player, inv(0), 0);
@@ -229,7 +230,7 @@ public final class ModGameTests {
     @GameTest(template = "empty")
     public static void shiftDoubleClickAndSpread(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         player.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 10));
         // Shift-click from the inventory fills the station's slots in order.
         check(helper, quick(station, player, inv(0)), "shift into the station");
@@ -256,7 +257,7 @@ public final class ModGameTests {
     public static void outputsComeFromTheLogic(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         TestLogic logic = new TestLogic();
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         player.getInventory().setItem(0, new ItemStack(Items.DIAMOND, 5));
         ActionHandler.apply(station, logic, player, new StationAction.Click(inv(0), 0, ClickKind.PICKUP));
         ActionHandler.apply(station, logic, player, new StationAction.Click(grid(0), 0, ClickKind.PICKUP));
@@ -275,7 +276,7 @@ public final class ModGameTests {
     @GameTest(template = "empty")
     public static void controlsStayInRange(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         ActionHandler.apply(station, StationLogic.NONE, player, new StationAction.SetControl(DIAL, 7.3F));
         check(helper, station.state.getControl(DIAL) == 8.0F, "snapped to a step of 2: " + station.state.getControl(DIAL));
         ActionHandler.apply(station, StationLogic.NONE, player, new StationAction.SetControl(DIAL, 1000.0F));
@@ -325,7 +326,7 @@ public final class ModGameTests {
     @GameTest(template = "empty")
     public static void pouringKeepsTheVolume(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         check(helper, pour(station, player, "vial", "beaker", 100), "pour");
         check(helper, station.state.getTank("beaker").amount() == 50 && station.state.getTank("vial").amount() == 30,
                 "only what fits: 50 in the beaker, 30 left");
@@ -343,7 +344,7 @@ public final class ModGameTests {
         check(helper, station.state.getTank("vial").amount() + pot.amount() == 80, "nothing made or lost");
         // Saved and synced like the rest of the state.
         StationState loaded = new StationState(SCHEMA);
-        loaded.load(station.state.save());
+        loaded.load(station.state.save(registries(helper)), registries(helper));
         check(helper, loaded.getTank("pot").equals(pot), "tank saved and loaded");
         helper.succeed();
     }
@@ -380,7 +381,7 @@ public final class ModGameTests {
     @GameTest(template = "empty")
     public static void placedItemsStandWhereTheyArePut(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
-        Player player = helper.makeMockPlayer();
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
         player.getInventory().setItem(0, new ItemStack(Items.BOOK, 3));
         check(helper, click(station, player, inv(0), 0), "take the books");
         org.joml.Quaternionf turned = new org.joml.Quaternionf().rotateY(1.0F);
@@ -414,9 +415,9 @@ public final class ModGameTests {
         check(helper, station.state.getItem(SlotRef.of(SHELF, 3)).isEmpty(), "not to the shelf");
 
         StationState loaded = new StationState(SCHEMA);
-        loaded.load(station.state.save());
+        loaded.load(station.state.save(registries(helper)), registries(helper));
         check(helper, station.state.getPose(third).equals(loaded.getPose(third)), "poses are saved");
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         station.state.writeChanges(buf, true);
         StationState mirror = new StationState(SCHEMA);
         mirror.readChanges(buf);
@@ -448,17 +449,17 @@ public final class ModGameTests {
         state.setControl(DIAL, 6.0F);
         state.setControl(LEVER, 1.0F);
         StationState loaded = new StationState(SCHEMA);
-        loaded.load(state.save());
+        loaded.load(state.save(registries(helper)), registries(helper));
         check(helper, loaded.getItem(SlotRef.of(GRID, 3)).getCount() == 2 && loaded.getControl(DIAL) == 6.0F
                 && loaded.getControl(LEVER) == 1.0F, "save and load");
 
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(buf, true);
         StationState mirror = new StationState(SCHEMA);
         mirror.readChanges(buf);
         check(helper, ItemStack.matches(mirror.getItem(SlotRef.of(GRID, 3)), state.getItem(SlotRef.of(GRID, 3))), "full sync");
         state.setControl(DIAL, 4.0F);
-        FriendlyByteBuf delta = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf delta = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(delta, false);
         mirror.takeChanges();
         mirror.readChanges(delta);
@@ -477,16 +478,16 @@ public final class ModGameTests {
         data.putString("fen", "changed afterwards");
         check(helper, state.data().getString("fen").startsWith("8/"), "setData keeps its own copy");
         StationState loaded = new StationState(SCHEMA);
-        loaded.load(state.save());
+        loaded.load(state.save(registries(helper)), registries(helper));
         check(helper, loaded.data().equals(state.data()), "saved and loaded");
 
-        FriendlyByteBuf full = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf full = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(full, true);
         StationState mirror = new StationState(SCHEMA);
         mirror.readChanges(full);
         check(helper, mirror.data().equals(state.data()) && mirror.takeChanges().data(), "a full sync carries the data");
         state.setControl(DIAL, 4.0F);
-        FriendlyByteBuf control = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf control = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(control, false);
         mirror.readChanges(control);
         check(helper, !mirror.takeChanges().data(), "a control's delta does not");
@@ -495,7 +496,7 @@ public final class ModGameTests {
         check(helper, !state.isDirty(), "the same data again changes nothing");
         same.putInt("move", 1);
         state.setData(same);
-        FriendlyByteBuf delta = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf delta = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(delta, false);
         mirror.readChanges(delta);
         check(helper, mirror.data().getInt("move") == 1 && mirror.takeChanges().data(), "new data arrives");
@@ -555,12 +556,12 @@ public final class ModGameTests {
                 new Packets.PresenceUpdate(BlockPos.ZERO, Presence.holding("vial", -1, ItemStack.EMPTY, new Vector3f(1, 2, 3),
                         new Vector3f(4, 5, 6))));
         for (Packets.ClientPacket packet : client) {
-            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
             packet.write(buf);
             Packets.ClientPacket read = Packets.readClient(buf);
             check(helper, read.getClass() == packet.getClass() && buf.readableBytes() == 0, "round trip " + packet);
         }
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         new Packets.Effect(BlockPos.ZERO, DiegesisMod.id("spark"), "flask", new CompoundTag()).write(buf);
         check(helper, Packets.readServer(buf) instanceof Packets.Effect effect && effect.node().equals("flask"), "effect round trip");
         check(helper, !Presence.holding("", -1, ItemStack.EMPTY, new Vector3f(Float.NaN), new Vector3f()).isPlausible(), "NaN presence dropped");
@@ -697,7 +698,6 @@ public final class ModGameTests {
     }
 
     @GameTest(template = "empty")
-    @SuppressWarnings("removal")
     public static void nodeTemplatesExpand(GameTestHelper helper) {
         Map<ResourceLocation, JsonObject> templates = new HashMap<>();
         for (String name : List.of("lever", "switch", "button", "knob", "slider")) {
@@ -710,14 +710,14 @@ public final class ModGameTests {
                 throw new IllegalStateException(e);
             }
         }
-        templates.put(new ResourceLocation("mymod", "big_knob"), JsonParser.parseString(
+        templates.put(ResourceLocation.fromNamespaceAndPath("mymod", "big_knob"), JsonParser.parseString(
                 "{\"template\": \"diegesis:control/knob\", \"scale\": 2, \"control\": {\"range\": [90, -90]}}").getAsJsonObject());
-        templates.put(new ResourceLocation("mymod", "loop"), JsonParser.parseString("{\"template\": \"mymod:loop\"}").getAsJsonObject());
+        templates.put(ResourceLocation.fromNamespaceAndPath("mymod", "loop"),
+                JsonParser.parseString("{\"template\": \"mymod:loop\"}").getAsJsonObject());
 
         JsonObject grid = NodeTemplates.expand(JsonParser.parseString("{\"nodes\": [{\"id\": \"mark\", \"pos\": [10, 5, 0],"
                 + " \"repeat\": {\"count\": [2, 1, 3], \"step\": [-3, 0, 4]}, \"children\": [{\"id\": \"dot\"}]}]}"), templates::get)
-                .getOrThrow(false, error -> {
-                }).getAsJsonObject();
+                .getOrThrow().getAsJsonObject();
         var cells = grid.getAsJsonArray("nodes");
         check(helper, cells.size() == 6, "repeat makes one node per cell: " + cells.size());
         JsonObject last = cells.get(5).getAsJsonObject();
@@ -933,19 +933,25 @@ public final class ModGameTests {
     }
 
     /**
-     * A server player standing in the test level, not in the player list. Forge's version of
-     * {@code makeMockServerPlayerInLevel} fails on its channel-less connection; this one queues what it is sent.
+     * A server player standing in the test level, not in the player list. {@code makeMockServerPlayerInLevel} puts it in the
+     * player list and at the world spawn; this one stays out of everything and queues what it is sent.
      */
     private static ServerPlayer mockPlayer(GameTestHelper helper) {
-        ServerPlayer player = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(),
-                new GameProfile(UUID.randomUUID(), "diegesis-test")) {
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "diegesis-test");
+        ServerPlayer player = new ServerPlayer(helper.getLevel().getServer(), helper.getLevel(), profile,
+                ClientInformation.createDefault()) {
             @Override
             public boolean isSpectator() {
                 return false;
             }
         };
-        new ServerGamePacketListenerImpl(helper.getLevel().getServer(), new Connection(PacketFlow.SERVERBOUND), player);
+        new ServerGamePacketListenerImpl(helper.getLevel().getServer(), new Connection(PacketFlow.SERVERBOUND), player,
+                CommonListenerCookie.createInitial(profile, false));
         return player;
+    }
+
+    private static RegistryAccess registries(GameTestHelper helper) {
+        return helper.getLevel().registryAccess();
     }
 
     /** What the loaders do when the player logs out (before the player is saved). */

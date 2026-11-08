@@ -19,9 +19,8 @@ public final class DiegesisMod {
     private DiegesisMod() {
     }
 
-    @SuppressWarnings("removal")
     public static ResourceLocation id(String path) {
-        return new ResourceLocation(Diegesis.MOD_ID, path);
+        return ResourceLocation.fromNamespaceAndPath(Diegesis.MOD_ID, path);
     }
 
     public static void init() {

@@ -22,61 +22,47 @@ public final class TintedConsumer implements VertexConsumer {
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z) {
-        delegate.vertex(x, y, z);
+    public VertexConsumer addVertex(float x, float y, float z) {
+        delegate.addVertex(x, y, z);
         return this;
     }
 
     @Override
-    public VertexConsumer color(int redValue, int greenValue, int blueValue, int alphaValue) {
-        delegate.color(Math.round(redValue * red), Math.round(greenValue * green), Math.round(blueValue * blue), Math.round(alphaValue * alpha));
-        return this;
-    }
-
-    @Override
-    public VertexConsumer uv(float u, float v) {
-        delegate.uv(u, v);
-        return this;
-    }
-
-    @Override
-    public VertexConsumer overlayCoords(int u, int v) {
-        delegate.overlayCoords(u, v);
-        return this;
-    }
-
-    @Override
-    public VertexConsumer uv2(int u, int v) {
-        delegate.uv2(u, v);
-        return this;
-    }
-
-    @Override
-    public VertexConsumer normal(float x, float y, float z) {
-        delegate.normal(x, y, z);
-        return this;
-    }
-
-    @Override
-    public void endVertex() {
-        delegate.endVertex();
-    }
-
-    @Override
-    public void vertex(float x, float y, float z, float redValue, float greenValue, float blueValue, float alphaValue, float u, float v,
-            int overlay, int light, float normalX, float normalY, float normalZ) {
-        delegate.vertex(x, y, z, redValue * red, greenValue * green, blueValue * blue, alphaValue * alpha, u, v, overlay, light, normalX,
-                normalY, normalZ);
-    }
-
-    @Override
-    public void defaultColor(int redValue, int greenValue, int blueValue, int alphaValue) {
-        delegate.defaultColor(Math.round(redValue * red), Math.round(greenValue * green), Math.round(blueValue * blue),
+    public VertexConsumer setColor(int redValue, int greenValue, int blueValue, int alphaValue) {
+        delegate.setColor(Math.round(redValue * red), Math.round(greenValue * green), Math.round(blueValue * blue),
                 Math.round(alphaValue * alpha));
+        return this;
     }
 
     @Override
-    public void unsetDefaultColor() {
-        delegate.unsetDefaultColor();
+    public VertexConsumer setUv(float u, float v) {
+        delegate.setUv(u, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setUv1(int u, int v) {
+        delegate.setUv1(u, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setUv2(int u, int v) {
+        delegate.setUv2(u, v);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setNormal(float x, float y, float z) {
+        delegate.setNormal(x, y, z);
+        return this;
+    }
+
+    @Override
+    public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY,
+            float normalZ) {
+        int tinted = Math.round((color >>> 24) * alpha) << 24 | Math.round((color >> 16 & 0xFF) * red) << 16
+                | Math.round((color >> 8 & 0xFF) * green) << 8 | Math.round((color & 0xFF) * blue);
+        delegate.addVertex(x, y, z, tinted, u, v, overlay, light, normalX, normalY, normalZ);
     }
 }

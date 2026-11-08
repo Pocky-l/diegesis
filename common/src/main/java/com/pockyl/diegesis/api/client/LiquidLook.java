@@ -16,13 +16,10 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record LiquidLook(int color, ResourceLocation sprite, boolean emissive, float viscosity) {
     /** Vanilla's flow, opaque and nearly white: the colour shows as it is and the alpha alone decides the thickness. */
-    @SuppressWarnings("removal")
-    public static final ResourceLocation LIQUID_SPRITE = new ResourceLocation("diegesis", "block/liquid");
+    public static final ResourceLocation LIQUID_SPRITE = ResourceLocation.fromNamespaceAndPath("diegesis", "block/liquid");
     /** Vanilla water: grey and 30% see-through by itself, so whatever it tints comes out dim and thin. */
-    @SuppressWarnings("removal")
-    public static final ResourceLocation WATER_SPRITE = new ResourceLocation("minecraft", "block/water_still");
-    @SuppressWarnings("removal")
-    public static final ResourceLocation LAVA_SPRITE = new ResourceLocation("minecraft", "block/lava_still");
+    public static final ResourceLocation WATER_SPRITE = ResourceLocation.withDefaultNamespace("block/water_still");
+    public static final ResourceLocation LAVA_SPRITE = ResourceLocation.withDefaultNamespace("block/lava_still");
 
     public LiquidLook(int color, ResourceLocation sprite, boolean emissive) {
         this(color, sprite, emissive, 0.0F);

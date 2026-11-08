@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -329,8 +330,8 @@ public final class LiquidRenderer {
             // The sprite cannot repeat within a polygon; a tank bigger than it shows it stretched rather than cut.
             float u = u0 + uSpan * Mth.clamp(0.5F + (x + z * 0.5F) / spriteWidth, SPRITE_INSET, 1.0F - SPRITE_INSET);
             float v = v0 + vSpan * Mth.clamp(0.5F + (z + y) / spriteHeight, SPRITE_INSET, 1.0F - SPRITE_INSET);
-            consumer.vertex(POINT.x, POINT.y, POINT.z, Math.min(r, 1.0F), Math.min(g, 1.0F), Math.min(b, 1.0F), Mth.clamp(a, 0.0F, 1.0F), u, v,
-                    OverlayTexture.NO_OVERLAY, light, NORMAL.x, NORMAL.y, NORMAL.z);
+            consumer.addVertex(POINT.x, POINT.y, POINT.z, FastColor.ARGB32.colorFromFloat(Mth.clamp(a, 0.0F, 1.0F), Math.min(r, 1.0F),
+                    Math.min(g, 1.0F), Math.min(b, 1.0F)), u, v, OverlayTexture.NO_OVERLAY, light, NORMAL.x, NORMAL.y, NORMAL.z);
         }
 
         /**

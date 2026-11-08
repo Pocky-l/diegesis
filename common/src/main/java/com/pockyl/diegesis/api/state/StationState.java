@@ -1,9 +1,10 @@
 package com.pockyl.diegesis.api.state;
 
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -17,7 +18,7 @@ import java.util.Set;
 /**
  * The live values of a station: the items in its slots, its control values and its computed outputs. The server's copy
  * is the truth; clients hold a mirror that the library keeps in sync. A {@link StationHost} block entity owns one and
- * saves it with {@link #save()} / {@link #load(CompoundTag)}.
+ * saves it with {@link #save(HolderLookup.Provider)} / {@link #load(CompoundTag, HolderLookup.Provider)}.
  *
  * <p>Changes are recorded, so only what changed is sent to the clients.
  */
@@ -245,8 +246,8 @@ public final class StationState {
     // Saving (block entities)
     // ---------------------------------------------------------------------------------------------------------------
 
-    /** Everything as NBT, for a block entity to save. */
-    public CompoundTag save() {
+    /** Everything as NBT, for a block entity to save ({@code saveAdditional} hands over the registries). */
+    public CompoundTag save(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
         CompoundTag slotsTag = new CompoundTag();
         slots.forEach((name, stacks) -> {
@@ -256,9 +257,9 @@ public final class StationState {
             ListTag list = new ListTag();
             for (int i = 0; i < stacks.length; i++) {
                 if (!stacks[i].isEmpty()) {
-                    CompoundTag entry = stacks[i].save(new CompoundTag());
+                    CompoundTag entry = new CompoundTag();
                     entry.putInt("Slot", i);
-                    list.add(entry);
+                    list.add(stacks[i].save(registries, entry));
                 }
             }
             slotsTag.put(name, list);
@@ -284,8 +285,8 @@ public final class StationState {
         return tag;
     }
 
-    /** Reads what {@link #save()} wrote; unknown names (from an older version of the mod) are ignored. */
-    public void load(CompoundTag tag) {
+    /** Reads what {@link #save} wrote; unknown names (from an older version of the mod) are ignored. */
+    public void load(CompoundTag tag, HolderLookup.Provider registries) {
         CompoundTag slotsTag = tag.getCompound("slots");
         slots.forEach((name, stacks) -> {
             if (storages.containsKey(name)) {
@@ -297,7 +298,11 @@ public final class StationState {
                 CompoundTag entry = list.getCompound(i);
                 int index = entry.getInt("Slot");
                 if (index >= 0 && index < stacks.length) {
-                    stacks[index] = ItemStack.of(entry);
+                    if (entry.contains("Count", Tag.TAG_BYTE) && !entry.contains("count")) {
+                        // Saved by a Minecraft 1.20 version of the library: the plain item survives, its old tag does not.
+                        entry.putInt("count", entry.getByte("Count"));
+                    }
+                    stacks[index] = ItemStack.parseOptional(registries, entry);
                 }
             }
         });
@@ -352,7 +357,7 @@ public final class StationState {
 
     /** Writes the changed values (all of them with {@code full}) and forgets the changes. */
     @ApiStatus.Internal
-    public void writeChanges(FriendlyByteBuf buf, boolean full) {
+    public void writeChanges(RegistryFriendlyByteBuf buf, boolean full) {
         if (full) {
             markAllDirty();
         }
@@ -360,7 +365,7 @@ public final class StationState {
         for (SlotRef ref : dirtySlots) {
             buf.writeUtf(ref.group());
             buf.writeVarInt(ref.index());
-            buf.writeItem(getItem(ref));
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, getItem(ref));
         }
         buf.writeVarInt(dirtyPoses.size());
         for (SlotRef ref : dirtyPoses) {
@@ -380,7 +385,7 @@ public final class StationState {
         buf.writeVarInt(dirtyOutputs.size());
         for (String name : dirtyOutputs) {
             buf.writeUtf(name);
-            buf.writeItem(outputs.get(name));
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, outputs.get(name));
         }
         buf.writeVarInt(dirtyTanks.size());
         for (String name : dirtyTanks) {
@@ -396,11 +401,11 @@ public final class StationState {
 
     /** Applies what {@link #writeChanges} wrote; values the schema does not know are skipped. */
     @ApiStatus.Internal
-    public void readChanges(FriendlyByteBuf buf) {
+    public void readChanges(RegistryFriendlyByteBuf buf) {
         int slotCount = buf.readVarInt();
         for (int i = 0; i < slotCount; i++) {
             SlotRef ref = new SlotRef(buf.readUtf(), buf.readVarInt());
-            ItemStack stack = buf.readItem();
+            ItemStack stack = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
             ItemStack[] group = slots.get(ref.group());
             if (group != null && ref.index() < group.length) {
                 group[ref.index()] = stack;
@@ -432,7 +437,7 @@ public final class StationState {
         int outputCount = buf.readVarInt();
         for (int i = 0; i < outputCount; i++) {
             String name = buf.readUtf();
-            ItemStack stack = buf.readItem();
+            ItemStack stack = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
             if (outputs.containsKey(name)) {
                 outputs.put(name, stack);
                 dirtyOutputs.add(name);

@@ -51,9 +51,8 @@ public record ParticleStyle(List<ResourceLocation> sprites, int color, float[] s
     }
 
     /** Sprites {@code minecraft:<base>_0} .. {@code <base>_<count - 1>}. */
-    @SuppressWarnings("removal")
     public static List<ResourceLocation> frames(String base, int count) {
-        return java.util.stream.IntStream.range(0, count).mapToObj(i -> new ResourceLocation("minecraft", base + "_" + i)).toList();
+        return java.util.stream.IntStream.range(0, count).mapToObj(i -> ResourceLocation.withDefaultNamespace(base + "_" + i)).toList();
     }
 
     public static final class Builder {

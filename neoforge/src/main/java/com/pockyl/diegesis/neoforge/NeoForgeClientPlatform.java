@@ -1,29 +1,28 @@
-package com.pockyl.diegesis.forge;
+package com.pockyl.diegesis.neoforge;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
 
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.ClientPlatform;
 
-public final class ForgeClientPlatform implements ClientPlatform {
+public final class NeoForgeClientPlatform implements ClientPlatform {
     @Override
     public boolean serverHasChannel() {
-        ClientPacketListener connection = Minecraft.getInstance().getConnection();
-        return connection != null && ForgeNetwork.present(connection.getConnection());
+        return NeoForgeNetwork.serverHasChannel();
     }
 
     @Override
     public void sendToServer(Packets.ClientPacket packet) {
         if (serverHasChannel()) {
-            ForgeNetwork.sendToServer(packet);
+            NeoForgeNetwork.sendToServer(packet);
         }
     }
 
     @Override
     public BakedModel getModel(ResourceLocation id) {
-        return Minecraft.getInstance().getModelManager().getModel(id);
+        return Minecraft.getInstance().getModelManager().getModel(ModelResourceLocation.standalone(id));
     }
 }
