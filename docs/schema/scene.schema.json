@@ -116,6 +116,15 @@
           "$ref": "#/definitions/clear_view",
           "description": "What stands between the camera and the station dissolves."
         },
+        "gains": {
+          "$ref": "#/definitions/gains",
+          "description": "What the player gets at the station flies into the inventory."
+        },
+        "put_away": {
+          "type": "boolean",
+          "description": "A right click with a stack on the cursor that nothing in the scene takes puts the stack back into the inventory, to the slot it came from while that is free.",
+          "default": true
+        },
         "placing": {
           "$ref": "#/definitions/placing",
           "description": "Lets items be put down anywhere on the scene's surfaces, turned and sized freely."
@@ -179,6 +188,102 @@
             "$ref": "#/definitions/camera_glance"
           },
           "description": "Other places the player's look can go to: the cursor resting at an edge of the screen, or code, glides the camera there and back."
+        },
+        "neighbors": {
+          "$ref": "#/definitions/camera_neighbors",
+          "description": "Going over to a station standing next to this one: the cursor resting at the edge of the screen on its side flies the camera there."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "gains": {
+      "type": "object",
+      "description": "What the player gets at the station, seen going into the inventory; every field is optional.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "A stack that comes into the inventory, other than from the player's own cursor, flies from the station to its slot, which bounces as it lands.",
+          "default": true
+        },
+        "time": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 3,
+          "description": "Seconds a stack flies.",
+          "default": 0.45
+        },
+        "hold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Seconds a stack whose slot the drawer does not show stands next to the drawer.",
+          "default": 1.6
+        },
+        "sound": {
+          "type": "boolean",
+          "description": "A soft pop as it lands.",
+          "default": true
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "camera_neighbors": {
+      "type": "object",
+      "description": "Going over to neighbouring stations without leaving; every field is optional.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Neighbours are reachable from this station, and this station from theirs.",
+          "default": true
+        },
+        "range": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "description": "How far another station may stand, blocks along the floor; one up or down counts too.",
+          "default": 3
+        },
+        "zone": {
+          "type": "number",
+          "minimum": 0.005,
+          "maximum": 0.3,
+          "description": "How far from the edge the cursor counts as being at it, as a part of the screen.",
+          "default": 0.03
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Seconds the cursor must rest there, so that passing by moves nothing.",
+          "default": 0.3
+        },
+        "time": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 5,
+          "description": "Seconds the camera takes to fly over.",
+          "default": 0.65
+        },
+        "hint": {
+          "type": "boolean",
+          "description": "Draw a small arrow at an edge that leads to a neighbour, as the cursor comes near it.",
+          "default": true
+        },
+        "hint_color": {
+          "$ref": "#/definitions/color",
+          "description": "Colour of the arrow; its alpha is the strongest it gets, with the cursor at the edge.",
+          "default": "#D0FFFFFF"
+        },
+        "keys": {
+          "type": "boolean",
+          "description": "The movement and arrow keys go over at once to the neighbour on their side: A, D and left, right; W and up to the top edge, S and down to the bottom one.",
+          "default": true
         }
       },
       "patternProperties": {
@@ -1439,6 +1544,11 @@
           "type": "boolean",
           "description": "It slides out when the station opens and stays out, without an icon; Escape leaves the station at once.",
           "default": false
+        },
+        "compact": {
+          "type": "boolean",
+          "description": "Only the stacks the station can use (StationView.setInventoryFilter), in rows of up to nine, the drawer no bigger than they are.",
+          "default": false
         }
       },
       "patternProperties": {
@@ -1689,6 +1799,206 @@
             }
           ],
           "description": "Other places the player's look can go to: the cursor resting at an edge of the screen, or code, glides the camera there and back."
+        },
+        "neighbors": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/camera_neighbors_partial",
+              "description": "Going over to a station standing next to this one: the cursor resting at the edge of the screen on its side flies the camera there."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Going over to a station standing next to this one: the cursor resting at the edge of the screen on its side flies the camera there."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "gains_partial": {
+      "type": "object",
+      "description": "What the player gets at the station, seen going into the inventory; every field is optional.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "A stack that comes into the inventory, other than from the player's own cursor, flies from the station to its slot, which bounces as it lands.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A stack that comes into the inventory, other than from the player's own cursor, flies from the station to its slot, which bounces as it lands."
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.05,
+              "maximum": 3,
+              "description": "Seconds a stack flies.",
+              "default": 0.45
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds a stack flies."
+        },
+        "hold": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Seconds a stack whose slot the drawer does not show stands next to the drawer.",
+              "default": 1.6
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds a stack whose slot the drawer does not show stands next to the drawer."
+        },
+        "sound": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "A soft pop as it lands.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A soft pop as it lands."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "camera_neighbors_partial": {
+      "type": "object",
+      "description": "Going over to neighbouring stations without leaving; every field is optional.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Neighbours are reachable from this station, and this station from theirs.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Neighbours are reachable from this station, and this station from theirs."
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "description": "How far another station may stand, blocks along the floor; one up or down counts too.",
+              "default": 3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far another station may stand, blocks along the floor; one up or down counts too."
+        },
+        "zone": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.005,
+              "maximum": 0.3,
+              "description": "How far from the edge the cursor counts as being at it, as a part of the screen.",
+              "default": 0.03
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far from the edge the cursor counts as being at it, as a part of the screen."
+        },
+        "delay": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Seconds the cursor must rest there, so that passing by moves nothing.",
+              "default": 0.3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds the cursor must rest there, so that passing by moves nothing."
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.05,
+              "maximum": 5,
+              "description": "Seconds the camera takes to fly over.",
+              "default": 0.65
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds the camera takes to fly over."
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Draw a small arrow at an edge that leads to a neighbour, as the cursor comes near it.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Draw a small arrow at an edge that leads to a neighbour, as the cursor comes near it."
+        },
+        "hint_color": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/color",
+              "description": "Colour of the arrow; its alpha is the strongest it gets, with the cursor at the edge.",
+              "default": "#D0FFFFFF"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Colour of the arrow; its alpha is the strongest it gets, with the cursor at the edge."
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "The movement and arrow keys go over at once to the neighbour on their side: A, D and left, right; W and up to the top edge, S and down to the bottom one.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The movement and arrow keys go over at once to the neighbour on their side: A, D and left, right; W and up to the top edge, S and down to the bottom one."
         }
       },
       "patternProperties": {
@@ -4056,6 +4366,19 @@
             }
           ],
           "description": "It slides out when the station opens and stays out, without an icon; Escape leaves the station at once."
+        },
+        "compact": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Only the stacks the station can use (StationView.setInventoryFilter), in rows of up to nine, the drawer no bigger than they are.",
+              "default": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Only the stacks the station can use (StationView.setInventoryFilter), in rows of up to nine, the drawer no bigger than they are."
         }
       },
       "patternProperties": {

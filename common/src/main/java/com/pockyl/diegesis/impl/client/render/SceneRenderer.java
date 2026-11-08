@@ -342,7 +342,7 @@ public final class SceneRenderer {
         }
         if (carried != null && carried.inWorld() && carried.preview() != null) {
             renderPreview(carried, scene.definition().placing().orElseThrow(), poseStack, buffers, shadows, light, level);
-        } else if (carried != null && carried.inWorld()) {
+        } else if (carried != null && carried.inWorld() && !station.isCarriedHidden()) {
             renderCarried(carried.stack(), carried.stationPos(), carried.lean(), carried.size(), poseStack, buffers, shadows, workPlane,
                     light, level);
             poseStack.pushPose();

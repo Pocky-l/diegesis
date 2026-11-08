@@ -21,7 +21,9 @@ import com.pockyl.diegesis.impl.action.StationAction.Target;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Checks a player's action against the station's schema and logic and applies it. Item clicks follow vanilla
@@ -31,6 +33,11 @@ import java.util.Set;
 public final class ActionHandler {
     /** At most this many outputs are taken by one shift-click, like shift-clicking a crafting result. */
     private static final int MAX_TAKE_ALL = 64;
+    /**
+     * The inventory slot each player's cursor stack was taken from whole: when the station closes it goes back there, so a knife
+     * taken from the hotbar is in the hand again, not in the first free slot.
+     */
+    private static final Map<Player, Integer> TAKEN_FROM = new WeakHashMap<>();
 
     private ActionHandler() {
     }
@@ -80,6 +87,9 @@ public final class ActionHandler {
         if (click.button() != 0 && click.button() != 1) {
             return false;
         }
+        if (click.kind() == ClickKind.PUT_AWAY) {
+            return putAway(player);
+        }
         if (click.target() instanceof Target.Output output) {
             return clickOutput(station, logic, player, output.output(), click.kind());
         }
@@ -91,6 +101,7 @@ public final class ActionHandler {
             case PICKUP -> pickup(slot, player, click.button());
             case QUICK_MOVE -> quickMove(station, logic, player, slot);
             case PICKUP_ALL -> pickupAll(station, logic, player);
+            case PUT_AWAY -> putAway(player);
         };
     }
 
@@ -116,6 +127,11 @@ public final class ActionHandler {
             setCarried(player, taken);
             slot.set(stack);
             slot.taken(taken);
+            if (slot instanceof InventorySlot inventory && stack.isEmpty()) {
+                TAKEN_FROM.put(player, inventory.index());
+            } else {
+                TAKEN_FROM.remove(player);
+            }
             return true;
         }
         if (ItemStack.isSameItemSameComponents(stack, carried)) {
@@ -259,6 +275,28 @@ public final class ActionHandler {
         }
         setCarried(player, carried);
         return changed;
+    }
+
+    /**
+     * The carried stack back into the inventory: to the slot it was taken from while that is empty, else where it fits, as a picked
+     * up item goes; what does not fit stays on the cursor.
+     */
+    private static boolean putAway(Player player) {
+        ItemStack carried = carried(player);
+        if (carried.isEmpty()) {
+            return false;
+        }
+        Integer from = TAKEN_FROM.remove(player);
+        if (from != null && player.getInventory().getItem(from).isEmpty()) {
+            player.getInventory().setItem(from, carried);
+            setCarried(player, ItemStack.EMPTY);
+            return true;
+        }
+        int before = carried.getCount();
+        ItemStack rest = carried.copy();
+        player.getInventory().add(rest);
+        setCarried(player, rest);
+        return rest.getCount() < before;
     }
 
     /** An output: a click takes one result onto the cursor (stacking), a shift-click crafts as many as fit. */
@@ -457,9 +495,14 @@ public final class ActionHandler {
                 && !(player instanceof ServerPlayer serverPlayer && serverPlayer.hasDisconnected());
         if (player != null) {
             ItemStack carried = carried(player);
+            Integer from = TAKEN_FROM.remove(player);
             if (!carried.isEmpty()) {
                 setCarried(player, ItemStack.EMPTY);
-                give(station, player, carried, present);
+                if (present && from != null && player.getInventory().getItem(from).isEmpty()) {
+                    player.getInventory().setItem(from, carried);
+                } else {
+                    give(station, player, carried, present);
+                }
             }
         }
         if (!lastUser) {

@@ -19,6 +19,11 @@ public final class DiegesisNeoForge {
         modBus.addListener(NeoForgeNetwork::register);
         IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener(ServerTickEvent.Post.class, event -> DiegesisMod.onServerTick(event.getServer()));
+        bus.addListener(PlayerEvent.PlayerLoggedInEvent.class, event -> {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                DiegesisMod.onChannelReady(player);
+            }
+        });
         bus.addListener(PlayerEvent.PlayerLoggedOutEvent.class, event -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 DiegesisMod.onPlayerLogout(player);

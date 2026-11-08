@@ -24,7 +24,8 @@ import com.pockyl.diegesis.platform.ClientPlatform;
  * focus screen open and decides when interaction is allowed (after the server accepted, for server stations).
  *
  * <p>States: idle, entering (camera flying in), focused, exiting (flying back). Progress runs on real time, so the
- * flight is smooth at any frame rate and tick lag.
+ * flight is smooth at any frame rate and tick lag. Going over to a neighbouring station is entering it from where the camera
+ * was at the station left, not from the player's eyes.
  */
 public final class FocusController {
     private static final FocusController INSTANCE = new FocusController();
@@ -44,6 +45,16 @@ public final class FocusController {
     /** Where the camera's base shot is now: the seat's, or the rig's; glides when the server gives another seat. */
     private final Vector3f basePosition = new Vector3f();
     private final Vector3f baseTarget = new Vector3f();
+    /** Where the camera flies from while going over to a neighbour, and its field of view there; null otherwise. */
+    private CameraPose flightFrom;
+    private double flightFromFov;
+    private float flightTime;
+    /** Leaving half way over to a neighbour: the camera flies back from where it was then, not from the rig. */
+    private CameraPose exitFrom;
+    private double exitFromFov;
+    /** The pose and field of view of the last frame. */
+    private CameraPose lastPose;
+    private double lastFov;
 
     private FocusController() {
     }
@@ -77,10 +88,12 @@ public final class FocusController {
         if (player == null) {
             return;
         }
+        target.setOpenedByUse(true);
         if (phase == Phase.EXITING && station != null && station.pos().equals(target.pos())) {
             // Used again while the camera was still flying back: turn round from where it is. The HUD state saved at
             // the first entry stays the one to restore.
             station = target;
+            exitFrom = null;
             confirmed = !awaitServer;
             phase = Phase.ENTERING;
             lastFrameNanos = Util.getNanos();
@@ -102,13 +115,56 @@ public final class FocusController {
         startPitch = player.getXRot();
         savedHideGui = minecraft.options.hideGui;
         minecraft.options.hideGui = true;
+        flightFrom = null;
+        exitFrom = null;
         FocusInput.get().look().reset();
+        FocusInput.get().neighbors().reset();
+        FocusInput.get().gains().reset();
         snapBaseShot();
         lookAtStation(player);
         if (confirmed) {
             station.setFocusedInternal(true);
         }
         minecraft.setScreen(new FocusScreen());
+    }
+
+    /**
+     * Goes over from the station worked at to {@code target}, a neighbour: the camera flies from where it is to the new rig in
+     * {@code seconds}, the focus screen stays, and the station left hears that the player has gone.
+     */
+    public void goOver(ClientStation target, boolean awaitServer, float seconds) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null || phase != Phase.FOCUSED || station == null || lastPose == null) {
+            return;
+        }
+        FocusInput.get().cancel();
+        FocusInput.get().look().reset();
+        FocusInput.get().neighbors().reset();
+        ClientStation left = station;
+        boolean wasConfirmed = confirmed;
+        target.setOpenedByUse(false);
+        flightFrom = lastPose;
+        flightFromFov = lastFov;
+        flightTime = seconds;
+        station = target;
+        confirmed = !awaitServer;
+        phase = Phase.ENTERING;
+        progress = 0.0F;
+        lastFrameNanos = Util.getNanos();
+        snapBaseShot();
+        lookAtStation(player);
+        // The station left hears of it with the flight under way: what it hands over (a book in the air) knows where to.
+        if (wasConfirmed) {
+            left.setFocusedInternal(false);
+        }
+        if (confirmed) {
+            station.setFocusedInternal(true);
+        }
+    }
+
+    /** How far the camera has flown over to a neighbouring station, eased, 0 to 1; 1 when it is not flying over. */
+    public float goingOver() {
+        return flightFrom == null ? 1.0F : blend();
     }
 
     private void snapBaseShot() {
@@ -134,10 +190,10 @@ public final class FocusController {
         }
     }
 
-    /** The server refused. */
+    /** The server refused; after going over to a neighbour it still holds the player at the station left: that ends too. */
     public void abort(BlockPos pos) {
         if (station != null && station.pos().equals(pos)) {
-            exit(false);
+            exit(true);
         }
     }
 
@@ -164,6 +220,13 @@ public final class FocusController {
         if (confirmed) {
             station.setFocusedInternal(false);
         }
+        if (flightFrom != null && lastPose != null) {
+            // Half way over to a neighbour: back from where the camera is, over the whole way out.
+            exitFrom = lastPose;
+            exitFromFov = lastFov;
+            flightFrom = null;
+            progress = 1.0F;
+        }
         phase = Phase.EXITING;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof FocusScreen) {
@@ -181,6 +244,9 @@ public final class FocusController {
         phase = Phase.IDLE;
         station = null;
         confirmed = false;
+        flightFrom = null;
+        exitFrom = null;
+        lastPose = null;
     }
 
     /** Advances the camera flight; once per frame, before the camera is set up. */
@@ -197,12 +263,13 @@ public final class FocusController {
         float settle = 1.0F - (float) Math.exp(-dt * SEAT_GLIDE);
         basePosition.lerp(seat != null ? seat.position() : currentRig.position(), settle);
         baseTarget.lerp(seat != null ? seat.target() : currentRig.target(), settle);
-        float duration = Math.max(currentRig.transition(), 0.01F);
+        float duration = Math.max(flightFrom != null ? flightTime : currentRig.transition(), 0.01F);
         Minecraft minecraft = Minecraft.getInstance();
         if (phase == Phase.ENTERING) {
             progress = Math.min(1.0F, progress + dt / duration);
             if (progress >= 1.0F) {
                 phase = Phase.FOCUSED;
+                flightFrom = null;
             }
         } else if (phase == Phase.EXITING) {
             progress = Math.max(0.0F, progress - dt / duration);
@@ -210,6 +277,8 @@ public final class FocusController {
                 minecraft.options.hideGui = savedHideGui;
                 phase = Phase.IDLE;
                 station = null;
+                exitFrom = null;
+                lastPose = null;
                 return;
             }
         }
@@ -257,6 +326,28 @@ public final class FocusController {
         if (phase == Phase.IDLE || station == null) {
             return null;
         }
+        float t = blend();
+        CameraPose from;
+        CameraPose to = rigPose();
+        if (flightFrom != null) {
+            from = flightFrom;
+        } else if (phase == Phase.EXITING) {
+            from = new CameraPose(eye, playerYaw, playerPitch);
+            if (exitFrom != null) {
+                to = exitFrom;
+            }
+        } else {
+            from = new CameraPose(eye, startYaw, startPitch);
+        }
+        Vec3 pos = from.position().lerp(to.position(), t).add(0.0, Math.sin(Math.PI * t) * ARC_HEIGHT, 0.0);
+        float yaw = from.yaw() + Mth.wrapDegrees(to.yaw() - from.yaw()) * t;
+        float pitch = Mth.lerp(t, from.pitch(), to.pitch());
+        lastPose = new CameraPose(pos, yaw, pitch);
+        return lastPose;
+    }
+
+    /** Where the camera is at the rig this frame: the seat's or the rig's shot, moved by the inventory shot and a glance. */
+    private CameraPose rigPose() {
         CameraRig rig = rig();
         Vector3f position = new Vector3f(basePosition);
         Vector3f target = new Vector3f(baseTarget);
@@ -276,14 +367,7 @@ public final class FocusController {
         Vec3 dir = rigTarget.subtract(rigPos);
         float rigYaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
         float rigPitch = (float) -Math.toDegrees(Math.atan2(dir.y, Math.sqrt(dir.x * dir.x + dir.z * dir.z)));
-
-        float t = blend();
-        float fromYaw = phase == Phase.EXITING ? playerYaw : startYaw;
-        float fromPitch = phase == Phase.EXITING ? playerPitch : startPitch;
-        Vec3 pos = eye.lerp(rigPos, t).add(0.0, Math.sin(Math.PI * t) * ARC_HEIGHT, 0.0);
-        float yaw = fromYaw + Mth.wrapDegrees(rigYaw - fromYaw) * t;
-        float pitch = Mth.lerp(t, fromPitch, rigPitch);
-        return new CameraPose(pos, yaw, pitch);
+        return new CameraPose(rigPos, rigYaw, rigPitch);
     }
 
     /** The field of view while focused, blended from the player's {@code original}. */
@@ -302,7 +386,15 @@ public final class FocusController {
         if (look.amount() > 0.0F && look.shot().fov() > 0.0F) {
             rigFov = Mth.lerp(look.amount(), rigFov <= 0.0F ? (float) original : rigFov, look.shot().fov());
         }
-        return rigFov <= 0.0F ? original : Mth.lerp(blend(), original, rigFov);
+        double there = rigFov <= 0.0F ? original : rigFov;
+        if (flightFrom != null) {
+            lastFov = Mth.lerp(blend(), flightFromFov > 0.0 ? flightFromFov : there, there);
+        } else if (phase == Phase.EXITING && exitFrom != null) {
+            lastFov = Mth.lerp(blend(), original, exitFromFov);
+        } else {
+            lastFov = Mth.lerp(blend(), original, there);
+        }
+        return lastFov;
     }
 
     /** How far the camera is towards the rig's inventory shot, 0 to 1, eased; 0 without one. */

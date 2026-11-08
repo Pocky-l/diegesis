@@ -62,17 +62,34 @@ public final class DiegesisClientRuntime {
                 return type != null ? InteractionResult.CONSUME : null;
             }
         }
-        if (type == null || player.isSpectator() || !type.openCondition().test(player, pos, state)) {
-            return null;
-        }
-        if (player.getEyePosition().distanceToSqr(pos.getCenter()) > type.reach() * type.reach()) {
+        if (type == null || !mayOpen(player, type, pos, state)) {
             return null;
         }
         boolean server = type.authority() == Authority.SERVER;
-        if (server && !ClientPlatform.INSTANCE.serverHasChannel()) {
-            // The server lacks the library: keep the block's vanilla behaviour.
-            return null;
+        ClientStation station = prepare(player, type, pos, state);
+        if (server) {
+            ClientPlatform.INSTANCE.sendToServer(new Packets.Open(pos));
         }
+        FocusController.get().begin(station, server);
+        return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * Whether the player may open {@code type}'s station at {@code pos} now: its condition, the reach from where they stand,
+     * and a server that has the library (else the block keeps its vanilla behaviour).
+     */
+    public static boolean mayOpen(LocalPlayer player, StationType type, BlockPos pos, BlockState state) {
+        if (player.isSpectator() || !type.openCondition().test(player, pos, state)) {
+            return false;
+        }
+        if (player.getEyePosition().distanceToSqr(pos.getCenter()) > type.reach() * type.reach()) {
+            return false;
+        }
+        return type.authority() != Authority.SERVER || ClientPlatform.INSTANCE.serverHasChannel() && ClientStations.get().serverHas(type);
+    }
+
+    /** The client's station at {@code pos}, facing as it opens for the player, in the seat they would likely get. */
+    private static ClientStation prepare(LocalPlayer player, StationType type, BlockPos pos, BlockState state) {
         Direction towardsPlayer = Direction.getNearest(player.getX() - pos.getX() - 0.5, 0.0, player.getZ() - pos.getZ() - 0.5);
         if (!towardsPlayer.getAxis().isHorizontal()) {
             towardsPlayer = player.getDirection().getOpposite();
@@ -80,11 +97,35 @@ public final class DiegesisClientRuntime {
         ClientStation station = ClientStations.get().getOrCreate(type, pos, type.orientation().resolve(state, towardsPlayer));
         // Fly towards the likely seat at once; the server's answer settles it.
         station.setSeat(type.nearestSeat(pos, station.facing(), player.position(), seat -> true).map(seat -> seat.id()).orElse(null));
+        return station;
+    }
+
+    /**
+     * Goes over from the station worked at to the one at {@code pos} without leaving: the camera flies from one to the other
+     * over {@code seconds}. False when that station cannot be opened now.
+     */
+    public static boolean goOver(BlockPos pos, float seconds) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        FocusController focus = FocusController.get();
+        if (player == null || !focus.isInteractive()) {
+            return false;
+        }
+        BlockState state = player.level().getBlockState(pos);
+        StationType type = StationRegistry.find(state).orElse(null);
+        if (type == null || !type.anchor().resolve(player.level(), pos, state).equals(pos) || !mayOpen(player, type, pos, state)) {
+            return false;
+        }
+        boolean server = type.authority() == Authority.SERVER;
+        if (focus.station().type().authority() == Authority.SERVER && !server) {
+            ClientPlatform.INSTANCE.sendToServer(new Packets.Close());
+        }
+        ClientStation station = prepare(player, type, pos, state);
         if (server) {
+            // The server ends the use of the station left as it opens this one.
             ClientPlatform.INSTANCE.sendToServer(new Packets.Open(pos));
         }
-        FocusController.get().begin(station, server);
-        return InteractionResult.SUCCESS;
+        focus.goOver(station, server, seconds);
+        return true;
     }
 
     /** Whether the camera is taken over this frame; the camera hook asks first. */

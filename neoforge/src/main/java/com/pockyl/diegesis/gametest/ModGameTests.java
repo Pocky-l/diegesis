@@ -180,6 +180,28 @@ public final class ModGameTests {
         helper.succeed();
     }
 
+    /** A right click nothing takes puts the cursor's stack away: back to its slot while that is free, else where it fits. */
+    @GameTest(template = "empty")
+    public static void aRightClickPutsTheHandAway(GameTestHelper helper) {
+        TestContext station = new TestContext(helper.getLevel());
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
+        player.getInventory().setItem(7, new ItemStack(Items.SHEARS));
+        check(helper, click(station, player, inv(7), 0), "take the shears");
+        check(helper, putAway(station, player), "put away");
+        check(helper, carried(player).isEmpty() && player.getInventory().getItem(7).is(Items.SHEARS), "back in their slot");
+        check(helper, click(station, player, inv(7), 0), "take them again");
+        player.getInventory().setItem(7, new ItemStack(Items.FLINT));
+        check(helper, putAway(station, player), "put away with the slot taken");
+        check(helper, carried(player).isEmpty() && total(station, player, Items.SHEARS) == 1 && !player.getInventory().getItem(7).is(Items.SHEARS),
+                "somewhere else");
+        check(helper, !putAway(station, player), "nothing to put away");
+        helper.succeed();
+    }
+
+    private static boolean putAway(TestContext station, Player player) {
+        return ActionHandler.apply(station, StationLogic.NONE, player, new StationAction.Click(inv(0), 1, ClickKind.PUT_AWAY));
+    }
+
     /** A bound group is a window: the storage is the truth both ways, and changes made behind the state's back are noticed. */
     @GameTest(template = "empty")
     public static void boundSlotsAreAWindowOnTheirStorage(GameTestHelper helper) {

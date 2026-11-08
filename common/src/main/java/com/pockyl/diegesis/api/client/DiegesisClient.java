@@ -90,6 +90,15 @@ public final class DiegesisClient {
         return FocusController.get().isActive();
     }
 
+    /**
+     * How far the camera has flown over from one station to a neighbour ({@code camera.neighbors}), eased, 0 to 1; 1 when it is not
+     * flying over. Below 1 while the station left hears {@code onClose}: it can hand what floats in the air over to the next one,
+     * which is {@link #focusedStation()} from then on, also before the server has let the player in.
+     */
+    public static float goingOver() {
+        return FocusController.get().goingOver();
+    }
+
     /** The station the local player works at. */
     public static Optional<StationView> focusedStation() {
         return Optional.ofNullable(FocusController.get().station());
@@ -97,10 +106,22 @@ public final class DiegesisClient {
 
     /**
      * Buffers for a {@link NodePainter} that multiply an ARGB colour into what is drawn through them; an alpha below 255 fades it. Items
-     * and models cannot be tinted otherwise. What is faded must be drawn with a see-through render type, as items in the GUI display are.
+     * and models cannot be tinted otherwise. Block items (a carrot, a mushroom) ask for the block sheet's solid or cutout type, which
+     * ignores alpha: through these buffers they get the see-through item type, so they fade like any other icon. Other models must
+     * be drawn with a see-through render type to fade.
      */
     public static net.minecraft.client.renderer.MultiBufferSource tinted(net.minecraft.client.renderer.MultiBufferSource buffers, int argb) {
-        return type -> new com.pockyl.diegesis.impl.client.render.TintedConsumer(buffers.getBuffer(type), argb);
+        boolean fading = argb >>> 24 < 255;
+        return type -> new com.pockyl.diegesis.impl.client.render.TintedConsumer(buffers.getBuffer(fading ? seeThrough(type) : type), argb);
+    }
+
+    private static net.minecraft.client.renderer.RenderType seeThrough(net.minecraft.client.renderer.RenderType type) {
+        if (type == net.minecraft.client.renderer.Sheets.cutoutBlockSheet() || type == net.minecraft.client.renderer.Sheets.solidBlockSheet()
+                || type == net.minecraft.client.renderer.RenderType.cutout() || type == net.minecraft.client.renderer.RenderType.cutoutMipped()
+                || type == net.minecraft.client.renderer.RenderType.solid()) {
+            return net.minecraft.client.renderer.Sheets.translucentItemSheet();
+        }
+        return type;
     }
 
     /** A station shown on this client at {@code pos}. */

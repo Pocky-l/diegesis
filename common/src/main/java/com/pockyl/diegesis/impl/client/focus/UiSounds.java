@@ -9,7 +9,7 @@ import net.minecraft.world.phys.Vec3;
 import com.pockyl.diegesis.api.client.DiegesisSounds;
 
 /** The quiet foley of working at a station: picking up, putting down, levers and knobs. */
-final class UiSounds {
+public final class UiSounds {
     private UiSounds() {
     }
 
@@ -17,7 +17,7 @@ final class UiSounds {
         play(DiegesisSounds.PICK_UP, at, 0.5F, 1.1F);
     }
 
-    static void putDown(Vec3 at) {
+    public static void putDown(Vec3 at) {
         play(DiegesisSounds.PUT_DOWN, at, 0.5F, 0.95F);
     }
 

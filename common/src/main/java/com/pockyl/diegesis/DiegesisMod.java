@@ -32,6 +32,11 @@ public final class DiegesisMod {
         StationManager.get(server).tick();
     }
 
+    /** A player's client has the library's channel: it hears which stations this server has. */
+    public static void onChannelReady(ServerPlayer player) {
+        StationManager.get(player.server).sendStationTypes(player);
+    }
+
     public static void onPlayerLogout(ServerPlayer player) {
         StationManager.get(player.server).onLogout(player);
     }

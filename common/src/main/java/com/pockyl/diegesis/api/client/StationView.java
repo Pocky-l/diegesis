@@ -5,6 +5,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3fc;
@@ -13,6 +14,7 @@ import com.pockyl.diegesis.api.state.StationState;
 import com.pockyl.diegesis.api.station.StationType;
 
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /** A station shown on this client, as its {@link StationBehavior} sees it. */
 public interface StationView {
@@ -30,6 +32,12 @@ public interface StationView {
 
     /** Whether the local player is working at the station right now. */
     boolean isFocused();
+
+    /**
+     * Whether anybody works at the station right now, the local player or another one. While so, a station that
+     * {@code hidesBlock()} is drawn by its scene alone: show the scene's copy of the block then, and only then.
+     */
+    boolean isInUse();
 
     /** The seat the local player holds here ({@code StationType.Builder.seat}); empty when they have none. */
     Optional<String> seat();
@@ -101,6 +109,45 @@ public interface StationView {
 
     /** Whether the scene's inventory is out for the local player. */
     boolean isInventoryOpen();
+
+    /**
+     * Which of the local player's stacks a {@code compact} inventory drawer shows: the ones the station can use. Null, the
+     * default, shows every stack that is not empty.
+     */
+    void setInventoryFilter(Predicate<ItemStack> filter);
+
+    /**
+     * Whether the library leaves out the stack on the local player's cursor while it is over the scene: the station draws it
+     * itself, as the tool it is (a knife over a board that comes down when clicked). Set it every frame it should hold; it is off
+     * again when the player leaves.
+     */
+    void setCarriedHidden(boolean hidden);
+
+    /**
+     * Keeps the stroke going after its button came up, until the next click, which ends it and does nothing else: a short click on
+     * a stroke node can take the object in hand (a spoon to stir with) so that nobody has to hold the button. Works only while the
+     * behaviour hears that stroke's {@code SceneEvent.Stroke} END; the stroke starts again with START.
+     */
+    void holdStroke();
+
+    /**
+     * Whether the local player came to the station by using its block, not by going over from a neighbour: what they held in the
+     * hand was meant for it (food to put down, a knife to cut with). Holds while they work here.
+     */
+    boolean openedByUse();
+
+    /**
+     * Takes the stack in the player's inventory slot {@code slot} (0-35, the hotbar first) onto the cursor, as a click on it in the
+     * drawer does; the server's answer decides. When the player leaves, it goes back to that slot if that is still free.
+     */
+    void takeFromInventory(int slot);
+
+    /**
+     * Puts the stack on the cursor back into the player's inventory, to the slot it was taken from while that is free, as a right
+     * click that nothing in the scene takes does (scene option {@code put_away}); the server's answer decides. For a station whose
+     * own right click would otherwise use the stack, such as a knife over food.
+     */
+    void putAwayCarried();
 
     /**
      * Glides the local player's camera to a glance of the rig ({@code camera.glances}); it stays there until the player

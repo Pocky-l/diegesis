@@ -31,10 +31,15 @@ import java.util.function.Consumer;
  * @param captions   how the lines of {@code StationView.showCaption} look
  * @param placing    lets items be put down anywhere on the scene's surfaces, turned and sized freely
  * @param clearView  what stands between the camera and the station dissolves while the player works here
+ * @param gains      how what the player gets is seen going into the inventory
+ * @param putAway    a right click with a stack on the cursor that nothing in the scene takes puts the stack back into the
+ *                   inventory, to the slot it came from while that is empty (owner, 2026-11-08: "a right click must put away
+ *                   what is in the hand, a knife for one")
  */
 public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVisible, List<NodeDefinition> nodes,
         Optional<InventoryLayout> inventory, InterfaceOptions ui, List<CarryPlane> carryPlanes, Optional<InventoryDrawer> inventoryDrawer,
-        PourOptions pouring, CaptionOptions captions, Optional<PlacingOptions> placing, ClearViewOptions clearView) {
+        PourOptions pouring, CaptionOptions captions, Optional<PlacingOptions> placing, ClearViewOptions clearView, GainOptions gains,
+        boolean putAway) {
     public static final Codec<SceneDefinition> CODEC = StrictCodecs.<SceneDefinition>record(instance -> instance.group(
             StrictCodecs.optional(CameraRig.CODEC, "camera", CameraRig.DEFAULT).forGetter(SceneDefinition::camera),
             StrictCodecs.optional(Codec.FLOAT, "work_plane", 16.0F).forGetter(SceneDefinition::workPlane),
@@ -47,12 +52,30 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
             StrictCodecs.optional(PourOptions.CODEC, "pouring", PourOptions.DEFAULT).forGetter(SceneDefinition::pouring),
             StrictCodecs.optional(CaptionOptions.CODEC, "captions", CaptionOptions.DEFAULT).forGetter(SceneDefinition::captions),
             StrictCodecs.optional(PlacingOptions.CODEC, "placing").forGetter(SceneDefinition::placing),
-            StrictCodecs.optional(ClearViewOptions.CODEC, "clear_view", ClearViewOptions.DEFAULT).forGetter(SceneDefinition::clearView)
+            StrictCodecs.optional(ClearViewOptions.CODEC, "clear_view", ClearViewOptions.DEFAULT).forGetter(SceneDefinition::clearView),
+            StrictCodecs.optional(GainOptions.CODEC, "gains", GainOptions.DEFAULT).forGetter(SceneDefinition::gains),
+            StrictCodecs.optional(Codec.BOOL, "put_away", true).forGetter(SceneDefinition::putAway)
     ).apply(instance, SceneDefinition::new)).comapFlatMap(SceneDefinition::validate, scene -> scene);
 
     public SceneDefinition {
         nodes = List.copyOf(nodes);
         carryPlanes = List.copyOf(carryPlanes);
+    }
+
+    /** A scene where a right click puts the cursor's stack away. */
+    public SceneDefinition(CameraRig camera, float workPlane, boolean idleVisible, List<NodeDefinition> nodes, Optional<InventoryLayout> inventory,
+            InterfaceOptions ui, List<CarryPlane> carryPlanes, Optional<InventoryDrawer> inventoryDrawer, PourOptions pouring,
+            CaptionOptions captions, Optional<PlacingOptions> placing, ClearViewOptions clearView, GainOptions gains) {
+        this(camera, workPlane, idleVisible, nodes, inventory, ui, carryPlanes, inventoryDrawer, pouring, captions, placing, clearView, gains,
+                true);
+    }
+
+    /** A scene with the default {@link GainOptions}. */
+    public SceneDefinition(CameraRig camera, float workPlane, boolean idleVisible, List<NodeDefinition> nodes, Optional<InventoryLayout> inventory,
+            InterfaceOptions ui, List<CarryPlane> carryPlanes, Optional<InventoryDrawer> inventoryDrawer, PourOptions pouring,
+            CaptionOptions captions, Optional<PlacingOptions> placing, ClearViewOptions clearView) {
+        this(camera, workPlane, idleVisible, nodes, inventory, ui, carryPlanes, inventoryDrawer, pouring, captions, placing, clearView,
+                GainOptions.DEFAULT);
     }
 
     /** How high (pixels) the grip of the grabbable node {@code node} is carried at {@code x, z}. */
@@ -128,8 +151,22 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
         private CaptionOptions captions = CaptionOptions.DEFAULT;
         private PlacingOptions placing;
         private ClearViewOptions clearView = ClearViewOptions.DEFAULT;
+        private GainOptions gains = GainOptions.DEFAULT;
+        private boolean putAway = true;
 
         private Builder() {
+        }
+
+        /** Whether a right click with a stack on the cursor that nothing takes puts it back into the inventory. */
+        public Builder putAway(boolean value) {
+            putAway = value;
+            return this;
+        }
+
+        /** How what the player gets is seen going into the inventory; {@link GainOptions#OFF}: not at all. */
+        public Builder gains(GainOptions value) {
+            gains = value;
+            return this;
         }
 
         /** What dissolves between the camera and the station; {@link ClearViewOptions#OFF} leaves everything as it is. */
@@ -202,7 +239,8 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
 
         public SceneDefinition build() {
             SceneDefinition scene = new SceneDefinition(camera, workPlane, idleVisible, nodes, Optional.ofNullable(inventory), ui,
-                    carryPlanes, Optional.ofNullable(inventoryDrawer), pouring, captions, Optional.ofNullable(placing), clearView);
+                    carryPlanes, Optional.ofNullable(inventoryDrawer), pouring, captions, Optional.ofNullable(placing), clearView, gains,
+                    putAway);
             return validate(scene).getOrThrow();
         }
     }

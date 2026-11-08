@@ -31,11 +31,14 @@ import java.util.Optional;
  * @param slotColor   ARGB colour of a slot in the {@code minimal} style
  * @param alwaysOpen  the drawer slides out when the station opens and stays out, without an icon: for stations that are
  *                    worked from the inventory all the time. Escape leaves the station at once
+ * @param compact     only the stacks the station can use, packed in rows of up to nine and the drawer no bigger than them
+ *                    ({@code StationView.setInventoryFilter}); with a stack on the cursor one empty slot to put it in. It
+ *                    changes shape only while the cursor is away from it, so nothing moves under the hand
  */
 public record InventoryDrawer(Side side, float align, Item icon, Optional<ResourceLocation> iconTexture, float hoverZone, float openDelay,
-        float closeDelay, float slideTime, float margin, Style style, int background, int slotColor, boolean alwaysOpen) {
+        float closeDelay, float slideTime, float margin, Style style, int background, int slotColor, boolean alwaysOpen, boolean compact) {
     public static final InventoryDrawer DEFAULT = new InventoryDrawer(Side.RIGHT, 0.5F, Items.BUNDLE, Optional.empty(), 10.0F, 0.08F, 0.35F,
-            0.18F, 4.0F, Style.PANEL, 0xC0101216, 0x66000000, false);
+            0.18F, 4.0F, Style.PANEL, 0xC0101216, 0x66000000, false, false);
 
     public static final Codec<InventoryDrawer> CODEC = StrictCodecs.record(instance -> instance.group(
             StrictCodecs.optional(Side.CODEC, "side", DEFAULT.side).forGetter(InventoryDrawer::side),
@@ -50,7 +53,8 @@ public record InventoryDrawer(Side side, float align, Item icon, Optional<Resour
             StrictCodecs.optional(Style.CODEC, "style", DEFAULT.style).forGetter(InventoryDrawer::style),
             StrictCodecs.optional(Visual.COLOR, "background", DEFAULT.background).forGetter(InventoryDrawer::background),
             StrictCodecs.optional(Visual.COLOR, "slot_color", DEFAULT.slotColor).forGetter(InventoryDrawer::slotColor),
-            StrictCodecs.optional(Codec.BOOL, "always_open", DEFAULT.alwaysOpen).forGetter(InventoryDrawer::alwaysOpen)
+            StrictCodecs.optional(Codec.BOOL, "always_open", DEFAULT.alwaysOpen).forGetter(InventoryDrawer::alwaysOpen),
+            StrictCodecs.optional(Codec.BOOL, "compact", DEFAULT.compact).forGetter(InventoryDrawer::compact)
     ).apply(instance, InventoryDrawer::new));
 
     /** The default drawer at {@code side}, for scenes built in code. */
@@ -60,24 +64,30 @@ public record InventoryDrawer(Side side, float align, Item icon, Optional<Resour
 
     public InventoryDrawer withSide(Side value) {
         return new InventoryDrawer(value, align, icon, iconTexture, hoverZone, openDelay, closeDelay, slideTime, margin, style, background,
-                slotColor, alwaysOpen);
+                slotColor, alwaysOpen, compact);
     }
 
     /** The same drawer with another item on its icon. */
     public InventoryDrawer withIcon(Item value) {
         return new InventoryDrawer(side, align, value, Optional.empty(), hoverZone, openDelay, closeDelay, slideTime, margin, style, background,
-                slotColor, alwaysOpen);
+                slotColor, alwaysOpen, compact);
     }
 
     /** The same drawer with a 16x16 texture on its icon. */
     public InventoryDrawer withIconTexture(ResourceLocation value) {
         return new InventoryDrawer(side, align, icon, Optional.of(value), hoverZone, openDelay, closeDelay, slideTime, margin, style, background,
-                slotColor, alwaysOpen);
+                slotColor, alwaysOpen, compact);
     }
 
     public InventoryDrawer withStyle(Style value) {
         return new InventoryDrawer(side, align, icon, iconTexture, hoverZone, openDelay, closeDelay, slideTime, margin, value, background,
-                slotColor, alwaysOpen);
+                slotColor, alwaysOpen, compact);
+    }
+
+    /** The same drawer showing only the stacks the station can use. */
+    public InventoryDrawer withCompact(boolean value) {
+        return new InventoryDrawer(side, align, icon, iconTexture, hoverZone, openDelay, closeDelay, slideTime, margin, style, background,
+                slotColor, alwaysOpen, value);
     }
 
     /** A side of the screen. */
