@@ -28,12 +28,13 @@ import java.util.Optional;
  * @param seats      the view from each seat of the station ({@code StationType.Builder.seat}), by seat id: a player in a
  *                   seat sees that shot instead of {@code position} and {@code target}. Who has no seat, or a seat without
  *                   a shot, sees the rig's own
+ * @param neighbors  going over to a station standing next to this one, by the cursor at an edge of the screen
  */
 public record CameraRig(Vector3fc position, Vector3fc target, float fov, float transition, Optional<CameraShot> inventory,
-        List<CameraGlance> glances, Map<String, CameraShot> seats) {
+        List<CameraGlance> glances, Map<String, CameraShot> seats, CameraNeighbors neighbors) {
     /** Looks down at the top of the block from the front, like a person standing at a table. */
     public static final CameraRig DEFAULT = new CameraRig(new Vector3f(8.0F, 36.0F, -12.0F), new Vector3f(8.0F, 16.0F, 7.0F), 0.0F, 0.6F,
-            Optional.empty(), List.of(), Map.of());
+            Optional.empty(), List.of(), Map.of(), CameraNeighbors.DEFAULT);
 
     public static final Codec<CameraRig> CODEC = StrictCodecs.record(instance -> instance.group(
             StrictCodecs.optional(StrictCodecs.VEC3, "position", new Vector3f(DEFAULT.position)).forGetter(r -> new Vector3f(r.position)),
@@ -42,7 +43,8 @@ public record CameraRig(Vector3fc position, Vector3fc target, float fov, float t
             StrictCodecs.optional(Codec.floatRange(0.0F, 10.0F), "transition", DEFAULT.transition).forGetter(CameraRig::transition),
             StrictCodecs.optional(CameraShot.CODEC, "inventory").forGetter(CameraRig::inventory),
             StrictCodecs.optional(CameraGlance.CODEC.listOf(), "glances", List.of()).forGetter(CameraRig::glances),
-            StrictCodecs.optional(Codec.unboundedMap(Codec.STRING, CameraShot.CODEC), "seats", Map.of()).forGetter(CameraRig::seats)
+            StrictCodecs.optional(Codec.unboundedMap(Codec.STRING, CameraShot.CODEC), "seats", Map.of()).forGetter(CameraRig::seats),
+            StrictCodecs.optional(CameraNeighbors.CODEC, "neighbors", CameraNeighbors.DEFAULT).forGetter(CameraRig::neighbors)
     ).apply(instance, CameraRig::new));
 
     public CameraRig {
@@ -52,28 +54,39 @@ public record CameraRig(Vector3fc position, Vector3fc target, float fov, float t
         seats = Map.copyOf(seats);
     }
 
+    /** A rig with the default {@link CameraNeighbors}. */
+    public CameraRig(Vector3fc position, Vector3fc target, float fov, float transition, Optional<CameraShot> inventory,
+            List<CameraGlance> glances, Map<String, CameraShot> seats) {
+        this(position, target, fov, transition, inventory, glances, seats, CameraNeighbors.DEFAULT);
+    }
+
     /** A camera at {@code position} looking at {@code target}, with the player's field of view. */
     public static CameraRig of(Vector3fc position, Vector3fc target) {
-        return new CameraRig(position, target, 0.0F, DEFAULT.transition, Optional.empty(), List.of(), Map.of());
+        return new CameraRig(position, target, 0.0F, DEFAULT.transition, Optional.empty(), List.of(), Map.of(), CameraNeighbors.DEFAULT);
     }
 
     /** The same rig gliding to {@code shot} while the inventory is shown. */
     public CameraRig withInventoryShot(CameraShot shot) {
-        return new CameraRig(position, target, fov, transition, Optional.of(shot), glances, seats);
+        return new CameraRig(position, target, fov, transition, Optional.of(shot), glances, seats, neighbors);
     }
 
     /** The same rig with one more place to look at. */
     public CameraRig withGlance(CameraGlance glance) {
         List<CameraGlance> all = new ArrayList<>(glances);
         all.add(glance);
-        return new CameraRig(position, target, fov, transition, inventory, all, seats);
+        return new CameraRig(position, target, fov, transition, inventory, all, seats, neighbors);
     }
 
     /** The same rig with the view from one more seat. */
     public CameraRig withSeat(String seat, CameraShot shot) {
         Map<String, CameraShot> all = new java.util.HashMap<>(seats);
         all.put(seat, shot);
-        return new CameraRig(position, target, fov, transition, inventory, glances, all);
+        return new CameraRig(position, target, fov, transition, inventory, glances, all, neighbors);
+    }
+
+    /** The same rig with other rules for going over to neighbouring stations ({@link CameraNeighbors#NONE}: never). */
+    public CameraRig withNeighbors(CameraNeighbors value) {
+        return new CameraRig(position, target, fov, transition, inventory, glances, seats, value);
     }
 
     /** The glance with this id. */
