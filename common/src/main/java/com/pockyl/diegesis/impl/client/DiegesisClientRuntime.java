@@ -107,7 +107,7 @@ public final class DiegesisClientRuntime {
     public static boolean goOver(BlockPos pos, float seconds) {
         LocalPlayer player = Minecraft.getInstance().player;
         FocusController focus = FocusController.get();
-        if (player == null || !focus.isInteractive()) {
+        if (player == null || !focus.isInteractive() && !focus.isGoingOver()) {
             return false;
         }
         BlockState state = player.level().getBlockState(pos);

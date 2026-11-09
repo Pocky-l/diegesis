@@ -127,6 +127,7 @@ public final class SceneRenderer {
      */
     public static void render(PoseStack poseStack, Matrix4f projection, Camera camera) {
         Projector.capture(projection, poseStack.last().pose(), camera.getPosition());
+        SmoothPass.begin(projection, poseStack.last().pose());
         long now = Util.getNanos();
         float dt = Math.min((now - lastFrame) / 1.0e9F, 0.1F);
         lastFrame = now;
@@ -294,7 +295,7 @@ public final class SceneRenderer {
             if (node.shape() != null) {
                 renderShape(node, poseStack, buffers, nodeLight);
             }
-            if (node.painter() != null) {
+            if (node.painter() != null && !(node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
                 node.painter().paint(poseStack, buffers, nodeLight);
             }
             definition.tank().ifPresent(binding -> {

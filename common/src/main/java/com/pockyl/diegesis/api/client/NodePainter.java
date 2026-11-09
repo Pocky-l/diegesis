@@ -17,4 +17,14 @@ public interface NodePainter {
      * @param light     packed light at the node
      */
     void paint(PoseStack poseStack, MultiBufferSource buffers, int light);
+
+    /**
+     * Whether this is drawn smooth: while the player works at the station, over the finished frame and supersampled, so its edges
+     * have no steps (the game draws without anti-aliasing). For something hanging in front of the scene that nothing of the
+     * scene covers, such as a book before the camera: it is drawn over everything, without the shader pack's light, and
+     * {@link #paint} is called twice a frame (once to measure). Otherwise it is drawn with the scene.
+     */
+    default boolean smooth() {
+        return false;
+    }
 }

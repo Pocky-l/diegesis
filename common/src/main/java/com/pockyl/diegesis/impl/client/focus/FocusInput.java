@@ -721,7 +721,10 @@ public final class FocusInput {
      * edge does; true when it did. Where the cursor is does not matter to a key.
      */
     boolean goOverByKey(InventoryDrawer.Side edge) {
-        Neighbors.Neighbor next = neighbors.found().get(edge);
+        // Flying over, the press goes on from the station flown to.
+        FocusController focus = FocusController.get();
+        ClientStation station = focus.isInteractive() || focus.isGoingOver() ? focus.station() : null;
+        Neighbors.Neighbor next = station == null || station.scene() == null ? null : neighbors.towards(station, edge);
         if (next == null || !next.rules().keys() || isBusy() || FocusScreen.isCovered() || !carriedStack().isEmpty()
                 || glance.current() != null || glance.amount() > 0.0F) {
             return false;
