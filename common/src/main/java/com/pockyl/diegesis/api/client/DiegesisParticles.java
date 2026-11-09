@@ -58,7 +58,10 @@ public final class DiegesisParticles {
                 .wobble(0.5F).fadeIn(0.45F).emissive().build());
         styles.put(SMOKE, new ParticleStyle(ParticleStyle.frames("big_smoke", 12), 0xCC303030, new float[] {0.8F, 1.3F},
                 new float[] {1.5F, 2.5F}, -3.0F, 0.9F, false, false, 2.5F, true, 0.5F));
-        styles.put(GLINT, ParticleStyle.builder(new ResourceLocation("minecraft", "glint")).color(0xFFFFFFFF).size(0.4F, 0.7F)
+        // The game's own "glint" sprite is green (bone meal's sparkle): a firework spark that twinkles out takes the colour asked for.
+        styles.put(GLINT, ParticleStyle.builder(java.util.List.of(new ResourceLocation("minecraft", "spark_4"), new ResourceLocation("minecraft",
+                "spark_3"), new ResourceLocation("minecraft", "spark_2"), new ResourceLocation("minecraft", "spark_1"),
+                new ResourceLocation("minecraft", "spark_0"))).color(0xFFFFFFFF).size(0.4F, 0.7F)
                 .life(0.3F, 0.7F).drag(1.0F).emissive().grow(0.2F).build());
         styles.put(DUST, new ParticleStyle(ParticleStyle.frames("generic", 8), 0x99C0B090, new float[] {0.15F, 0.3F},
                 new float[] {1.0F, 2.0F}, 1.0F, 0.95F, false, false, 1.0F, true, 0.3F));
