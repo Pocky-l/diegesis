@@ -226,6 +226,11 @@
           "type": "boolean",
           "description": "A soft pop as it lands.",
           "default": true
+        },
+        "count": {
+          "type": "boolean",
+          "description": "\"+N\" shows how many came: rising from the slot, or beside the stack by the drawer.",
+          "default": true
         }
       },
       "patternProperties": {
@@ -1877,6 +1882,19 @@
             }
           ],
           "description": "A soft pop as it lands."
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "\"+N\" shows how many came: rising from the slot, or beside the stack by the drawer.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "\"+N\" shows how many came: rising from the slot, or beside the stack by the drawer."
         }
       },
       "patternProperties": {

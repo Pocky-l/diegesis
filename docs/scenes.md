@@ -100,7 +100,8 @@ Client code: `StationView.glance(id)`, `glanceBack()`, `currentGlance()`, `Scene
 What the player gets at the station is seen going into the inventory: a stack that comes into it while they work there,
 other than from their own cursor (a soup scooped with a bowl, pieces cut off, a dish taken), flies from the middle of the
 station to its slot, which bounces as it lands. When the drawer does not show that slot (a `compact` drawer shows only
-what the station uses), the stack stands next to the drawer for a moment with its count. On by default.
+what the station uses), the stack stands next to the drawer for a moment. How many came shows as "+N": rising from
+the slot as it lands, or beside the stack by the drawer. On by default.
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -108,6 +109,7 @@ what the station uses), the stack stands next to the drawer for a moment with it
 | `time` | `0.45` | Seconds a stack flies. |
 | `hold` | `1.6` | Seconds a stack whose slot is not on show stands next to the drawer. |
 | `sound` | `true` | A soft pop as it lands. |
+| `count` | `true` | "+N" shows how many came. |
 
 In code: `SceneDefinition.builder().gains(GainOptions.OFF)`.
 

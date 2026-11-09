@@ -111,6 +111,7 @@ obj("gains", "GainOptions", "What the player gets at the station, seen going int
     "time": field(num(0.05, 3), "Seconds a stack flies.", 0.45),
     "hold": field(num(0, 10), "Seconds a stack whose slot the drawer does not show stands next to the drawer.", 1.6),
     "sound": field(BOOL, "A soft pop as it lands.", True),
+    "count": field(BOOL, "\"+N\" shows how many came: rising from the slot, or beside the stack by the drawer.", True),
 })
 
 obj("camera_neighbors", "CameraNeighbors", "Going over to neighbouring stations without leaving; every field is optional.", {
