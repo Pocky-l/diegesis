@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `NodePainter.smooth()`: a painter hanging in front of the scene, such as a book before the camera, is drawn
   supersampled over the frame while the player works at the station, so its edges have no steps.
+- `StationView.screenOn(x, y, height)`: where a point of the player's screen lies in the scene, for things that come
+  from the player's side, such as food from the inventory at the bottom of the screen.
 - Gains show how many came as "+N": it rises from the slot as the stack lands, or stands beside the stack by the
   drawer. `"count": false` in `gains` turns it off. A stack by the drawer now shrinks away instead of vanishing.
 

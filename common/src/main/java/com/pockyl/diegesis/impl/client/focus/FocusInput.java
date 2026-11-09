@@ -382,7 +382,16 @@ public final class FocusInput {
 
     /** Where the cursor points on the level plane at {@code height}, in the station's pixels. */
     public java.util.Optional<Vector3f> cursorOn(ClientStation station, float height) {
-        StationRay ray = stationRay(station, mouseX, mouseY);
+        return planeAt(stationRay(station, mouseX, mouseY), height);
+    }
+
+    /** Where a point of the screen, in fractions of its size, lies on the level plane at {@code height}. */
+    public java.util.Optional<Vector3f> screenOn(ClientStation station, float x, float y, float height) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return planeAt(stationRay(station, x * minecraft.getWindow().getGuiScaledWidth(), y * minecraft.getWindow().getGuiScaledHeight()), height);
+    }
+
+    private static java.util.Optional<Vector3f> planeAt(StationRay ray, float height) {
         float t = Math.abs(ray.direction.y) < 1.0e-5F ? -1.0F : (height - ray.origin.y) / ray.direction.y;
         return t <= 0.0F ? java.util.Optional.empty() : java.util.Optional.of(new Vector3f(ray.direction).mul(t).add(ray.origin));
     }

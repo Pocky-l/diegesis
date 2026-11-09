@@ -654,6 +654,11 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     @Override
+    public Optional<Vector3f> screenOn(float x, float y, float height) {
+        return focused ? FocusInput.get().screenOn(this, x, y, height) : Optional.empty();
+    }
+
+    @Override
     public Optional<Vector3f> pointerOn(String node, float height) {
         NodeInstance instance = scene == null ? null : scene.node(node);
         return focused && instance != null ? FocusInput.get().pointerOn(this, instance, height) : Optional.empty();
