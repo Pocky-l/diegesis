@@ -36,6 +36,11 @@ final class Gains {
     private static final float START_SIZE = 1.4F;
     private static final float FADE = 0.3F;
     private static final int ASIDE_GAP = 6;
+    /** "+N" over a slot once the stack is in (owner: "write +1, or more"): seconds it shows, the last of them fading, pixels it rises. */
+    private static final float COUNT_TIME = 1.1F;
+    private static final float COUNT_FADE = 0.4F;
+    private static final float COUNT_RISE = 7.0F;
+    private static final int COUNT_COLOR = 0xFFFFFF;
     private static final float Z = 260.0F;
 
     private final ItemStack[] last = new ItemStack[Inventory.INVENTORY_SIZE];
@@ -68,6 +73,7 @@ final class Gains {
         private final float time;
         private final float hold;
         private final boolean sound;
+        private final String count;
         private float age;
 
         private Flight(ItemStack stack, Vector2f from, int slot, GainOptions options) {
@@ -78,6 +84,7 @@ final class Gains {
             time = options.time();
             hold = slot < 0 ? options.hold() : 0.0F;
             sound = options.sound();
+            count = options.count() ? "+" + stack.getCount() : null;
         }
     }
 
@@ -206,18 +213,26 @@ final class Gains {
                 toX = center[0];
                 toY = center[1];
             } else {
-                toX = asideX + aside * (16 + ASIDE_GAP);
-                toY = asideY;
+                toX = asideX;
+                toY = asideY - aside * (16 + ASIDE_GAP);
                 aside++;
             }
             if (flight.age >= flight.time && !landedBefore) {
                 land(flight);
             }
-            if (flight.age >= flight.time + flight.hold) {
+            float end = flight.time + Math.max(flight.hold, flight.slot >= 0 && flight.count != null ? COUNT_TIME : 0.0F);
+            if (flight.age >= end) {
                 it.remove();
                 continue;
             }
             if (flight.slot >= 0 && flight.age >= flight.time) {
+                // In its slot: the count rises from it and fades.
+                float shown = (flight.age - flight.time) / COUNT_TIME;
+                float alpha = Math.min(1.0F, (1.0F - shown) * COUNT_TIME / COUNT_FADE);
+                float rise = COUNT_RISE * (1.0F - (1.0F - shown) * (1.0F - shown));
+                if (flight.count != null) {
+                    drawCount(graphics, font, flight.count, toX - font.width(flight.count) / 2.0F, toY - 17.0F - rise, alpha);
+                }
                 continue;
             }
             float t = Math.min(1.0F, flight.age / flight.time);
@@ -229,7 +244,13 @@ final class Gains {
             if (flight.slot < 0 && flight.age > flight.time + flight.hold - FADE) {
                 alpha = Math.max(0.0F, (flight.time + flight.hold - flight.age) / FADE);
             }
-            draw(graphics, font, flight.stack, x, y, size, alpha);
+            draw(graphics, flight.stack, x, y, size, alpha);
+            if (flight.slot < 0 && flight.age >= flight.time && flight.count != null) {
+                // Beside the drawer it stands with what came, the count growing in as it settles.
+                float shown = flight.age - flight.time;
+                float countAlpha = Math.min(Math.min(1.0F, shown / 0.12F), alpha);
+                drawCount(graphics, font, flight.count, x + 11.0F, y - 4.0F, countAlpha);
+            }
         }
     }
 
@@ -243,18 +264,33 @@ final class Gains {
         }
     }
 
-    private static void draw(GuiGraphics graphics, Font font, ItemStack stack, float x, float y, float size, float alpha) {
+    private static void draw(GuiGraphics graphics, ItemStack stack, float x, float y, float size, float alpha) {
         if (alpha <= 0.02F) {
             return;
         }
         PoseStack pose = graphics.pose();
         pose.pushPose();
         pose.translate(x, y, Z);
-        // Fading out only shrinks it a little: GUI items cannot be drawn see-through.
-        float scale = size * (0.6F + 0.4F * alpha);
+        // GUI items cannot be drawn see-through: going away, it shrinks to nothing.
+        float scale = size * alpha;
         pose.scale(scale, scale, 1.0F);
         graphics.renderItem(stack, -8, -8);
-        graphics.renderItemDecorations(font, stack, -8, -8);
+        pose.popPose();
+    }
+
+    /** "+N" in the game's own font and shadow, as the counts in the slots. */
+    private static void drawCount(GuiGraphics graphics, Font font, String count, float x, float y, float alpha) {
+        if (count == null) {
+            return;
+        }
+        int a = Math.round(alpha * 255.0F);
+        if (a < 5) {
+            return;
+        }
+        PoseStack pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(Math.round(x), Math.round(y), Z + 100.0F);
+        graphics.drawString(font, count, 0, 0, a << 24 | COUNT_COLOR, true);
         pose.popPose();
     }
 }

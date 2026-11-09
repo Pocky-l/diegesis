@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `NodePainter.smooth()`: a painter hanging in front of the scene, such as a book before the camera, is drawn
   supersampled over the frame while the player works at the station, so its edges have no steps.
+- Gains show how many came as "+N": it rises from the slot as the stack lands, or stands beside the stack by the
+  drawer. `"count": false` in `gains` turns it off. A stack by the drawer now shrinks away instead of vanishing.
 
 ### Fixed
 - A or D pressed while the camera flies over to a neighbour was lost. It now turns the camera on to the next station
