@@ -49,6 +49,8 @@ public final class FocusController {
     private CameraPose flightFrom;
     private double flightFromFov;
     private float flightTime;
+    /** The flight was turned to another station half way: it sets off at speed (the camera is moving already). */
+    private boolean flightOnward;
     /** Leaving half way over to a neighbour: the camera flies back from where it was then, not from the rig. */
     private CameraPose exitFrom;
     private double exitFromFov;
@@ -128,15 +130,23 @@ public final class FocusController {
         minecraft.setScreen(new FocusScreen());
     }
 
+    /** Whether the camera is flying over to a neighbour. */
+    public boolean isGoingOver() {
+        return phase == Phase.ENTERING && flightFrom != null;
+    }
+
     /**
      * Goes over from the station worked at to {@code target}, a neighbour: the camera flies from where it is to the new rig in
-     * {@code seconds}, the focus screen stays, and the station left hears that the player has gone.
+     * {@code seconds}, the focus screen stays, and the station left hears that the player has gone. Flying over already, the
+     * camera turns to {@code target} from where it is (owner, 2026-11-09: two quick presses of D go two stations on at once).
      */
     public void goOver(ClientStation target, boolean awaitServer, float seconds) {
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null || phase != Phase.FOCUSED || station == null || lastPose == null) {
+        boolean onward = isGoingOver();
+        if (player == null || phase != Phase.FOCUSED && !onward || station == null || lastPose == null) {
             return;
         }
+        flightOnward = onward;
         FocusInput.get().cancel();
         FocusInput.get().look().reset();
         FocusInput.get().neighbors().reset();
@@ -270,6 +280,7 @@ public final class FocusController {
             if (progress >= 1.0F) {
                 phase = Phase.FOCUSED;
                 flightFrom = null;
+                flightOnward = false;
             }
         } else if (phase == Phase.EXITING) {
             progress = Math.max(0.0F, progress - dt / duration);
@@ -315,7 +326,7 @@ public final class FocusController {
 
     /** How far the camera is between the player's eyes (0) and the rig (1), eased. */
     public float blend() {
-        return Easing.inOutCubic(progress);
+        return flightFrom != null && flightOnward ? Easing.outCubic(progress) : Easing.inOutCubic(progress);
     }
 
     /**

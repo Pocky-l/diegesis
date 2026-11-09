@@ -104,6 +104,19 @@ final class Neighbors {
         return found.get(at);
     }
 
+    /** The neighbour of {@code station} on {@code edge}; looks around first when the last look was from another station. */
+    Neighbor towards(ClientStation station, Side edge) {
+        CameraNeighbors rules = rules(station.scene().definition());
+        if (!rules.enabled()) {
+            return null;
+        }
+        if (!station.pos().equals(scannedFrom)) {
+            scan(station, rules);
+            scanWait = RESCAN;
+        }
+        return found.get(edge);
+    }
+
     /** The neighbours by edge, as last found. */
     Map<Side, Neighbor> found() {
         return found;

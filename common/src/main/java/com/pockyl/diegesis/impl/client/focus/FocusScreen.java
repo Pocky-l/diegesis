@@ -1,5 +1,6 @@
 package com.pockyl.diegesis.impl.client.focus;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,10 +19,13 @@ import com.pockyl.diegesis.api.scene.InventoryDrawer;
 import com.pockyl.diegesis.api.scene.NodeDefinition;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
 import com.pockyl.diegesis.impl.client.ClientStation;
+import com.pockyl.diegesis.impl.client.render.SmoothPass;
 import com.pockyl.diegesis.impl.client.scene.NodeInstance;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The screen that is open while the player works at a station. It draws no background - the world is the interface.
@@ -78,6 +82,11 @@ public final class FocusScreen extends Screen {
     private static final List<Integer> compactSlots = new ArrayList<>();
     private static ClientStation compactFor;
     private long lastFrame = Util.getNanos();
+    /**
+     * Movement and arrow keys that are down: a key held down repeats, and only its first press goes over to a neighbour. Keys
+     * already down when the screen opens count as held, so a player walking up to a station does not fly on at once.
+     */
+    private final Set<Integer> heldKeys = new HashSet<>();
 
     /** Set by the development test driver, which cannot press real keys. */
     @ApiStatus.Internal
@@ -175,6 +184,21 @@ public final class FocusScreen extends Screen {
     @Override
     protected void init() {
         layout();
+        heldKeys.clear();
+        var options = Minecraft.getInstance().options;
+        long window = Minecraft.getInstance().getWindow().getWindow();
+        List<Integer> keys = new ArrayList<>(List.of(GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_DOWN));
+        for (var mapping : List.of(options.keyLeft, options.keyRight, options.keyUp, options.keyDown)) {
+            InputConstants.Key bound = InputConstants.getKey(mapping.saveString());
+            if (bound.getType() == InputConstants.Type.KEYSYM && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
+                keys.add(bound.getValue());
+            }
+        }
+        for (int key : keys) {
+            if (InputConstants.isKeyDown(window, key)) {
+                heldKeys.add(key);
+            }
+        }
     }
 
     private void layout() {
@@ -323,6 +347,7 @@ public final class FocusScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int realMouseX, int realMouseY, float partialTick) {
+        SmoothPass.draw();
         int pointerX = forcedMouse != null ? (int) forcedMouse[0] : realMouseX;
         int pointerY = forcedMouse != null ? (int) forcedMouse[1] : realMouseY;
         // Under an overlay the scene sees no mouse at all.
@@ -687,6 +712,10 @@ public final class FocusScreen extends Screen {
             return true;
         }
         InventoryDrawer.Side edge = edgeOf(keyCode, scanCode);
+        // A repeat of a held key is swallowed: two quick presses, the second held a moment, went over twice.
+        if (edge != null && !heldKeys.add(keyCode)) {
+            return true;
+        }
         if (edge != null && FocusInput.get().goOverByKey(edge)) {
             return true;
         }
@@ -722,7 +751,14 @@ public final class FocusScreen extends Screen {
     }
 
     @Override
+    public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+        heldKeys.remove(keyCode);
+        return super.keyReleased(keyCode, scanCode, modifiers);
+    }
+
+    @Override
     public void removed() {
+        SmoothPass.release();
         showOverlay(null);
         panelLeft = NO_PANEL;
         panelTop = NO_PANEL;

@@ -4,6 +4,16 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.4+1.21.1]
+### Added
+- `NodePainter.smooth()`: a painter hanging in front of the scene, such as a book before the camera, is drawn
+  supersampled over the frame while the player works at the station, so its edges have no steps.
+
+### Fixed
+- A or D pressed while the camera flies over to a neighbour was lost. It now turns the camera on to the next station
+  at once, so two quick presses go two stations on. A held key no longer repeats, and a key already held when a
+  station opens does nothing.
+
 ## [1.0.0-beta.3+1.21.1] - 2026-11-09
 ### Added
 - Minecraft 1.21.1, on NeoForge and Fabric. Everything 1.0.0-beta.3 does on 1.20.1 works the same: scenes, options and API,
