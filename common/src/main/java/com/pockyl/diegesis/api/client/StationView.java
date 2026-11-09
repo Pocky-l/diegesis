@@ -96,6 +96,13 @@ public interface StationView {
     Optional<org.joml.Vector3f> cursorOn(float height);
 
     /**
+     * Where a point of the local player's screen ({@code x, y} fractions of its width and height, 0,0 the top left) lies on the level
+     * plane at {@code height} (scene pixels, before the facing turn): things coming from the player's side, as food from the
+     * inventory at the bottom of the screen. Empty when the player is not working here or that point looks away from the plane.
+     */
+    Optional<org.joml.Vector3f> screenOn(float x, float y, float height);
+
+    /**
      * Where the local player's cursor points on the plane through a node at {@code height} over its origin, in the node's own pixels: a
      * page, a map on a table, also while the node is tilted and moves. Empty when the player is not working here, or there is no such node.
      */
