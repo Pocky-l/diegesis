@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drawer. `"count": false` in `gains` turns it off. A stack by the drawer now shrinks away instead of vanishing.
 
 ### Fixed
+- `GLINT` was green whatever colour it was given: it used the game's bone meal sparkle. It now twinkles out as a
+  firework spark and takes the colour asked for.
 - A or D pressed while the camera flies over to a neighbour was lost. It now turns the camera on to the next station
   at once, so two quick presses go two stations on. A held key no longer repeats, and a key already held when a
   station opens does nothing.
