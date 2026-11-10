@@ -4,7 +4,12 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.6+1.20.1] - Unreleased
+## [1.0.0-beta.7+1.20.1] - Unreleased
+### Fixed
+- Items in a scene take their tint: an item meant to be see-through, such as a knife or a bowl offered from the
+  inventory, is see-through instead of solid.
+
+## [1.0.0-beta.6+1.20.1] - 2026-11-10
 ### Fixed
 - Wall cabinets, a low ceiling or a wall over a station no longer block the camera: the blocks in its way are hidden
   while you work there and come back when you leave. Works with Embeddium and Sodium. Scene option `clear_view.blocks`.
