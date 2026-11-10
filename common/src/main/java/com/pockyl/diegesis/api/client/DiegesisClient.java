@@ -112,7 +112,13 @@ public final class DiegesisClient {
      */
     public static net.minecraft.client.renderer.MultiBufferSource tinted(net.minecraft.client.renderer.MultiBufferSource buffers, int argb) {
         boolean fading = argb >>> 24 < 255;
-        return type -> new com.pockyl.diegesis.impl.client.render.TintedConsumer(buffers.getBuffer(fading ? seeThrough(type) : type), argb);
+        return type -> {
+            net.minecraft.client.renderer.RenderType drawn = fading ? seeThrough(type) : type;
+            if (drawn != type) {
+                com.pockyl.diegesis.impl.client.render.KeptTypes.keep(buffers, type);
+            }
+            return new com.pockyl.diegesis.impl.client.render.TintedConsumer(buffers.getBuffer(drawn), argb);
+        };
     }
 
     private static net.minecraft.client.renderer.RenderType seeThrough(net.minecraft.client.renderer.RenderType type) {
