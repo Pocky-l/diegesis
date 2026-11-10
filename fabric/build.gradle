@@ -39,6 +39,95 @@ loom {
     }
 }
 
+// Local test driver (src/devtools, not in the repository): run `runShots` with job.txt in run-shots/ naming a script in
+// tools/shots/; it plays the script in a flat creative world and saves screenshots. run-shots/mods gets Hands-On Delight from
+// the working copy beside this one (build its :fabric:remapJar first), Farmer's Delight Refabricated and, with
+// -Pshots.sodium, Sodium. `runShotsProduction` plays the same in intermediary names, as players run the release jar.
+if (file('src/devtools').isDirectory()) {
+    def shotsTools = rootProject.file('tools/shots').absolutePath
+    def withSodium = providers.gradleProperty('shots.sodium').isPresent()
+    sourceSets {
+        devtools {
+            compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+            runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+        }
+    }
+    repositories {
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = 'Modrinth'
+                    url = 'https://api.modrinth.com/maven'
+                }
+            }
+            filter { includeGroup('maven.modrinth') }
+        }
+    }
+    configurations {
+        shotsMods { transitive = false }
+    }
+    dependencies {
+        // Refabricated asks for loader 0.18.2 or newer.
+        modImplementation 'net.fabricmc:fabric-loader:0.19.2'
+        // The whole Fabric API is nested in its one jar; its modules listed beside it would be loaded twice.
+        productionRuntimeMods("net.fabricmc.fabric-api:fabric-api:${fabric_api_version}") { transitive = false }
+        shotsMods 'maven.modrinth:farmers-delight-refabricated:1.20.1-2.5.7'
+        if (withSodium) {
+            shotsMods 'maven.modrinth:sodium:mc1.20.1-0.5.13-fabric'
+        }
+    }
+    loom {
+        mods {
+            diegesis_devtools {
+                sourceSet sourceSets.devtools
+            }
+        }
+        runs {
+            shots {
+                client()
+                configName = 'Fabric Shots'
+                ideConfigGenerated(false)
+                runDir('run-shots')
+                source(sourceSets.devtools)
+                vmArg "-Ddiegesis.shots=${shotsTools}"
+                // Loom runs 1.20.1 on LWJGL 3.3.2; Sodium 0.5 refuses anything but 3.3.1 unless this check is off.
+                vmArg '-Dsodium.checks.issue2561=false'
+                programArgs('--width', '1280', '--height', '720')
+            }
+        }
+    }
+    // The mods folder is rebuilt on each run: the release jars stay as they are, the loader remaps them on launch.
+    def syncShotsMods = tasks.register('syncShotsMods', Sync) {
+        from(configurations.shotsMods)
+        from(rootProject.file('../handson_delight/fabric/build/libs')) {
+            include 'handson_delight-fabric-*.jar'
+            exclude '*-sources.jar'
+        }
+        into 'run-shots/mods'
+    }
+    tasks.named('runShots') { dependsOn syncShotsMods }
+    // Kept out of build/libs: the playtest client copies every jar there into its mods folder.
+    def devtoolsJar = tasks.register('devtoolsJar', Jar) {
+        from sourceSets.devtools.output
+        archiveClassifier = 'devtools-dev'
+        destinationDirectory = layout.buildDirectory.dir('devtools')
+    }
+    def remapDevtoolsJar = tasks.register('remapDevtoolsJar', net.fabricmc.loom.task.RemapJarTask) {
+        inputFile = devtoolsJar.flatMap { it.archiveFile }
+        classpath.from(sourceSets.main.output)
+        archiveClassifier = 'devtools'
+        destinationDirectory = layout.buildDirectory.dir('devtools')
+        addNestedDependencies = false
+    }
+    tasks.register('runShotsProduction', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+        dependsOn syncShotsMods
+        mods.from(remapDevtoolsJar)
+        runDir = file('run-shots')
+        jvmArgs.addAll("-Ddiegesis.shots=${shotsTools}".toString(), '-Dsodium.checks.issue2561=false')
+        programArgs.addAll('--width', '1280', '--height', '720', '--username', 'Dev')
+    }
+}
+
 tasks.named('processResources', ProcessResources) {
     var replaceProperties = [
             minecraft_version    : minecraft_version,
