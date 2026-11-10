@@ -137,6 +137,8 @@ react to the state and to what the player does.
 
 [![Oculus](https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/compat/oculus.png)](https://www.curseforge.com/minecraft/mc-mods/oculus) ✅ **[Oculus](https://www.curseforge.com/minecraft/mc-mods/oculus)** - checked with and without a shader pack, liquids and glass included
 
+[![Blur](https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/compat/blur.png)](https://modrinth.com/mod/blur-forge) ✅ **[Blur (Forge)](https://modrinth.com/mod/blur-forge)**, [![ReBlured](https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/compat/blur.png)](https://modrinth.com/mod/reblured) ✅ **[ReBlured](https://modrinth.com/mod/reblured)** and [![Blur+](https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/compat/blur_plus.png)](https://modrinth.com/mod/blur-plus) ✅ **[Blur+](https://modrinth.com/mod/blur-plus)** - stations stay sharp, other screens keep their blur
+
 ## Installation
 
 1. Install [Forge](https://files.minecraftforge.net) for Minecraft 1.20.1, [NeoForge](https://neoforged.net) for 1.21.1, or

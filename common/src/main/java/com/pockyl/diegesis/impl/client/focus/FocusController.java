@@ -102,7 +102,7 @@ public final class FocusController {
             if (confirmed) {
                 station.setFocusedInternal(true);
             }
-            minecraft.setScreen(new FocusScreen());
+            openScreen(minecraft);
             return;
         }
         if (phase != Phase.IDLE) {
@@ -127,6 +127,11 @@ public final class FocusController {
         if (confirmed) {
             station.setFocusedInternal(true);
         }
+        openScreen(minecraft);
+    }
+
+    private static void openScreen(Minecraft minecraft) {
+        BlurMods.keepOff();
         minecraft.setScreen(new FocusScreen());
     }
 
