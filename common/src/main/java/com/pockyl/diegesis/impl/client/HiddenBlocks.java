@@ -21,6 +21,19 @@ public final class HiddenBlocks {
         return !HIDDEN.isEmpty() && HIDDEN.contains(pos);
     }
 
+    /** {@link #isHidden(BlockPos)} by coordinates, for a mesh builder that reads every block of a section: no position is made. */
+    public static boolean isHidden(int x, int y, int z) {
+        if (HIDDEN.isEmpty()) {
+            return false;
+        }
+        for (BlockPos pos : HIDDEN) {
+            if (pos.getX() == x && pos.getY() == y && pos.getZ() == z) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Makes {@code wanted} the hidden blocks and rebuilds the chunks of those that changed. */
     static void sync(Set<BlockPos> wanted) {
         if (HIDDEN.equals(wanted)) {
