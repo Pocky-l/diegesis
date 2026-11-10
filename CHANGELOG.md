@@ -4,6 +4,14 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.6+1.20.1] - Unreleased
+### Fixed
+- Wall cabinets, a low ceiling or a wall over a station no longer block the camera: the blocks in its way are hidden
+  while you work there and come back when you leave. Works with Embeddium and Sodium. Scene option `clear_view.blocks`.
+- Joining a world on Fabric no longer crashes.
+- Armourer's Workshop skins no longer turn invisible after work at a station.
+- On Fabric with Sodium 0.5, a tossed skillet no longer leaves a second, still pan behind.
+
 ## [1.0.0-beta.5]
 ### Fixed
 - With Blur (Forge), ReBlured or Blur+ on Minecraft 1.20.1, the whole station was blurred while the player worked at
