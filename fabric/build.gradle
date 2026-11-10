@@ -36,6 +36,82 @@ loom {
     }
 }
 
+// Local test driver (src/devtools, not in the repository): run `runShotsProduction` with job.txt in run-shots/ naming a script
+// in tools/shots/; it plays the script in a flat creative world and saves screenshots. A development run cannot load Farmer's
+// Delight Refabricated for 1.21.1, so the driver plays in intermediary names, as players run the release jar. run-shots/mods
+// gets Hands-On Delight from the working copy beside this one (build its :fabric:remapJar first), Refabricated and, with
+// -Pshots.sodium, Sodium.
+if (file('src/devtools').isDirectory()) {
+    def shotsTools = rootProject.file('tools/shots').absolutePath
+    def withSodium = providers.gradleProperty('shots.sodium').isPresent()
+    sourceSets {
+        devtools {
+            compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+            runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+        }
+    }
+    repositories {
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = 'Modrinth'
+                    url = 'https://api.modrinth.com/maven'
+                }
+            }
+            filter { includeGroup('maven.modrinth') }
+        }
+    }
+    configurations {
+        shotsMods { transitive = false }
+    }
+    dependencies {
+        // Refabricated asks for loader 0.19 or newer.
+        modImplementation 'net.fabricmc:fabric-loader:0.19.2'
+        // The whole Fabric API is nested in its one jar; its modules listed beside it would be loaded twice.
+        productionRuntimeMods("net.fabricmc.fabric-api:fabric-api:${fabric_api_version}") { transitive = false }
+        shotsMods 'maven.modrinth:farmers-delight-refabricated:1.21.1-3.3.6'
+        if (withSodium) {
+            shotsMods 'maven.modrinth:sodium:mc1.21.1-0.8.13-fabric'
+        }
+    }
+    loom {
+        mods {
+            diegesis_devtools {
+                sourceSet sourceSets.devtools
+            }
+        }
+    }
+    // The mods folder is rebuilt on each run.
+    def syncShotsMods = tasks.register('syncShotsMods', Sync) {
+        from(configurations.shotsMods)
+        from(rootProject.file('../handson_delight/fabric/build/libs')) {
+            include 'handson_delight-fabric-*.jar'
+            exclude '*-sources.jar'
+        }
+        into 'run-shots/mods'
+    }
+    // Kept out of build/libs: the playtest client copies every jar there into its mods folder.
+    def devtoolsJar = tasks.register('devtoolsJar', Jar) {
+        from sourceSets.devtools.output
+        archiveClassifier = 'devtools-dev'
+        destinationDirectory = layout.buildDirectory.dir('devtools')
+    }
+    def remapDevtoolsJar = tasks.register('remapDevtoolsJar', net.fabricmc.loom.task.RemapJarTask) {
+        inputFile = devtoolsJar.flatMap { it.archiveFile }
+        classpath.from(sourceSets.main.output)
+        archiveClassifier = 'devtools'
+        destinationDirectory = layout.buildDirectory.dir('devtools')
+        addNestedDependencies = false
+    }
+    tasks.register('runShotsProduction', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+        dependsOn syncShotsMods
+        mods.from(remapDevtoolsJar)
+        runDir = file('run-shots')
+        jvmArgs.add("-Ddiegesis.shots=${shotsTools}".toString())
+        programArgs.addAll('--width', '1280', '--height', '720', '--username', 'Dev')
+    }
+}
+
 tasks.named('processResources', ProcessResources) {
     var replaceProperties = [
             minecraft_version    : minecraft_version,
