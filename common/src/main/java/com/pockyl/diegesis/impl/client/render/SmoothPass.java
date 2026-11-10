@@ -17,6 +17,7 @@ import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
@@ -28,7 +29,9 @@ import com.pockyl.diegesis.api.client.NodePainter;
 import com.pockyl.diegesis.impl.client.focus.FocusScreen;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * What a {@link NodePainter#smooth() smooth} painter draws: kept from the level render and drawn over the finished frame from
@@ -106,15 +109,26 @@ public final class SmoothPass {
 
     private static void drawPending() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
-        int[] box = measure(main.width, main.height);
+        Set<RenderType> measured = new LinkedHashSet<>();
+        int[] box = measure(main.width, main.height, measured);
         if (box == null) {
+            if (!measured.isEmpty()) {
+                // Nothing on the screen; what the painters asked for is still drawn, empty (see KeptTypes), where it would be.
+                withMatrices(PROJECTION, () -> keep(measured));
+            }
             return;
         }
         int width = box[2] - box[0];
         int height = box[3] - box[1];
         int scale = (long) width * height * FINE * FINE <= MAX_FINE_PIXELS ? FINE : 2;
         fine = sized(fine, width * scale, height * scale, true);
-        half = scale == FINE ? sized(half, width * 2, height * 2, false) : null;
+        if (scale == FINE) {
+            half = sized(half, width * 2, height * 2, false);
+        } else if (half != null) {
+            // Dropped without freeing, its texture and framebuffer stayed taken until the game closed.
+            half.destroyBuffers();
+            half = null;
+        }
 
         // The projection, narrowed to the box: the box fills the fine target.
         float left = 2.0F * box[0] / main.width - 1.0F;
@@ -127,30 +141,13 @@ public final class SmoothPass {
         fine.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         fine.clear(Minecraft.ON_OSX);
         fine.bindWrite(true);
-        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
-        VertexSorting savedSorting = RenderSystem.getVertexSorting();
-        PoseStack modelView = RenderSystem.getModelViewStack();
-        modelView.pushPose();
-        modelView.setIdentity();
-        RenderSystem.applyModelViewMatrix();
-        RenderSystem.setProjectionMatrix(narrowed, VertexSorting.DISTANCE_TO_ORIGIN);
-        Lighting.setupLevel(VIEW);
-        RenderSystem.enableDepthTest();
-        try {
-            // An own source, drawn in the painters' order: shader packs swap the game's for one that holds draws back.
-            if (buffers == null) {
-                buffers = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
-            }
+        withMatrices(narrowed, () -> {
+            MultiBufferSource source = buffers();
             for (Pending pending : PENDING) {
-                pending.painter().paint(poseOf(pending), buffers, pending.light());
+                pending.painter().paint(poseOf(pending), source, pending.light());
             }
-            buffers.endBatch();
-        } finally {
-            modelView.popPose();
-            RenderSystem.applyModelViewMatrix();
-            RenderSystem.setProjectionMatrix(savedProjection, savedSorting);
-            Lighting.setupFor3DItems();
-        }
+            keep(measured);
+        });
 
         RenderTarget last = fine;
         if (half != null) {
@@ -162,6 +159,44 @@ public final class SmoothPass {
         }
         main.bindWrite(true);
         composite(last, left, right, bottom, top);
+    }
+
+    /** Draws with {@code projection}, no model-view turn and the level's light, as the painters were posed for. */
+    private static void withMatrices(Matrix4f projection, Runnable draw) {
+        Matrix4f savedProjection = new Matrix4f(RenderSystem.getProjectionMatrix());
+        VertexSorting savedSorting = RenderSystem.getVertexSorting();
+        PoseStack modelView = RenderSystem.getModelViewStack();
+        modelView.pushPose();
+        modelView.setIdentity();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.setProjectionMatrix(projection, VertexSorting.DISTANCE_TO_ORIGIN);
+        Lighting.setupLevel(VIEW);
+        RenderSystem.enableDepthTest();
+        try {
+            draw.run();
+        } finally {
+            modelView.popPose();
+            RenderSystem.applyModelViewMatrix();
+            RenderSystem.setProjectionMatrix(savedProjection, savedSorting);
+            Lighting.setupFor3DItems();
+        }
+    }
+
+    /** An own source, drawn in the painters' order: shader packs swap the game's for one that holds draws back. */
+    private static MultiBufferSource.BufferSource buffers() {
+        if (buffers == null) {
+            buffers = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
+        }
+        return buffers;
+    }
+
+    /** Draws the types measuring took from the painters, then everything: see KeptTypes. */
+    private static void keep(Set<RenderType> measured) {
+        MultiBufferSource.BufferSource source = buffers();
+        for (RenderType type : measured) {
+            KeptTypes.keep(source, type);
+        }
+        source.endBatch();
     }
 
     /** Lays the target over the frame in the box; its colours are premultiplied (drawn over clear black). */
@@ -222,11 +257,15 @@ public final class SmoothPass {
 
     /**
      * The box on the screen the kept painters cover, in framebuffer pixels from the bottom left: {x0, y0, x1, y1}; null when
-     * they draw nothing on it. They draw once into a consumer that only measures.
+     * they draw nothing on it. They draw once into a consumer that only measures; the types they ask for go into
+     * {@code measured}, to be drawn after all.
      */
-    private static int[] measure(int screenWidth, int screenHeight) {
+    private static int[] measure(int screenWidth, int screenHeight, Set<RenderType> measured) {
         Bounds bounds = new Bounds();
-        MultiBufferSource measuring = type -> bounds;
+        MultiBufferSource measuring = type -> {
+            measured.add(type);
+            return bounds;
+        };
         for (Pending pending : PENDING) {
             pending.painter().paint(poseOf(pending), measuring, pending.light());
         }

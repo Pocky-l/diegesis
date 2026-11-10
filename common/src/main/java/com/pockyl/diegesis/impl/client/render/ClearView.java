@@ -123,6 +123,9 @@ public final class ClearView {
         }
         return type -> {
             RenderType ghost = GHOSTS.computeIfAbsent(type, ClearView::ghostOf).orElse(type);
+            if (ghost != type) {
+                KeptTypes.keep(buffers, type);
+            }
             Fading fading = new Fading();
             fading.delegate = buffers.getBuffer(ghost);
             return fading;

@@ -152,13 +152,20 @@ public final class SceneRenderer {
         if (clearBuffers == null) {
             clearBuffers = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
             Map<RenderType, BufferBuilder> kept = new LinkedHashMap<>();
-            for (RenderType type : List.of(Sheets.cutoutBlockSheet(), OVERLAY, SceneParticles.TYPE)) {
+            // The see-through item sheet is never drawn into here (CLEAR takes it), only kept: see KeptTypes.
+            for (RenderType type : List.of(Sheets.cutoutBlockSheet(), OVERLAY, SceneParticles.TYPE, Sheets.translucentCullBlockSheet())) {
                 kept.put(type, new BufferBuilder(1 << 16));
             }
             sceneBuffers = MultiBufferSource.immediateWithBuffers(kept, new BufferBuilder(1 << 16));
         }
         RenderType translucent = Sheets.translucentCullBlockSheet();
-        MultiBufferSource scene = type -> type == translucent ? clearBuffers.getBuffer(CLEAR) : sceneBuffers.getBuffer(type);
+        MultiBufferSource scene = type -> {
+            if (type != translucent) {
+                return sceneBuffers.getBuffer(type);
+            }
+            KeptTypes.keep(sceneBuffers, translucent);
+            return clearBuffers.getBuffer(CLEAR);
+        };
         for (ClientStation station : stations) {
             station.frame(dt);
             if (station.scene() == null || station.pos().distToCenterSqr(cameraPos) > RENDER_RANGE * RENDER_RANGE) {
@@ -206,11 +213,15 @@ public final class SceneRenderer {
         OutlineBufferSource outline = minecraft.renderBuffers().outlineBufferSource();
         outline.setColor(outlineColor >> 16 & 0xFF, outlineColor >> 8 & 0xFF, outlineColor & 0xFF, 0xFF);
         // Only the silhouette: every render type is swapped for its outline type; what has none (glints) is dropped.
-        MultiBufferSource silhouettes = type -> type.outline().map(outline::getBuffer).orElse(NoVertices.INSTANCE);
+        MultiBufferSource silhouettes = type -> {
+            KeptTypes.keep(sceneBuffers, type);
+            return type.outline().map(outline::getBuffer).orElse(NoVertices.INSTANCE);
+        };
         for (Consumer<MultiBufferSource> draw : PENDING_OUTLINES) {
             draw.accept(silhouettes);
         }
         outline.endOutlineBatch();
+        sceneBuffers.endBatch();
         effect.process(minecraft.getFrameTime());
         minecraft.getMainRenderTarget().bindWrite(false);
     }
@@ -412,8 +423,15 @@ public final class SceneRenderer {
         Vector3fc at = carried.stationPos();
         Matrix4f matrix = new Matrix4f().translation(at.x(), at.y(), at.z()).rotate(new org.joml.Quaternionf(pose.rotation()))
                 .scale(shape.modelScale(pose.scale() * options.itemSize()));
-        MultiBufferSource ghost = type -> isBlockSheet(type)
-                ? new TintedConsumer(buffers.getBuffer(Sheets.translucentCullBlockSheet()), options.previewColor()) : buffers.getBuffer(type);
+        MultiBufferSource ghost = type -> {
+            if (!isBlockSheet(type)) {
+                return buffers.getBuffer(type);
+            }
+            if (type != Sheets.translucentCullBlockSheet()) {
+                KeptTypes.keep(buffers, type);
+            }
+            return new TintedConsumer(buffers.getBuffer(Sheets.translucentCullBlockSheet()), options.previewColor());
+        };
         poseStack.pushPose();
         multiply(poseStack, matrix);
         shape.draw(stack, poseStack, ghost, light, level, 0);
@@ -1010,6 +1028,9 @@ public final class SceneRenderer {
 
         @Override
         public VertexConsumer getBuffer(RenderType type) {
+            if (type != OVERLAY) {
+                KeptTypes.keep(buffers, type);
+            }
             int a = Math.round(alpha * 255.0F);
             return new TintedConsumer(buffers.getBuffer(OVERLAY), a << 24);
         }
