@@ -458,11 +458,12 @@ public final class SceneRenderer {
         }
         poseStack.pushPose();
         if (visual.item().isPresent()) {
-            // Items cannot be tinted through the item renderer; they are drawn as they are.
+            // The item renderer takes no tint: a tinted item (one offered see-through) is drawn through tinting buffers.
             poseStack.translate(8.0F - anchor.x(), 8.0F - anchor.y(), 8.0F - anchor.z());
             poseStack.scale(16.0F, 16.0F, 16.0F);
+            MultiBufferSource drawn = tint == Visual.WHITE ? buffers : com.pockyl.diegesis.api.client.DiegesisClient.tinted(buffers, tint);
             minecraft.getItemRenderer().renderStatic(new ItemStack(visual.item().get()), ItemDisplayContext.FIXED, packedLight,
-                    OverlayTexture.NO_OVERLAY, poseStack, buffers, level, 0);
+                    OverlayTexture.NO_OVERLAY, poseStack, drawn, level, 0);
             poseStack.popPose();
             return;
         }
