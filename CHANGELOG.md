@@ -4,6 +4,13 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.6+1.21.1] - Unreleased
+### Fixed
+- Wall cabinets, a low ceiling or a wall over a station no longer block the camera: the blocks in its way are hidden
+  while you work there and come back when you leave. Works with Sodium. Scene option `clear_view.blocks`.
+- Joining a world on Fabric no longer crashes.
+- Armourer's Workshop skins no longer turn invisible after work at a station.
+
 ## [1.0.0-beta.4+1.21.1]
 ### Added
 - `NodePainter.smooth()`: a painter hanging in front of the scene, such as a book before the camera, is drawn
