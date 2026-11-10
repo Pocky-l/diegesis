@@ -54,6 +54,14 @@ public interface NodeView {
      */
     void setOutlined(boolean outlined);
 
+    /**
+     * Draws the node's own visual and shape over everything else while the local player works at the station, smooth like a
+     * {@link NodePainter#smooth()} painter: a badge beside an object that the block itself or a neighbour must never hide. For
+     * everybody else it is drawn with the scene as before.
+     */
+    default void setOnTop(boolean onTop) {
+    }
+
     /** Turns the node by extra Euler degrees (applied y, x, z) over {@code seconds}, eased. */
     void rotateTo(float x, float y, float z, float seconds);
 

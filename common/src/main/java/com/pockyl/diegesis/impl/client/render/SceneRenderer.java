@@ -37,6 +37,7 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 import com.pockyl.diegesis.DiegesisMod;
+import com.pockyl.diegesis.api.client.NodePainter;
 import com.pockyl.diegesis.api.scene.InterfaceOptions;
 import com.pockyl.diegesis.api.scene.InventoryLayout;
 import com.pockyl.diegesis.api.scene.LightDefinition;
@@ -302,9 +303,11 @@ public final class SceneRenderer {
                         station.state().getOutput(output.output()), output.display(), output.size(), 0, station.age(), at, target,
                         LightTexture.FULL_BRIGHT, level)));
             }
-            node.visual().ifPresent(visual -> renderVisual(visual, node.tint(), poseStack, buffers, nodeLight, level));
-            if (node.shape() != null) {
-                renderShape(node, poseStack, buffers, nodeLight);
+            if (!(local && node.isOnTop() && SmoothPass.defer(overEverything(node, level), poseStack, nodeLight))) {
+                node.visual().ifPresent(visual -> renderVisual(visual, node.tint(), poseStack, buffers, nodeLight, level));
+                if (node.shape() != null) {
+                    renderShape(node, poseStack, buffers, nodeLight);
+                }
             }
             if (node.painter() != null && !(node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
                 node.painter().paint(poseStack, buffers, nodeLight);
@@ -506,6 +509,24 @@ public final class SceneRenderer {
     }
 
     /** A shape made by code: like a mesh, its texture from the node. */
+    /** A node's own look drawn as a smooth painter: over the finished frame, where nothing of the scene or the world covers it. */
+    private static NodePainter overEverything(NodeInstance node, ClientLevel level) {
+        return new NodePainter() {
+            @Override
+            public void paint(PoseStack poseStack, MultiBufferSource buffers, int light) {
+                node.visual().ifPresent(visual -> renderVisual(visual, node.tint(), poseStack, buffers, light, level));
+                if (node.shape() != null) {
+                    renderShape(node, poseStack, buffers, light);
+                }
+            }
+
+            @Override
+            public boolean smooth() {
+                return true;
+            }
+        };
+    }
+
     private static void renderShape(NodeInstance node, PoseStack poseStack, MultiBufferSource buffers, int light) {
         var sprite = Minecraft.getInstance().getTextureAtlas(net.minecraft.world.inventory.InventoryMenu.BLOCK_ATLAS).apply(node.shapeTexture());
         VertexConsumer consumer = buffers.getBuffer((node.tint() >>> 24) < 0xFF ? Sheets.translucentCullBlockSheet() : Sheets.cutoutBlockSheet());
