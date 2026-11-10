@@ -69,6 +69,27 @@ public final class PourStreams {
         }
     }
 
+    /**
+     * Keeps a stream that no vessel of the scene pours running this frame: from {@code from} down to {@code to} (station space),
+     * in {@code color}. Streams with the same {@code key} are one stream; it raises rings on {@code into}'s liquid where it lands,
+     * when {@code into} is a node with a tank, and only splashes otherwise.
+     */
+    public void feed(String key, Vector3fc from, Vector3fc to, int color, NodeInstance into, float flow) {
+        for (Stream stream : streams) {
+            if (key.equals(stream.key) && !stream.cut) {
+                stream.flowWanted = flow;
+                stream.silence = 0.0F;
+                stream.aim(from, to, color, into);
+                return;
+            }
+        }
+        if (flow > 0.0F) {
+            Stream stream = new Stream(key, flow);
+            stream.aim(from, to, color, into);
+            streams.add(stream);
+        }
+    }
+
     public void update(float dt, ClientStation station, PourOptions options) {
         Iterator<Stream> iterator = streams.iterator();
         while (iterator.hasNext()) {
@@ -113,8 +134,11 @@ public final class PourStreams {
 
     /** One stream. Its head and tail are places along the fall, 0 at the spout, 1 where it lands. */
     private static final class Stream {
+        /** The vessel pouring and the tank it pours into; both null for a stream fed by code, which has a {@link #key}. */
         private final NodeInstance source;
         private final NodeInstance target;
+        private final String key;
+        private NodeInstance into;
         private final Vector3f from = new Vector3f();
         private final Vector3f to = new Vector3f();
         private float flow;
@@ -130,11 +154,32 @@ public final class PourStreams {
         Stream(NodeInstance source, NodeInstance target, float flow) {
             this.source = source;
             this.target = target;
+            this.into = target;
+            this.key = null;
             this.flowWanted = flow;
             this.look = source.liquid().look();
             this.color = source.liquid().color();
             from.set(spout(source));
             to.set(landing(target, from));
+        }
+
+        Stream(String key, float flow) {
+            this.source = null;
+            this.target = null;
+            this.key = key;
+            this.flowWanted = flow;
+        }
+
+        /** Where a stream fed by code runs now; a stream that let go of its spout keeps falling where it was. */
+        void aim(Vector3fc spout, Vector3fc landing, int liquid, NodeInstance tank) {
+            if (cut) {
+                return;
+            }
+            from.set(spout);
+            to.set(landing);
+            color = liquid;
+            look = LiquidLook.of(liquid);
+            into = tank != null && tank.liquid() != null ? tank : null;
         }
 
         /** Returns true once it is gone. */
@@ -143,7 +188,7 @@ public final class PourStreams {
             if (silence > STALE) {
                 flowWanted = 0.0F;
             }
-            if (!cut) {
+            if (!cut && source != null) {
                 from.set(spout(source));
                 to.set(landing(target, from));
                 color = source.liquid().color();
@@ -169,14 +214,17 @@ public final class PourStreams {
 
         /** The liquid's surface gives way under the stream, and it splashes a little. */
         private void land(float dt, ClientStation station, PourOptions options) {
-            Box inner = target.definition().tank().get().inner();
-            Vector3f local = target.matrix().invert(new Matrix4f()).transformPosition(new Vector3f(to));
-            float u = (local.x - inner.from().x()) / Math.max(0.01F, inner.to().x() - inner.from().x());
-            float v = 1.0F - (local.z - inner.from().z()) / Math.max(0.01F, inner.to().z() - inner.from().z());
             float strength = Math.max(flow, 0.15F);
-            // The stream's foot wanders a little, so the rings do not come out too regular.
-            float wander = 0.05F;
-            target.liquid().impulse(u + ((float) Math.random() - 0.5F) * wander, v + ((float) Math.random() - 0.5F) * wander, strength * 7.0F * dt);
+            if (into != null) {
+                Box inner = into.definition().tank().get().inner();
+                Vector3f local = into.matrix().invert(new Matrix4f()).transformPosition(new Vector3f(to));
+                float u = (local.x - inner.from().x()) / Math.max(0.01F, inner.to().x() - inner.from().x());
+                float v = 1.0F - (local.z - inner.from().z()) / Math.max(0.01F, inner.to().z() - inner.from().z());
+                // The stream's foot wanders a little, so the rings do not come out too regular.
+                float wander = 0.05F;
+                into.liquid().impulse(u + ((float) Math.random() - 0.5F) * wander, v + ((float) Math.random() - 0.5F) * wander,
+                        strength * 7.0F * dt);
+            }
             dropClock -= dt;
             if (dropClock > 0.0F) {
                 return;
@@ -191,8 +239,8 @@ public final class PourStreams {
             if (Math.random() < 0.55) {
                 station.spawnParticles(DiegesisParticles.SPLASH, to, new Vector3f(0.0F, 7.0F + 6.0F * strength, 0.0F), 0.45F, 1, drops);
             }
-            if (Math.random() < 0.3 * strength && target.liquid().fraction() > 0.01F) {
-                station.spawnInLiquid(DiegesisParticles.BUBBLE, target.id(), 1, 0, new Vector3f(0.0F, 4.0F, 0.0F));
+            if (into != null && Math.random() < 0.3 * strength && into.liquid().fraction() > 0.01F) {
+                station.spawnInLiquid(DiegesisParticles.BUBBLE, into.id(), 1, 0, new Vector3f(0.0F, 4.0F, 0.0F));
             }
         }
 

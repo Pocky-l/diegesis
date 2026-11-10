@@ -309,6 +309,13 @@ public final class ClientStation implements StationView, StationContext {
         return particles;
     }
 
+    @Override
+    public void pourStream(String key, Vector3fc from, Vector3fc to, int color, float flow, String liquidNode) {
+        if (scene != null) {
+            pourStreams.feed(key, from, to, color, liquidNode == null ? null : scene.node(liquidNode), flow);
+        }
+    }
+
     public PourStreams pourStreams() {
         return pourStreams;
     }

@@ -90,6 +90,19 @@ public interface StationView {
     void spawnAtLiquidEdge(ResourceLocation particle, String node, int count, int color, float scale);
 
     /**
+     * Keeps a stream of liquid running this frame from {@code from} down to {@code to} (scene pixels, before the facing turn), as
+     * the stream of a vessel poured by hand looks: a bottle an animation tips over a pot, milk poured over a cake. Call it every
+     * frame while it runs; once the calls stop, the stream lets go of {@code from} and falls the rest of the way. Calls with the
+     * same {@code key} feed one stream.
+     *
+     * @param color      ARGB colour of the liquid
+     * @param flow       how thick it runs, 0 to 1 (the scene's {@code pouring.stream_width} at 1)
+     * @param liquidNode a node with a tank whose liquid the stream lands in and stirs up with rings, or {@code null}: it only splashes
+     */
+    default void pourStream(String key, Vector3fc from, Vector3fc to, int color, float flow, String liquidNode) {
+    }
+
+    /**
      * Where the local player's cursor points on the level plane at {@code height} (scene pixels, before the facing turn): a spoon
      * following the hand over a soup. Empty when the player is not working here or looks away from the plane.
      */
