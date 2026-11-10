@@ -618,6 +618,9 @@ public final class ModGameTests {
                 .error().isPresent(), "two visuals");
         check(helper, parse("{\"nodes\": [{\"id\": \"a\", \"pos\": [1, 2]}]}").error().isPresent(), "a typo is an error, not ignored");
         check(helper, parse("{\"camera\": {\"fov\": \"wide\"}}").error().isPresent(), "bad camera value");
+        check(helper, scene.clearView().blocks(), "blocks in the camera's way are left out by default");
+        check(helper, !parse("{\"clear_view\": {\"blocks\": false}}").result().orElseThrow().clearView().blocks(),
+                "clear_view.blocks can keep them");
         String misspelt = parse("{\"interface\": {\"carry_lfit\": 3}}").error().map(Object::toString).orElse("");
         check(helper, misspelt.contains("carry_lfit") && misspelt.contains("did you mean \"carry_lift\""),
                 "an unknown field is an error naming the closest one: " + misspelt);

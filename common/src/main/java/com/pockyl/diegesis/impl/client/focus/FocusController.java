@@ -16,6 +16,7 @@ import com.pockyl.diegesis.api.scene.SceneDefinition;
 import com.pockyl.diegesis.api.station.Authority;
 import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.anim.Easing;
+import com.pockyl.diegesis.impl.client.render.ClearBlocks;
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.ClientPlatform;
 
@@ -48,6 +49,8 @@ public final class FocusController {
     /** Where the camera flies from while going over to a neighbour, and its field of view there; null otherwise. */
     private CameraPose flightFrom;
     private double flightFromFov;
+    /** The station flown over from: the blocks kept out of its shots stay out until the camera arrives. */
+    private ClientStation flightFromStation;
     private float flightTime;
     /** The flight was turned to another station half way: it sets off at speed (the camera is moving already). */
     private boolean flightOnward;
@@ -155,6 +158,7 @@ public final class FocusController {
         target.setOpenedByUse(false);
         flightFrom = lastPose;
         flightFromFov = lastFov;
+        flightFromStation = left;
         flightTime = seconds;
         station = target;
         confirmed = !awaitServer;
@@ -255,8 +259,10 @@ public final class FocusController {
         station = null;
         confirmed = false;
         flightFrom = null;
+        flightFromStation = null;
         exitFrom = null;
         lastPose = null;
+        ClearBlocks.clear();
     }
 
     /** Advances the camera flight; once per frame, before the camera is set up. */
@@ -280,6 +286,7 @@ public final class FocusController {
             if (progress >= 1.0F) {
                 phase = Phase.FOCUSED;
                 flightFrom = null;
+                flightFromStation = null;
                 flightOnward = false;
             }
         } else if (phase == Phase.EXITING) {
@@ -288,11 +295,14 @@ public final class FocusController {
                 minecraft.options.hideGui = savedHideGui;
                 phase = Phase.IDLE;
                 station = null;
+                flightFromStation = null;
                 exitFrom = null;
                 lastPose = null;
+                ClearBlocks.clear();
                 return;
             }
         }
+        ClearBlocks.keep(station, flightFromStation, dt);
         if ((phase == Phase.FOCUSED || phase == Phase.ENTERING) && !(minecraft.screen instanceof FocusScreen)) {
             // Another screen replaced ours (chat, inventory, death): leave the station.
             exit(true);

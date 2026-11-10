@@ -460,8 +460,11 @@ Every field is optional.
 
 While a player works at the station, entities and the world's particles between the camera and the station dissolve: softly, towards
 the edge of a cone round the line of sight, and they come back as the camera leaves. A figure in the way stays as a faint ghost at
-the edge of the shot and never covers the scene; a campfire's smoke under a pot stops at the cone. Nobody else sees a change, and
-the scene's own particles stay. On by default; every field is optional.
+the edge of the shot and never covers the scene; a campfire's smoke under a pot stops at the cone. Blocks in the camera's way are
+left out of the picture: the blocks the camera stands in, from any of the scene's shots, and those between it and the work surface,
+such as a wall cabinet over the station or a low ceiling. Their neighbours show their faces, light stays as it was, and the blocks
+are back once the camera has flown back. The shot never moves, so what the scene hangs before the camera stays where it was
+framed. Nobody else sees a change, and the scene's own particles stay. On by default; every field is optional.
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -469,6 +472,7 @@ the scene's own particles stay. On by default; every field is optional.
 | `particles` | `true` | World particles dissolve. |
 | `radius` | `16` | How wide the clear cone is at the station, pixels. |
 | `soft` | `12` | How far beyond `radius` things come back to full strength, pixels. |
+| `blocks` | `true` | Blocks in the camera's way are not drawn: those within 0.3 blocks of the camera in any shot of the scene (the rig's, seats', the inventory's, glances'), and those a line from the camera to the work surface passes through. The work surface is the block's top at the camera target's height and 4 pixels over it, 2 pixels in from the sides: put the target on the surface the player works on. Blocks count by their visual shape, as for the vanilla third-person camera (glass never does); the station's own block always stays. Works with Embeddium and Sodium. |
 
 ## Meshes
 

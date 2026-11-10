@@ -79,7 +79,7 @@ obj("scene", "SceneDefinition",
                                   "Keeps the inventory in a drawer at a side of the screen; not together with inventory."),
         "pouring": field({"$ref": "#/definitions/pouring"}, "How pouring looks."),
         "captions": field({"$ref": "#/definitions/captions"}, "How the lines of StationView.showCaption look."),
-        "clear_view": field({"$ref": "#/definitions/clear_view"}, "What stands between the camera and the station dissolves."),
+        "clear_view": field({"$ref": "#/definitions/clear_view"}, "What stands between the camera and the station dissolves, or is left out of the picture."),
         "gains": field({"$ref": "#/definitions/gains"}, "What the player gets at the station flies into the inventory."),
         "put_away": field(BOOL, "A right click with a stack on the cursor that nothing in the scene takes puts the stack back"
                                 " into the inventory, to the slot it came from while that is free.", True),
@@ -152,6 +152,9 @@ obj("clear_view", "ClearViewOptions", "Keeps the view of the station free while 
     "particles": field(BOOL, "The world's particles dissolve; the scene's own never do.", True),
     "radius": field(num(0, 256), "How wide the clear cone is at the station, in pixels.", 16),
     "soft": field(num(1, 256), "How far beyond radius things come back to full strength, in pixels.", 12),
+    "blocks": field(BOOL, "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet"
+                          " over the station, a low ceiling), are not drawn while the player works here. The shot stays as"
+                          " written.", True),
 })
 
 obj("captions", "CaptionOptions", "How the lines of StationView.showCaption look; every field is optional.", {

@@ -114,7 +114,7 @@
         },
         "clear_view": {
           "$ref": "#/definitions/clear_view",
-          "description": "What stands between the camera and the station dissolves."
+          "description": "What stands between the camera and the station dissolves, or is left out of the picture."
         },
         "gains": {
           "$ref": "#/definitions/gains",
@@ -410,6 +410,11 @@
           "maximum": 256,
           "description": "How far beyond radius things come back to full strength, in pixels.",
           "default": 12
+        },
+        "blocks": {
+          "type": "boolean",
+          "description": "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet over the station, a low ceiling), are not drawn while the player works here. The shot stays as written.",
+          "default": true
         }
       },
       "patternProperties": {
@@ -2261,6 +2266,19 @@
             }
           ],
           "description": "How far beyond radius things come back to full strength, in pixels."
+        },
+        "blocks": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet over the station, a low ceiling), are not drawn while the player works here. The shot stays as written.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet over the station, a low ceiling), are not drawn while the player works here. The shot stays as written."
         }
       },
       "patternProperties": {

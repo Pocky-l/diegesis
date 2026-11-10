@@ -12,7 +12,9 @@
     "client.LevelRendererAccessor",
     "client.LevelRendererMixin",
     "client.MultiPlayerGameModeMixin",
-    "client.SingleQuadParticleMixin"
+    "client.RenderChunkRegionMixin",
+    "client.SingleQuadParticleMixin",
+    "client.SodiumWorldSliceMixin"
   ],
   "injectors": {
     "defaultRequire": 1
