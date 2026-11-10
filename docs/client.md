@@ -42,6 +42,9 @@ block exactly then), `age()` (seconds shown),
 also carried or tipped - rising to the surface: glints in a reacting brew; they dim with their depth, and a style with a `surface`
 goes on there), `spawnOnLiquid(style, node, count, color, velocity)` (leaving the surface at random points: steam off a soup),
 `spawnAtLiquidEdge(style, node, count, color, scale)` (small bubbles on the surface along the walls: use `BUBBLE_POP`),
+`pourStream(key, from, to, color, flow, liquidNode)` (a stream of liquid from one point to another, in scene pixels, as a vessel poured
+by hand runs: call it every frame while it runs, and it lets go of `from` and falls the rest of the way once the calls stop; it rings
+`liquidNode`'s liquid where it lands, or only splashes for `null`: a bottle an animation tips over a pot),
 `loopSound(name, sound, volume, pitch)` (a sound that goes on while it is wanted, gliding to the volume and pitch asked for and fading out at 0),
 `cursorOn(height)` (where the cursor points on the level plane at that height, in scene pixels: a spoon following the hand),
 `pointerOn(node, height)` (the cursor on the plane through a node, in its own pixels: what a painted page was clicked at),
@@ -77,6 +80,7 @@ belong to this client only.
 | `ripple(x, z, strength)` | Sends ripples over its liquid from a point in the node's pixels: something dropped in, a stirring rod. `strength` is about the wave's height in pixels. |
 | `setFloating(floaters, count)` | Floats `count` things on its liquid, in turns from a list of `Floater(sprite, color, size[, solid])`: slices of voxels built from the sprite's pixels (or, not solid, the flat sprite), riding the waves; a strong current turns them over now and then. They come up from below one by one, overshoot and ring the surface; things no longer in the list leave. Built-in tintable sprites: `Floater.COIN`, `CHUNK`, `NUGGET`, `SHRED`, `LEAF`, `DROP`. |
 | `setFloatingObstacles(x, z, radius, ...)` | What stands in its liquid, in the node's pixels: what floats is pushed aside and goes round it, as round a spoon. Call it every frame while it moves. Floaters push each other by themselves. |
+| `setOnTop(true)` | Draws its own visual and shape over everything while the local player works at the station, smooth as a `NodePainter` with `smooth()`: a badge beside an object that the block or a neighbour must not hide. Others see it drawn with the scene. |
 | `setPainter(painter)` | Draws by code at the node every frame, with the scene (`NodePainter.paint(poseStack, buffers, light)`, in the node's pixels): a vanilla model, text and items on a page. `DiegesisClient.tinted(buffers, argb)` tints or fades what is drawn through it, block items too. |
 | `leaveWake(x, z[, width, strength])` | Leaves a trail on its liquid: call it as something moves through. A furrow in the liquid's own colour, lit on one side, that stays in the liquid, goes round with `setCurrent`, runs out and fades. `width` in the node's pixels, `strength` 0 to 1. Square tanks seen from above. |
 | `setWakeLook(seconds, contrast)` | How long trails stay on its liquid and how clearly they stand out, 0 to 1 (default 2.5 and 0.6): thin water forgets a stir at once, a thick soup keeps it. |
