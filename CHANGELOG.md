@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stream of a vessel poured by hand. For a bottle an animation tips over a pot.
 - `NodeView.setOnTop`: a node drawn over everything while the player works at the station, as the recipe book of a
   station is, so that a block or a neighbour never hides it.
+- The HUD slides away when you start to work at a station and comes back when you leave: the hotbar down, the chat to
+  the left, every other part and other mods' overlays to the edge of the screen nearest to them. Scene option `hud`
+  (`slide`, `seconds`); `"slide": false` hides it at once as before.
 
 ### Fixed
 - Smoke and flames of a campfire under a station no longer pop in at the edge of the clear view: world particles shrink

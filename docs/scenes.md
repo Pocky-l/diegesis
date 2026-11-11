@@ -35,6 +35,7 @@ scene for completion and checks in VS Code, IntelliJ and other editors.
 | `inventory` | none | Lay the player's inventory out in the scene instead of the screen panel. |
 | `inventory_drawer` | none | Keep the inventory in a drawer at a side of the screen. Not together with `inventory`. |
 | `clear_view` | see below | What stands between the camera and the station dissolves. |
+| `hud` | see below | How the game's HUD slides away when the player starts to work here. |
 | `put_away` | `true` | A right click with a stack on the cursor that nothing in the scene takes (no slot, zone or station code) puts the stack back into the inventory, to the slot it came from while that is free. Code: `StationView.putAwayCarried()` does the same, for a station that uses right clicks itself. |
 | `interface` | defaults | How the interface behaves and looks. |
 | `carry_planes` | `[]` | Levels carried objects rise to over parts of the scene, or areas closed to them. |
@@ -473,6 +474,20 @@ framed. Nobody else sees a change, and the scene's own particles stay. On by def
 | `radius` | `16` | How wide the clear cone is at the station, pixels. |
 | `soft` | `12` | How far beyond `radius` things come back to full strength, pixels. |
 | `blocks` | `true` | Blocks in the camera's way are not drawn: those within 0.3 blocks of the camera in any shot of the scene (the rig's, seats', the inventory's, glances'), and those a line from the camera to the work surface passes through. The work surface is the block's top at the camera target's height and 4 pixels over it, 2 pixels in from the sides: put the target on the surface the player works on. Blocks count by their visual shape, as for the vanilla third-person camera (glass never does); the station's own block always stays. Works with Embeddium and Sodium. |
+
+## hud
+
+When a player starts to work at the station, the game's HUD leaves the screen: every part of it slides off to the edge nearest
+to it, the hotbar and the health down, the chat to the left, effects and a scoreboard to the right, boss bars up. Other mods'
+overlays go the same way, each to the edge nearest to where it is drawn: on Forge every overlay by itself, on Fabric what mods
+draw through `HudRenderCallback` as one part. What covers most of the screen (a vignette) stays until the HUD is hidden. The
+HUD slides back while the camera flies back. Whether the HUD and the chat go at all is `interface.hide_hud` and
+`interface.hide_chat`; a player who hid the HUD with F1 sees no slide. Every field is optional.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `slide` | `true` | The parts slide away and back; `false`: they are gone and back at once. |
+| `seconds` | `0.3` | How long the slide takes. |
 
 ## Meshes
 
