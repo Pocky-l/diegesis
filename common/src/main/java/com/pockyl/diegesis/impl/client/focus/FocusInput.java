@@ -6,9 +6,11 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4d;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector2f;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
@@ -444,7 +446,7 @@ public final class FocusInput {
         lastClicked = target;
         lastButton = button;
         lastClickTime = now;
-        Vec3 at = node != null ? node.worldPosition() : station.pos().getCenter();
+        Vec3 at = node != null ? node.worldPosition() : station.center();
         if (shift && target instanceof Target.Inventory inventory && carried.isEmpty()
                 && station.inventoryShiftClick(inventory.index(), itemAt(station, target))) {
             return;
@@ -527,12 +529,12 @@ public final class FocusInput {
         }
         if (spreadTargets.size() > 1) {
             if (station.perform(new StationAction.Spread(spreadTargets, spreadButton))) {
-                UiSounds.putDown(station.pos().getCenter());
+                UiSounds.putDown(station.center());
             }
         } else if (spreadTargets.size() == 1) {
             Target target = spreadTargets.get(0);
             if (station.perform(new StationAction.Click(target, spreadButton, ClickKind.PICKUP))) {
-                UiSounds.putDown(target instanceof Target.Station && hovered != null ? hovered.worldPosition() : station.pos().getCenter());
+                UiSounds.putDown(target instanceof Target.Station && hovered != null ? hovered.worldPosition() : station.center());
             }
         }
         spreadTargets.clear();
@@ -569,7 +571,7 @@ public final class FocusInput {
                     : node == null ? null : itemTarget(station, node.definition());
         }
         if (to != null && !to.equals(from) && station.perform(new StationAction.Click(to, dragButton, ClickKind.PICKUP))) {
-            UiSounds.putDown(node != null ? node.worldPosition() : station.pos().getCenter());
+            UiSounds.putDown(node != null ? node.worldPosition() : station.center());
         }
     }
 
@@ -618,7 +620,7 @@ public final class FocusInput {
         } else {
             return false;
         }
-        UiSounds.detent(station.pos().getCenter(), 0.5F);
+        UiSounds.detent(station.center(), 0.5F);
         return true;
     }
 
@@ -1009,9 +1011,12 @@ public final class FocusInput {
     static StationRay stationRay(ClientStation station, double x, double y) {
         Projector.Ray ray = Projector.rayAt(x, y);
         Matrix4f inverse = station.stationToWorld(new Matrix4f()).invert();
-        Vec3 origin = ray.origin().subtract(station.pos().getX(), station.pos().getY(), station.pos().getZ());
+        // Into block-relative coordinates in doubles first: on a moving structure the block is kept far from where it is seen.
+        Matrix4d fromWorld = station.blockToWorld(new Matrix4d()).invert();
+        Vector3d origin = fromWorld.transformPosition(new Vector3d(ray.origin().x, ray.origin().y, ray.origin().z));
+        Vector3d direction = fromWorld.transformDirection(new Vector3d(ray.direction()));
         Vector3f localOrigin = inverse.transformPosition(new Vector3f((float) origin.x, (float) origin.y, (float) origin.z));
-        Vector3f localDirection = inverse.transformDirection(new Vector3f(ray.direction()));
+        Vector3f localDirection = inverse.transformDirection(new Vector3f((float) direction.x, (float) direction.y, (float) direction.z));
         return new StationRay(localOrigin, localDirection);
     }
 

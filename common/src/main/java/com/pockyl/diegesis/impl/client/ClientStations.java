@@ -15,6 +15,7 @@ import com.pockyl.diegesis.api.event.SceneEvent;
 import com.pockyl.diegesis.api.scene.SceneDefinition;
 import com.pockyl.diegesis.api.station.StationType;
 import com.pockyl.diegesis.impl.StationRegistry;
+import com.pockyl.diegesis.impl.SubLevels;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 import com.pockyl.diegesis.impl.client.scene.SceneLibrary;
 import com.pockyl.diegesis.impl.network.DiegesisNetwork;
@@ -114,7 +115,7 @@ public final class ClientStations {
         while (iterator.hasNext()) {
             ClientStation station = iterator.next();
             boolean stillThere = station.type().matches(level.getBlockState(station.pos()));
-            boolean near = player.distanceToSqr(station.pos().getCenter()) < KEEP_RANGE * KEEP_RANGE;
+            boolean near = player.distanceToSqr(SubLevels.center(level, station.pos(), true)) < KEEP_RANGE * KEEP_RANGE;
             boolean wanted = station.isFocused() || station.isInSession() || station.isIdleVisible();
             if (!station.isFocused() && (!stillThere || !near || !wanted)) {
                 station.clearRemote();

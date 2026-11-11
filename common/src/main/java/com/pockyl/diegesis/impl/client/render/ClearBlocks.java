@@ -139,7 +139,8 @@ public final class ClearBlocks {
     /** What is in the way of one shot: blocks round the camera, and between it and the work surface round the target. */
     private static void shot(ClientLevel level, ClientStation station, Vector3fc position, Vector3fc target, CollisionContext context,
             LongOpenHashSet found) {
-        Vec3 camera = station.toWorld(position.x(), position.y(), position.z());
+        // In the level's coordinates: on a moving structure, the blocks cleared away are the structure's own.
+        Vec3 camera = station.toLevel(position.x(), position.y(), position.z());
         BlockPos own = station.pos();
         AABB room = new AABB(camera, camera).inflate(ROOM);
         VoxelShape roomShape = Shapes.create(room);
@@ -152,11 +153,11 @@ public final class ClearBlocks {
                 }
             }
         }
-        sight(level, own, camera, station.toWorld(target.x(), target.y(), target.z()), context, found);
+        sight(level, own, camera, station.toLevel(target.x(), target.y(), target.z()), context, found);
         for (float rise : new float[] {0.0F, RISE}) {
             for (float x : GRID) {
                 for (float z : GRID) {
-                    sight(level, own, camera, station.toWorld(x, target.y() + rise, z), context, found);
+                    sight(level, own, camera, station.toLevel(x, target.y() + rise, z), context, found);
                 }
             }
         }

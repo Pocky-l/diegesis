@@ -8,10 +8,12 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import com.pockyl.diegesis.api.station.Authority;
 import com.pockyl.diegesis.api.station.StationType;
 import com.pockyl.diegesis.impl.StationRegistry;
+import com.pockyl.diegesis.impl.SubLevels;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 import com.pockyl.diegesis.impl.network.DiegesisNetwork;
 import com.pockyl.diegesis.impl.network.Packets;
@@ -82,7 +84,7 @@ public final class DiegesisClientRuntime {
         if (player.isSpectator() || !type.openCondition().test(player, pos, state)) {
             return false;
         }
-        if (player.getEyePosition().distanceToSqr(pos.getCenter()) > type.reach() * type.reach()) {
+        if (SubLevels.distanceSqr(player.level(), pos, player.getEyePosition()) > type.reach() * type.reach()) {
             return false;
         }
         return type.authority() != Authority.SERVER || ClientPlatform.INSTANCE.serverHasChannel() && ClientStations.get().serverHas(type);
@@ -90,13 +92,14 @@ public final class DiegesisClientRuntime {
 
     /** The client's station at {@code pos}, facing as it opens for the player, in the seat they would likely get. */
     private static ClientStation prepare(LocalPlayer player, StationType type, BlockPos pos, BlockState state) {
-        Direction towardsPlayer = Direction.getNearest(player.getX() - pos.getX() - 0.5, 0.0, player.getZ() - pos.getZ() - 0.5);
+        Vec3 from = SubLevels.toLevel(player.level(), pos, player.position(), true);
+        Direction towardsPlayer = Direction.getNearest(from.x - pos.getX() - 0.5, 0.0, from.z - pos.getZ() - 0.5);
         if (!towardsPlayer.getAxis().isHorizontal()) {
             towardsPlayer = player.getDirection().getOpposite();
         }
         ClientStation station = ClientStations.get().getOrCreate(type, pos, type.orientation().resolve(state, towardsPlayer));
         // Fly towards the likely seat at once; the server's answer settles it.
-        station.setSeat(type.nearestSeat(pos, station.facing(), player.position(), seat -> true).map(seat -> seat.id()).orElse(null));
+        station.setSeat(type.nearestSeat(pos, station.facing(), from, seat -> true).map(seat -> seat.id()).orElse(null));
         return station;
     }
 

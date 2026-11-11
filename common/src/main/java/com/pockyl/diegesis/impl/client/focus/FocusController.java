@@ -465,7 +465,7 @@ public final class FocusController {
     /** Turns the player to the station, so the people around see them look at it. */
     private void lookAtStation(LocalPlayer player) {
         Vec3 eye = player.getEyePosition();
-        Vec3 center = station.pos().getCenter().add(0.0, 0.3, 0.0);
+        Vec3 center = station.center().add(0.0, 0.3, 0.0);
         Vec3 dir = center.subtract(eye);
         player.setYRot((float) Math.toDegrees(Math.atan2(-dir.x, dir.z)));
         player.setXRot((float) -Math.toDegrees(Math.atan2(dir.y, Math.sqrt(dir.x * dir.x + dir.z * dir.z))));

@@ -32,6 +32,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix3f;
+import org.joml.Matrix4d;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -169,7 +170,7 @@ public final class SceneRenderer {
         };
         for (ClientStation station : stations) {
             station.frame(dt);
-            if (station.scene() == null || station.pos().distToCenterSqr(cameraPos) > RENDER_RANGE * RENDER_RANGE) {
+            if (station.scene() == null || station.center().distanceToSqr(cameraPos) > RENDER_RANGE * RENDER_RANGE) {
                 continue;
             }
             // Each station draws on its own copy of the pose stack: a failure halfway can never leave the level's stack
@@ -258,7 +259,9 @@ public final class SceneRenderer {
         BlockPos pos = station.pos();
         int light = lightAt(level, pos);
         poseStack.pushPose();
-        poseStack.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
+        // The block's place relative to the camera, in doubles: on a moving structure its blocks are kept far away and the pose
+        // brings them back, which floats would lose.
+        multiply(poseStack, new Matrix4f(station.blockToWorld(new Matrix4d()).translateLocal(-camera.x, -camera.y, -camera.z)));
         multiply(poseStack, station.stationToWorld(new Matrix4f()));
 
         SceneInstance scene = station.scene();
@@ -377,7 +380,8 @@ public final class SceneRenderer {
             renderPourHints(scene, input, poseStack, buffers);
         }
         if ((!station.particles().isEmpty() || !station.pourStreams().isEmpty()) && debugCamera != null) {
-            Matrix4f toStation = station.stationToWorld(new Matrix4f()).invert();
+            Matrix4f toStation = new Matrix4f(station.blockToWorld(new Matrix4d()).setTranslation(0.0, 0.0, 0.0))
+                    .mul(station.stationToWorld(new Matrix4f())).invert();
             Vector3f right = toStation.transformDirection(new Vector3f(debugCamera.getLeftVector()).negate()).normalize();
             Vector3f up = toStation.transformDirection(new Vector3f(debugCamera.getUpVector())).normalize();
             Vector3f view = toStation.transformDirection(new Vector3f(debugCamera.getLookVector())).normalize();

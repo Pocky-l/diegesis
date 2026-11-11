@@ -136,6 +136,8 @@ react to the state and to what the player does.
 
 [![Iris](https://raw.githubusercontent.com/Pocky-l/diegesis/1.21.1/docs/compat/iris.png)](https://modrinth.com/mod/iris) ✅ **[Iris](https://modrinth.com/mod/iris)** - checked without a shader pack, liquids and glass included
 
+[![Create Aeronautics](https://raw.githubusercontent.com/Pocky-l/diegesis/1.21.1/docs/compat/create-aeronautics.png)](https://modrinth.com/mod/create-aeronautics) ✅ **[Create Aeronautics](https://modrinth.com/mod/create-aeronautics)** - stations on its ships, and on anything else [Sable](https://modrinth.com/mod/sable) moves, open there and stay with the ship as it flies and turns (NeoForge)
+
 ## Installation
 
 1. Install [NeoForge](https://neoforged.net) or [Fabric](https://fabricmc.net) (with

@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4d;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -38,6 +39,7 @@ import com.pockyl.diegesis.api.station.Authority;
 import com.pockyl.diegesis.api.station.StationContext;
 import com.pockyl.diegesis.api.station.StationLogic;
 import com.pockyl.diegesis.api.station.StationType;
+import com.pockyl.diegesis.impl.SubLevels;
 import com.pockyl.diegesis.impl.action.ActionHandler;
 import com.pockyl.diegesis.impl.action.StationAction;
 import com.pockyl.diegesis.impl.client.fx.PourStreams;
@@ -263,8 +265,27 @@ public final class ClientStation implements StationView, StationContext {
 
     @Override
     public Vec3 toWorld(float x, float y, float z) {
+        return SubLevels.toWorld(level, pos, toLevel(x, y, z), true);
+    }
+
+    /**
+     * Station space to the level's coordinates of the block: the same as {@link #toWorld} on the ground; on a moving structure,
+     * where its blocks are kept rather than where they are seen.
+     */
+    public Vec3 toLevel(float x, float y, float z) {
         Vector3f point = stationToWorld(toWorldMatrix).transformPosition(new Vector3f(x, y, z));
-        return new Vec3(pos.getX() + point.x, pos.getY() + point.y, pos.getZ() + point.z);
+        // In doubles: a block kept far away by a moving structure is past where floats tell blocks apart.
+        return new Vec3((double) pos.getX() + point.x, (double) pos.getY() + point.y, (double) pos.getZ() + point.z);
+    }
+
+    /** {@code dest} set to the matrix from block-relative coordinates to the world's, as drawn this frame. */
+    public Matrix4d blockToWorld(Matrix4d dest) {
+        return SubLevels.blockToWorld(level, pos, true, dest);
+    }
+
+    /** Where the middle of the block is in the world, as drawn this frame. */
+    public Vec3 center() {
+        return SubLevels.center(level, pos, true);
     }
 
     @Override
@@ -359,7 +380,7 @@ public final class ClientStation implements StationView, StationContext {
         Player player = Minecraft.getInstance().player;
         if (focused && player != null && !player.inventoryMenu.getCarried().isEmpty()
                 && perform(new StationAction.Click(new StationAction.Target.Inventory(0), 1, StationAction.ClickKind.PUT_AWAY))) {
-            com.pockyl.diegesis.impl.client.focus.UiSounds.putDown(pos().getCenter());
+            com.pockyl.diegesis.impl.client.focus.UiSounds.putDown(center());
         }
     }
 
@@ -416,7 +437,7 @@ public final class ClientStation implements StationView, StationContext {
             if (volume <= 0.0F) {
                 return;
             }
-            Vec3 at = pos.getCenter();
+            Vec3 at = center();
             loop = new com.pockyl.diegesis.impl.client.fx.StationLoop(sound, at.x, at.y, at.z, pitch, () -> ClientStations.get().at(pos) == this);
             loops.put(name, loop);
             Minecraft.getInstance().getSoundManager().play(loop);
@@ -426,7 +447,7 @@ public final class ClientStation implements StationView, StationContext {
 
     @Override
     public void playSound(SoundEvent sound, String node, float volume, float pitch) {
-        Vec3 at = node == null ? pos.getCenter() : node(node).map(NodeView::worldPosition).orElse(pos.getCenter());
+        Vec3 at = node == null ? center() : node(node).map(NodeView::worldPosition).orElseGet(this::center);
         Minecraft.getInstance().getSoundManager().play(new SimpleSoundInstance(sound, SoundSource.BLOCKS, volume, pitch,
                 level.getRandom(), at.x, at.y, at.z));
     }

@@ -10,6 +10,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 import com.pockyl.diegesis.DiegesisMod;
 import com.pockyl.diegesis.api.state.StationHost;
@@ -17,6 +18,7 @@ import com.pockyl.diegesis.api.state.StationState;
 import com.pockyl.diegesis.api.station.StationContext;
 import com.pockyl.diegesis.api.station.StationLogic;
 import com.pockyl.diegesis.api.station.StationType;
+import com.pockyl.diegesis.impl.SubLevels;
 import com.pockyl.diegesis.impl.network.DiegesisNetwork;
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.impl.network.Presence;
@@ -268,7 +270,7 @@ final class ActiveStation implements StationContext {
     boolean canStay(ServerPlayer player) {
         double reach = type.reach() + 1.5;
         return player.isAlive() && !player.hasDisconnected() && player.level() == level && !player.isSpectator()
-                && player.getEyePosition().distanceToSqr(pos.getCenter()) <= reach * reach && type.matches(level.getBlockState(pos));
+                && SubLevels.distanceSqr(level, pos, player.getEyePosition()) <= reach * reach && type.matches(level.getBlockState(pos));
     }
 
     List<ServerPlayer> invalidUsers() {
@@ -284,8 +286,9 @@ final class ActiveStation implements StationContext {
     private void refreshWatchers() {
         watchers.clear();
         double rangeSq = WATCH_RANGE * WATCH_RANGE;
+        Vec3 center = SubLevels.center(level, pos, false);
         for (ServerPlayer player : level.players()) {
-            if (!users.contains(player) && player.distanceToSqr(pos.getCenter()) <= rangeSq && Platform.INSTANCE.hasChannel(player)) {
+            if (!users.contains(player) && player.distanceToSqr(center) <= rangeSq && Platform.INSTANCE.hasChannel(player)) {
                 watchers.add(player);
             }
         }

@@ -145,8 +145,9 @@ final class Neighbors {
             glance.edge().ifPresent(taken::add);
         }
         scene.inventoryDrawer().ifPresent(drawer -> taken.add(drawer.side()));
-        Vec3 eye = station.toWorld(rig.position().x(), rig.position().y(), rig.position().z());
-        Vec3 look = station.toWorld(rig.target().x(), rig.target().y(), rig.target().z()).subtract(eye);
+        // In the level's coordinates, as the neighbours' blocks are: on a moving structure they are kept together, far away.
+        Vec3 eye = station.toLevel(rig.position().x(), rig.position().y(), rig.position().z());
+        Vec3 look = station.toLevel(rig.target().x(), rig.target().y(), rig.target().z()).subtract(eye);
         Vec3 forward = new Vec3(look.x, 0.0, look.z);
         if (forward.lengthSqr() < 1.0e-6) {
             return;

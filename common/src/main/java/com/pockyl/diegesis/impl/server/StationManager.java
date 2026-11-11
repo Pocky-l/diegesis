@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 import com.pockyl.diegesis.DiegesisMod;
 import com.pockyl.diegesis.api.state.TankSpec;
@@ -15,6 +16,7 @@ import com.pockyl.diegesis.api.station.Authority;
 import com.pockyl.diegesis.api.station.StationContext;
 import com.pockyl.diegesis.api.station.StationType;
 import com.pockyl.diegesis.impl.StationRegistry;
+import com.pockyl.diegesis.impl.SubLevels;
 import com.pockyl.diegesis.impl.action.ActionHandler;
 import com.pockyl.diegesis.impl.action.StationAction;
 import com.pockyl.diegesis.impl.network.Packets;
@@ -101,7 +103,7 @@ public final class StationManager {
             return false;
         }
         double reach = type.reach();
-        if (player.getEyePosition().distanceToSqr(pos.getCenter()) > reach * reach) {
+        if (SubLevels.distanceSqr(level, pos, player.getEyePosition()) > reach * reach) {
             return false;
         }
         Key key = new Key(level.dimension(), pos.immutable());
@@ -114,7 +116,9 @@ public final class StationManager {
         }
         close(player, true);
         if (station == null) {
-            Direction towardsPlayer = Direction.getNearest(player.getX() - pos.getX() - 0.5, 0.0, player.getZ() - pos.getZ() - 0.5);
+            // On a moving structure, where the player stands as seen from the structure's own blocks.
+            Vec3 from = SubLevels.toLevel(level, pos, player.position(), false);
+            Direction towardsPlayer = Direction.getNearest(from.x - pos.getX() - 0.5, 0.0, from.z - pos.getZ() - 0.5);
             if (!towardsPlayer.getAxis().isHorizontal()) {
                 towardsPlayer = player.getDirection().getOpposite();
             }

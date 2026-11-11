@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-beta.7+1.21.1] - Unreleased
 ### Added
+- Stations on structures that [Sable](https://modrinth.com/mod/sable) moves, such as the ships of
+  [Create Aeronautics](https://modrinth.com/mod/create-aeronautics), on NeoForge: using the block opens the station, and the scene, the camera, clicks and
+  sounds stay with the ship as it flies and turns. Before, such a block kept its own menu.
 - `StationView.pourStream`: a stream of liquid between two points of a scene, run by code, that looks and lands like the
   stream of a vessel poured by hand. For a bottle an animation tips over a pot.
 - `NodeView.setOnTop`: a node drawn over everything while the player works at the station, as the recipe book of a
