@@ -119,8 +119,9 @@ public final class FocusController {
         phase = Phase.ENTERING;
         progress = 0.0F;
         lastFrameNanos = Util.getNanos();
-        startYaw = player.getYRot();
-        startPitch = player.getXRot();
+        // Where the camera looked in the last frame: the player's eyes, or a third-person view of a camera mod.
+        startYaw = minecraft.gameRenderer.getMainCamera().getYRot();
+        startPitch = minecraft.gameRenderer.getMainCamera().getXRot();
         savedHideGui = minecraft.options.hideGui;
         hudLeaves(minecraft);
         flightFrom = null;
@@ -138,6 +139,7 @@ public final class FocusController {
 
     private static void openScreen(Minecraft minecraft) {
         BlurMods.keepOff();
+        CameraMods.giveWay();
         minecraft.setScreen(new FocusScreen());
     }
 
@@ -381,10 +383,11 @@ public final class FocusController {
     }
 
     /**
-     * The camera pose for this frame, or null when the camera is the player's own. {@code eye} is where the vanilla
-     * camera would be (the start and end of the flight).
+     * The camera pose for this frame, or null when the camera is the player's own. {@code eye}, {@code eyeYaw} and
+     * {@code eyePitch} are where the camera would be without the station, as vanilla or a camera mod placed it (the start and
+     * end of the flight).
      */
-    public CameraPose cameraPose(Vec3 eye, float playerYaw, float playerPitch) {
+    public CameraPose cameraPose(Vec3 eye, float eyeYaw, float eyePitch) {
         if (phase == Phase.IDLE || station == null) {
             return null;
         }
@@ -394,7 +397,7 @@ public final class FocusController {
         if (flightFrom != null) {
             from = flightFrom;
         } else if (phase == Phase.EXITING) {
-            from = new CameraPose(eye, playerYaw, playerPitch);
+            from = new CameraPose(eye, eyeYaw, eyePitch);
             if (exitFrom != null) {
                 to = exitFrom;
             }
