@@ -15,9 +15,11 @@ import com.pockyl.diegesis.impl.client.focus.FocusController;
 /**
  * Moves the camera to the station while the player works at it. Neither loader has a camera position event on 1.21.1
  * (NeoForge's ViewportEvent only turns the camera). Runs after vanilla and other mods placed the camera, and only while
- * focused, so third-person and camera mods keep working the rest of the time.
+ * focused, so third-person and camera mods keep working the rest of the time. Its priority makes it the last hook at the
+ * end of the setup: camera mods that place the camera there too (Perspective API, under Leawind's Third Person) ran after it
+ * and turned the station's view away. Their pose is where the flight starts and ends.
  */
-@Mixin(Camera.class)
+@Mixin(value = Camera.class, priority = 2000)
 abstract class CameraMixin {
     /** Blocks between the camera and the eyes before the player's body is drawn. */
     private static final double BODY_CLEARANCE = 0.75;
@@ -34,6 +36,12 @@ abstract class CameraMixin {
     @Shadow
     public abstract Vec3 getPosition();
 
+    @Shadow
+    public abstract float getXRot();
+
+    @Shadow
+    public abstract float getYRot();
+
     @Inject(method = "setup", at = @At("TAIL"))
     private void diegesis$focusCamera(BlockGetter level, Entity entity, boolean detachedView, boolean thirdPersonReverse, float partialTick,
             CallbackInfo ci) {
@@ -43,7 +51,7 @@ abstract class CameraMixin {
         }
         focus.frame();
         Vec3 eye = getPosition();
-        FocusController.CameraPose pose = focus.cameraPose(eye, entity.getViewYRot(partialTick), entity.getViewXRot(partialTick));
+        FocusController.CameraPose pose = focus.cameraPose(eye, getYRot(), getXRot());
         if (pose == null) {
             return;
         }

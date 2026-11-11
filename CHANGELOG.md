@@ -4,6 +4,14 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.8+1.21.1] - Unreleased
+### Fixed
+- With [Real Camera](https://www.curseforge.com/minecraft/mc-mods/real-camera) the camera keeps the station's view: Real
+  Camera rests while you work at a station and takes the camera back when you leave. Before, the view ended at odd
+  angles with the work off screen.
+- With [Leawind's Third Person](https://www.curseforge.com/minecraft/mc-mods/leawind-third-person) the station's view
+  wins too, and the camera flies in from the third-person view and back to it.
+
 ## [1.0.0-beta.7+1.21.1] - 2026-11-11
 ### Added
 - Stations on structures that [Sable](https://modrinth.com/mod/sable) moves, such as the ships of
