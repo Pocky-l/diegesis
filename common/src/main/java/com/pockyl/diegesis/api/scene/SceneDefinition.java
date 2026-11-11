@@ -35,11 +35,12 @@ import java.util.function.Consumer;
  * @param putAway    a right click with a stack on the cursor that nothing in the scene takes puts the stack back into the
  *                   inventory, to the slot it came from while that is empty (owner, 2026-11-08: "a right click must put away
  *                   what is in the hand, a knife for one")
+ * @param hud        how the game's HUD slides away when the player starts to work here, and back when they leave
  */
 public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVisible, List<NodeDefinition> nodes,
         Optional<InventoryLayout> inventory, InterfaceOptions ui, List<CarryPlane> carryPlanes, Optional<InventoryDrawer> inventoryDrawer,
         PourOptions pouring, CaptionOptions captions, Optional<PlacingOptions> placing, ClearViewOptions clearView, GainOptions gains,
-        boolean putAway) {
+        boolean putAway, HudOptions hud) {
     public static final Codec<SceneDefinition> CODEC = StrictCodecs.<SceneDefinition>record(instance -> instance.group(
             StrictCodecs.optional(CameraRig.CODEC, "camera", CameraRig.DEFAULT).forGetter(SceneDefinition::camera),
             StrictCodecs.optional(Codec.FLOAT, "work_plane", 16.0F).forGetter(SceneDefinition::workPlane),
@@ -54,12 +55,21 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
             StrictCodecs.optional(PlacingOptions.CODEC, "placing").forGetter(SceneDefinition::placing),
             StrictCodecs.optional(ClearViewOptions.CODEC, "clear_view", ClearViewOptions.DEFAULT).forGetter(SceneDefinition::clearView),
             StrictCodecs.optional(GainOptions.CODEC, "gains", GainOptions.DEFAULT).forGetter(SceneDefinition::gains),
-            StrictCodecs.optional(Codec.BOOL, "put_away", true).forGetter(SceneDefinition::putAway)
+            StrictCodecs.optional(Codec.BOOL, "put_away", true).forGetter(SceneDefinition::putAway),
+            StrictCodecs.optional(HudOptions.CODEC, "hud", HudOptions.DEFAULT).forGetter(SceneDefinition::hud)
     ).apply(instance, SceneDefinition::new)).comapFlatMap(SceneDefinition::validate, scene -> scene);
 
     public SceneDefinition {
         nodes = List.copyOf(nodes);
         carryPlanes = List.copyOf(carryPlanes);
+    }
+
+    /** A scene whose HUD slides away as by default. */
+    public SceneDefinition(CameraRig camera, float workPlane, boolean idleVisible, List<NodeDefinition> nodes, Optional<InventoryLayout> inventory,
+            InterfaceOptions ui, List<CarryPlane> carryPlanes, Optional<InventoryDrawer> inventoryDrawer, PourOptions pouring,
+            CaptionOptions captions, Optional<PlacingOptions> placing, ClearViewOptions clearView, GainOptions gains, boolean putAway) {
+        this(camera, workPlane, idleVisible, nodes, inventory, ui, carryPlanes, inventoryDrawer, pouring, captions, placing, clearView, gains,
+                putAway, HudOptions.DEFAULT);
     }
 
     /** A scene where a right click puts the cursor's stack away. */
@@ -153,8 +163,15 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
         private ClearViewOptions clearView = ClearViewOptions.DEFAULT;
         private GainOptions gains = GainOptions.DEFAULT;
         private boolean putAway = true;
+        private HudOptions hud = HudOptions.DEFAULT;
 
         private Builder() {
+        }
+
+        /** How the game's HUD goes away while the player works here; {@link HudOptions#INSTANT}: at once. */
+        public Builder hud(HudOptions value) {
+            hud = value;
+            return this;
         }
 
         /** Whether a right click with a stack on the cursor that nothing takes puts it back into the inventory. */
@@ -240,7 +257,7 @@ public record SceneDefinition(CameraRig camera, float workPlane, boolean idleVis
         public SceneDefinition build() {
             SceneDefinition scene = new SceneDefinition(camera, workPlane, idleVisible, nodes, Optional.ofNullable(inventory), ui,
                     carryPlanes, Optional.ofNullable(inventoryDrawer), pouring, captions, Optional.ofNullable(placing), clearView, gains,
-                    putAway);
+                    putAway, hud);
             return validate(scene).getOrThrow(false, error -> {
             });
         }

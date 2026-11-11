@@ -4,6 +4,7 @@
   "package": "com.pockyl.diegesis.fabric.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "BossHealthOverlayMixin",
     "GuiMixin",
     "SodiumWorldSliceMixin"
   ],

@@ -11,11 +11,13 @@ import org.joml.Vector3fc;
 
 import com.pockyl.diegesis.api.scene.CameraRig;
 import com.pockyl.diegesis.api.scene.CameraShot;
+import com.pockyl.diegesis.api.scene.HudOptions;
 import com.pockyl.diegesis.api.scene.InterfaceOptions;
 import com.pockyl.diegesis.api.scene.SceneDefinition;
 import com.pockyl.diegesis.api.station.Authority;
 import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.anim.Easing;
+import com.pockyl.diegesis.impl.client.hud.HudSlide;
 import com.pockyl.diegesis.impl.client.render.ClearBlocks;
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.ClientPlatform;
@@ -101,6 +103,7 @@ public final class FocusController {
             exitFrom = null;
             confirmed = !awaitServer;
             phase = Phase.ENTERING;
+            hudLeaves(minecraft);
             lastFrameNanos = Util.getNanos();
             if (confirmed) {
                 station.setFocusedInternal(true);
@@ -119,7 +122,7 @@ public final class FocusController {
         startYaw = player.getYRot();
         startPitch = player.getXRot();
         savedHideGui = minecraft.options.hideGui;
-        minecraft.options.hideGui = true;
+        hudLeaves(minecraft);
         flightFrom = null;
         exitFrom = null;
         FocusInput.get().look().reset();
@@ -248,9 +251,36 @@ public final class FocusController {
         }
         phase = Phase.EXITING;
         Minecraft minecraft = Minecraft.getInstance();
+        if (!savedHideGui && sliding()) {
+            // The HUD comes back while the camera flies back.
+            minecraft.options.hideGui = false;
+            HudSlide.in(hud());
+        }
         if (minecraft.screen instanceof FocusScreen) {
             minecraft.setScreen(null);
         }
+    }
+
+    /**
+     * The HUD leaves: it slides off the screen while the scene hides it and the player had it shown, and is hidden once it is off
+     * ({@link #frame}); otherwise it is hidden at once, as before there was a slide.
+     */
+    private void hudLeaves(Minecraft minecraft) {
+        if (!savedHideGui && sliding()) {
+            minecraft.options.hideGui = false;
+            HudSlide.out(hud());
+        } else {
+            minecraft.options.hideGui = true;
+        }
+    }
+
+    /** Whether the station's scene lets the HUD slide away rather than vanish. */
+    private boolean sliding() {
+        return options().hideHud() && hud().slide();
+    }
+
+    private HudOptions hud() {
+        return station == null || station.scene() == null ? HudOptions.DEFAULT : station.scene().definition().hud();
     }
 
     /** Drops everything at once (level change, disconnect). */
@@ -258,6 +288,7 @@ public final class FocusController {
         if (phase != Phase.IDLE) {
             Minecraft.getInstance().options.hideGui = savedHideGui;
         }
+        HudSlide.reset();
         FocusInput.get().cancel();
         FocusInput.get().look().reset();
         phase = Phase.IDLE;
@@ -272,8 +303,13 @@ public final class FocusController {
 
     /** Advances the camera flight; once per frame, before the camera is set up. */
     public void frame() {
+        HudSlide.frame();
         if (phase == Phase.IDLE) {
             return;
+        }
+        if (phase != Phase.EXITING && HudSlide.gone() && !Minecraft.getInstance().options.hideGui) {
+            // All of it is off the screen: hidden now, as F1 hides it.
+            Minecraft.getInstance().options.hideGui = true;
         }
         long now = Util.getNanos();
         float dt = Math.min((now - lastFrameNanos) / 1.0e9F, 0.1F);

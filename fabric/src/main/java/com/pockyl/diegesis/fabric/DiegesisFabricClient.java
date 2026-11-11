@@ -5,7 +5,9 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.model.loading.v1.PreparableModelLoadingPlugin;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.Minecraft;
@@ -16,6 +18,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
+import com.pockyl.diegesis.impl.client.hud.HudSlide;
 import com.pockyl.diegesis.impl.client.render.SceneRenderer;
 import com.pockyl.diegesis.impl.client.scene.SceneLibrary;
 
@@ -34,6 +37,13 @@ public final class DiegesisFabricClient implements ClientModInitializer {
                     DebugView.toggle();
                     return 1;
                 }))));
+        // What mods draw through the HUD hook slides away with the HUD as one part, around everybody's drawing.
+        ResourceLocation beforeHud = new ResourceLocation("diegesis", "hud_slide_begin");
+        ResourceLocation afterHud = new ResourceLocation("diegesis", "hud_slide_end");
+        HudRenderCallback.EVENT.addPhaseOrdering(beforeHud, Event.DEFAULT_PHASE);
+        HudRenderCallback.EVENT.addPhaseOrdering(Event.DEFAULT_PHASE, afterHud);
+        HudRenderCallback.EVENT.register(beforeHud, (graphics, partialTick) -> HudSlide.begin("fabric:hud", graphics));
+        HudRenderCallback.EVENT.register(afterHud, (graphics, partialTick) -> HudSlide.end(graphics));
         WorldRenderEvents.AFTER_ENTITIES.register(context -> SceneRenderer.render(context.matrixStack(), context.projectionMatrix(), context.camera()));
         ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SceneReloadListener());
         PreparableModelLoadingPlugin.register(

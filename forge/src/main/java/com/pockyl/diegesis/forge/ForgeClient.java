@@ -2,24 +2,35 @@ package com.pockyl.diegesis.forge;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.Commands;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.event.ModelEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
 
 import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
+import com.pockyl.diegesis.impl.client.hud.HudSlide;
 import com.pockyl.diegesis.impl.client.render.SceneRenderer;
 import com.pockyl.diegesis.impl.client.scene.SceneLibrary;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /** Client wiring on Forge; only loaded on clients. */
 final class ForgeClient {
+    /** The overlays this frame begun to slide and not yet ended, and whether what mods draw after the HUD is. */
+    private static final Set<ResourceLocation> slid = new HashSet<>();
+    private static boolean slidAfter;
+
     private ForgeClient() {
     }
 
@@ -48,11 +59,45 @@ final class ForgeClient {
                 DiegesisClientRuntime.tick();
             }
         });
-        // While the player works at a station its interface replaces the HUD (the chat is hidden by a mixin on both loaders).
-        MinecraftForge.EVENT_BUS.addListener((RenderGuiOverlayEvent.Pre event) -> {
+        // While the player works at a station its interface replaces the HUD: every overlay slides off to its nearest edge, then
+        // is not drawn (the chat is hidden by a mixin on both loaders). Last of all listeners, so an overlay another mod cancels
+        // is never begun, and every begun one ends in its Post.
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, (RenderGuiOverlayEvent.Pre event) -> {
             FocusController focus = FocusController.get();
-            if (focus.isActive() && focus.options().hideHud() && !event.getOverlay().id().equals(VanillaGuiOverlay.CHAT_PANEL.id())) {
+            ResourceLocation id = event.getOverlay().id();
+            boolean chat = id.equals(VanillaGuiOverlay.CHAT_PANEL.id());
+            boolean hides = focus.isActive() && focus.options().hideHud() && !chat;
+            // The crosshair is where the player aims, and the player no longer aims.
+            if (hides && (HudSlide.gone() || id.equals(VanillaGuiOverlay.CROSSHAIR.id()))) {
                 event.setCanceled(true);
+                return;
+            }
+            if (chat && focus.isActive() && !focus.options().hideChat()) {
+                return;
+            }
+            slid.add(id);
+            HudSlide.begin(chat ? HudSlide.CHAT : id.equals(VanillaGuiOverlay.HOTBAR.id()) ? HudSlide.HOTBAR : id.toString(),
+                    event.getGuiGraphics());
+        });
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, (RenderGuiOverlayEvent.Post event) -> {
+            if (slid.remove(event.getOverlay().id())) {
+                HudSlide.end(event.getGuiGraphics());
+            }
+        });
+        // What mods draw over the whole HUD at once slides as one part.
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, (RenderGuiEvent.Post event) -> {
+            // An overlay cancelled after this mod began it has no Post: it ends here, so that nothing stays moved.
+            for (int i = slid.size(); i > 0; i--) {
+                HudSlide.end(event.getGuiGraphics());
+            }
+            slid.clear();
+            slidAfter = true;
+            HudSlide.begin("forge:after_hud", event.getGuiGraphics());
+        });
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, (RenderGuiEvent.Post event) -> {
+            if (slidAfter) {
+                slidAfter = false;
+                HudSlide.end(event.getGuiGraphics());
             }
         });
         MinecraftForge.EVENT_BUS.addListener((RenderLevelStageEvent event) -> {
