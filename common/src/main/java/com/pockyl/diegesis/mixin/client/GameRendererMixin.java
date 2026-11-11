@@ -25,6 +25,14 @@ abstract class GameRendererMixin {
         }
     }
 
+    /** Nor the outline of the block the player looked at: it stayed while the HUD slid away. */
+    @Inject(method = "shouldRenderBlockOutline", at = @At("HEAD"), cancellable = true)
+    private void diegesis$noOutlineAtStation(CallbackInfoReturnable<Boolean> cir) {
+        if (FocusController.get().isActive()) {
+            cir.setReturnValue(false);
+        }
+    }
+
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
     private void diegesis$noHandAtStation(Camera camera, float partialTick, Matrix4f projection, CallbackInfo ci) {
         if (FocusController.get().isActive()) {
