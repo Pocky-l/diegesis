@@ -128,6 +128,10 @@
         "placing": {
           "$ref": "#/definitions/placing",
           "description": "Lets items be put down anywhere on the scene's surfaces, turned and sized freely."
+        },
+        "hud": {
+          "$ref": "#/definitions/hud",
+          "description": "How the game's HUD slides away when the player starts to work here, and back when they leave."
         }
       },
       "patternProperties": {
@@ -415,6 +419,28 @@
           "type": "boolean",
           "description": "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet over the station, a low ceiling), are not drawn while the player works here. The shot stays as written.",
           "default": true
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "hud": {
+      "type": "object",
+      "description": "How the game's HUD leaves and comes back; every field is optional.",
+      "properties": {
+        "slide": {
+          "type": "boolean",
+          "description": "Every part of the HUD slides off to the screen edge nearest to it (the hotbar down, the chat left), other mods' overlays too; false: it is gone and back at once.",
+          "default": true
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 3,
+          "description": "How long the slide takes.",
+          "default": 0.3
         }
       },
       "patternProperties": {
@@ -2279,6 +2305,44 @@
             }
           ],
           "description": "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet over the station, a low ceiling), are not drawn while the player works here. The shot stays as written."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "hud_partial": {
+      "type": "object",
+      "description": "How the game's HUD leaves and comes back; every field is optional.",
+      "properties": {
+        "slide": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Every part of the HUD slides off to the screen edge nearest to it (the hotbar down, the chat left), other mods' overlays too; false: it is gone and back at once.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Every part of the HUD slides off to the screen edge nearest to it (the hotbar down, the chat left), other mods' overlays too; false: it is gone and back at once."
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.05,
+              "maximum": 3,
+              "description": "How long the slide takes.",
+              "default": 0.3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How long the slide takes."
         }
       },
       "patternProperties": {

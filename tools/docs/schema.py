@@ -85,6 +85,8 @@ obj("scene", "SceneDefinition",
                                 " into the inventory, to the slot it came from while that is free.", True),
         "placing": field({"$ref": "#/definitions/placing"}, "Lets items be put down anywhere on the scene's surfaces, turned and"
                                                             " sized freely."),
+        "hud": field({"$ref": "#/definitions/hud"}, "How the game's HUD slides away when the player starts to work here, and"
+                                                    " back when they leave."),
     })
 
 obj("camera", "CameraRig", "The camera rig used while a player works at the station.", {
@@ -155,6 +157,12 @@ obj("clear_view", "ClearViewOptions", "Keeps the view of the station free while 
     "blocks": field(BOOL, "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet"
                           " over the station, a low ceiling), are not drawn while the player works here. The shot stays as"
                           " written.", True),
+})
+
+obj("hud", "HudOptions", "How the game's HUD leaves and comes back; every field is optional.", {
+    "slide": field(BOOL, "Every part of the HUD slides off to the screen edge nearest to it (the hotbar down, the chat left),"
+                         " other mods' overlays too; false: it is gone and back at once.", True),
+    "seconds": field(num(0.05, 3), "How long the slide takes.", 0.3),
 })
 
 obj("captions", "CaptionOptions", "How the lines of StationView.showCaption look; every field is optional.", {
