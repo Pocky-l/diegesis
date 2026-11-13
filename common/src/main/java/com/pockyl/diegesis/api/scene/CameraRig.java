@@ -39,7 +39,7 @@ public record CameraRig(Vector3fc position, Vector3fc target, float fov, float t
     public static final float WIDE = 16.0F / 9.0F;
 
     /** Looks down at the top of the block from the front, like a person standing at a table. */
-    public static final CameraRig DEFAULT = new CameraRig(new Vector3f(8.0F, 36.0F, -12.0F), new Vector3f(8.0F, 16.0F, 7.0F), 0.0F, 0.6F,
+    public static final CameraRig DEFAULT = new CameraRig(new Vector3f(8.0F, 36.0F, -12.0F), new Vector3f(8.0F, 16.0F, 7.0F), 0.0F, 0.4F,
             Optional.empty(), List.of(), Map.of(), CameraNeighbors.DEFAULT, WIDE);
 
     public static final Codec<CameraRig> CODEC = StrictCodecs.record(instance -> instance.group(

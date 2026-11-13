@@ -29,12 +29,19 @@ import com.pockyl.diegesis.platform.ClientPlatform;
  *
  * <p>States: idle, entering (camera flying in), focused, exiting (flying back). Progress runs on real time, so the
  * flight is smooth at any frame rate and tick lag. Going over to a neighbouring station is entering it from where the camera
- * was at the station left, not from the player's eyes.
+ * was at the station left, not from the player's eyes. A flight sets off at once and lands softly ({@link Easing#flight}), on a
+ * slight arc, with the field of view and the first-person hand in step with it.
  */
 public final class FocusController {
     private static final FocusController INSTANCE = new FocusController();
-    /** Height of the little arc the camera flies in, in blocks at the middle of the flight. */
+    /** Least height of the little arc the camera flies in, in blocks at the middle of the flight. */
     private static final double ARC_HEIGHT = 0.12;
+    /** The arc's height as a part of the flight's length, for longer flights. */
+    private static final double ARC_SHARE = 0.1;
+    /** The part of a flight (in time) over which the first-person hand goes down, or, flying back, comes up again at its end. */
+    private static final float HAND_SHARE = 0.3F;
+    /** A little later the hand is no longer drawn: the game draws it a tick behind, so it is out of the picture by then. */
+    private static final float HAND_GONE = 0.45F;
     /** How fast the camera settles on another seat, per second. */
     private static final float SEAT_GLIDE = 8.0F;
 
@@ -46,6 +53,9 @@ public final class FocusController {
     private boolean savedHideGui;
     private float startYaw;
     private float startPitch;
+    /** Where the camera would look without the station, in the last frame: the way back heads there. */
+    private float eyeYaw;
+    private float eyePitch;
     /** Where the camera's base shot is now: the seat's, or the rig's; glides when the server gives another seat. */
     private final Vector3f basePosition = new Vector3f();
     private final Vector3f baseTarget = new Vector3f();
@@ -101,9 +111,15 @@ public final class FocusController {
             // Used again while the camera was still flying back: turn round from where it is. The HUD state saved at
             // the first entry stays the one to restore.
             station = target;
+            float at = blend();
+            // The way in starts from the look the way back was heading to, so the camera turns round where it is.
+            startYaw = eyeYaw;
+            startPitch = eyePitch;
             exitFrom = null;
             confirmed = !awaitServer;
             phase = Phase.ENTERING;
+            // From where the camera is: the way in eases differently from the way back.
+            progress = Easing.flightInverse(at);
             hudLeaves(minecraft);
             lastFrameNanos = Util.getNanos();
             if (confirmed) {
@@ -251,6 +267,9 @@ public final class FocusController {
             exitFromFov = lastFov;
             flightFrom = null;
             progress = 1.0F;
+        } else if (phase == Phase.ENTERING) {
+            // Turning back half way in: from where the camera is, as the way back eases differently from the way in.
+            progress = 1.0F - Easing.flightInverse(1.0F - blend());
         }
         phase = Phase.EXITING;
         Minecraft minecraft = Minecraft.getInstance();
@@ -378,9 +397,47 @@ public final class FocusController {
         return baseTarget;
     }
 
-    /** How far the camera is between the player's eyes (0) and the rig (1), eased. */
+    /**
+     * How far the camera is between the player's eyes (0) and the rig (1), eased: flying in or back it sets off at once and lands
+     * softly, so the way back runs the curve from its other end.
+     */
     public float blend() {
-        return flightFrom != null && flightOnward ? Easing.outCubic(progress) : Easing.inOutCubic(progress);
+        if (flightFrom != null) {
+            return flightOnward ? Easing.outCubic(progress) : Easing.flight(progress);
+        }
+        return phase == Phase.EXITING ? 1.0F - Easing.flight(1.0F - progress) : Easing.flight(progress);
+    }
+
+    /**
+     * How far the camera has come from the player's view to the station worked at, eased: rising while it flies in, falling while
+     * it flies back, 1 at the station and while going over to a neighbour, 0 when nobody works at one. What comes with the
+     * station (the inventory, an addon's book) shows by it, in step with the camera.
+     */
+    public float arrival() {
+        if (phase == Phase.IDLE) {
+            return 0.0F;
+        }
+        return phase == Phase.FOCUSED || flightFrom != null ? 1.0F : blend();
+    }
+
+    /**
+     * How far the first-person hand has gone down, 0 to 1: over the first part of the flight in, and up again over the last part
+     * of the flight back, as when the held item changes, instead of vanishing and popping back.
+     */
+    public float handAway() {
+        if (phase == Phase.IDLE) {
+            return 0.0F;
+        }
+        if (phase == Phase.FOCUSED || flightFrom != null) {
+            return 1.0F;
+        }
+        float t = Mth.clamp(progress / HAND_SHARE, 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
+    }
+
+    /** Whether the first-person hand is out of the picture, so it is not drawn at all. */
+    public boolean isHandGone() {
+        return phase == Phase.FOCUSED || flightFrom != null || phase != Phase.IDLE && progress >= HAND_GONE;
     }
 
     /**
@@ -392,6 +449,8 @@ public final class FocusController {
         if (phase == Phase.IDLE || station == null) {
             return null;
         }
+        this.eyeYaw = eyeYaw;
+        this.eyePitch = eyePitch;
         float t = blend();
         CameraPose from;
         CameraPose to = rigPose();
@@ -405,11 +464,32 @@ public final class FocusController {
         } else {
             from = new CameraPose(eye, startYaw, startPitch);
         }
-        Vec3 pos = from.position().lerp(to.position(), t).add(0.0, Math.sin(Math.PI * t) * ARC_HEIGHT, 0.0);
+        Vec3 path = to.position().subtract(from.position());
+        Vec3 pos = from.position().add(path.scale(t)).add(arc(path).scale(Math.sin(Math.PI * t)));
         float yaw = from.yaw() + Mth.wrapDegrees(to.yaw() - from.yaw()) * t;
         float pitch = Mth.lerp(t, from.pitch(), to.pitch());
         lastPose = new CameraPose(pos, yaw, pitch);
         return lastPose;
+    }
+
+    /**
+     * Which way and how far the middle of a flight along {@code path} bows out of the straight line: up, square to the path, by a
+     * small part of its length. Flying in and up to a station the camera swings up and over onto it rather than sliding along a
+     * rail; going over to a neighbour beside it, it makes a small hop.
+     */
+    private static Vec3 arc(Vec3 path) {
+        double length = path.length();
+        if (length < 1.0E-4) {
+            return Vec3.ZERO;
+        }
+        Vec3 along = path.scale(1.0 / length);
+        // Up, less its part along the path: square to the path, in the upright plane through it.
+        Vec3 bow = new Vec3(0.0, 1.0, 0.0).subtract(along.scale(along.y));
+        double size = bow.length();
+        if (size < 1.0E-3) {
+            return Vec3.ZERO;
+        }
+        return bow.scale(Math.max(ARC_HEIGHT, length * ARC_SHARE) / size);
     }
 
     /** Where the camera is at the rig this frame: the seat's or the rig's shot, moved by the inventory shot and a glance. */
@@ -454,13 +534,23 @@ public final class FocusController {
         }
         double there = rigFov <= 0.0F ? original : keepWidth(rigFov, rig.keepWidth());
         if (flightFrom != null) {
-            lastFov = Mth.lerp(blend(), flightFromFov > 0.0 ? flightFromFov : there, there);
+            lastFov = zoom(blend(), flightFromFov > 0.0 ? flightFromFov : there, there);
         } else if (phase == Phase.EXITING && exitFrom != null) {
-            lastFov = Mth.lerp(blend(), original, exitFromFov);
+            lastFov = zoom(blend(), original, exitFromFov);
         } else {
-            lastFov = Mth.lerp(blend(), original, there);
+            lastFov = zoom(blend(), original, there);
         }
         return lastFov;
+    }
+
+    /**
+     * The field of view {@code t} of the way from {@code from} to {@code to} degrees, evenly in how much the picture is magnified:
+     * evenly in degrees, most of a zoom in came at the end of the flight, after the camera had nearly arrived.
+     */
+    private static double zoom(float t, double from, double to) {
+        double a = Math.tan(Math.toRadians(Mth.clamp(from, 1.0, 179.0)) / 2.0);
+        double b = Math.tan(Math.toRadians(Mth.clamp(to, 1.0, 179.0)) / 2.0);
+        return 2.0 * Math.toDegrees(Math.atan(a * Math.pow(b / a, t)));
     }
 
     /**

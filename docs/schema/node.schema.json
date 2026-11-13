@@ -173,7 +173,7 @@
           "minimum": 0,
           "maximum": 10,
           "description": "Seconds the camera takes to fly in and out.",
-          "default": 0.6
+          "default": 0.4
         },
         "inventory": {
           "$ref": "#/definitions/camera_shot",
@@ -284,7 +284,7 @@
           "minimum": 0.05,
           "maximum": 5,
           "description": "Seconds the camera takes to fly over.",
-          "default": 0.65
+          "default": 0.45
         },
         "hint": {
           "type": "boolean",
@@ -1793,7 +1793,7 @@
               "minimum": 0,
               "maximum": 10,
               "description": "Seconds the camera takes to fly in and out.",
-              "default": 0.6
+              "default": 0.4
             },
             {
               "type": "null"
@@ -2024,7 +2024,7 @@
               "minimum": 0.05,
               "maximum": 5,
               "description": "Seconds the camera takes to fly over.",
-              "default": 0.65
+              "default": 0.45
             },
             {
               "type": "null"

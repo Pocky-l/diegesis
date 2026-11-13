@@ -147,7 +147,7 @@ public final class FocusScreen extends Screen {
         if (!showsInventory() || panelTop == NO_PANEL || slotCenter(slot)[0] == OFF_SCREEN) {
             return false;
         }
-        return drawer() == null || FocusInput.get().drawer().shown() >= 1.0F;
+        return drawer() == null || drawerOut() >= 1.0F;
     }
 
     /** What the player got at the station, flying in; a stack whose slot is not on show stands next to the drawer for a moment. */
@@ -214,7 +214,7 @@ public final class FocusScreen extends Screen {
             panelSkip = 0;
         }
         if (drawer != null) {
-            layoutDrawer(drawer, FocusInput.get().drawer().shown());
+            layoutDrawer(drawer, drawerOut());
         } else if (showsInventory()) {
             panelLeft = (width - PANEL_WIDTH) / 2;
             panelTop = height - BOTTOM_MARGIN - PANEL_HEIGHT;
@@ -222,6 +222,14 @@ public final class FocusScreen extends Screen {
             panelLeft = NO_PANEL;
             panelTop = NO_PANEL;
         }
+    }
+
+    /**
+     * How far the drawer is out, 0 to 1: as far as it slid, and while the camera flies in no farther than the camera has come, so a
+     * drawer that is always open comes in with the station rather than before it.
+     */
+    private static float drawerOut() {
+        return Math.min(FocusInput.get().drawer().shown(), FocusController.get().arrival());
     }
 
     /** Places the panel for a drawer {@code out} of the way out: from just past the screen's edge to its place. */
@@ -296,7 +304,7 @@ public final class FocusScreen extends Screen {
                 station.onEvent(new com.pockyl.diegesis.api.event.SceneEvent.InventoryDrawer(input.drawer().isOpen()));
             }
         }
-        layoutDrawer(drawer, input.drawer().shown());
+        layoutDrawer(drawer, drawerOut());
     }
 
     /**
@@ -515,7 +523,7 @@ public final class FocusScreen extends Screen {
         // Over everything the world drew; the items' own depth stays above it.
         graphics.pose().pushPose();
         graphics.pose().translate(0.0F, 0.0F, 100.0F);
-        if (FocusInput.get().drawer().shown() > 0.0F) {
+        if (drawerOut() > 0.0F) {
             if (drawer.style() == InventoryDrawer.Style.MINIMAL || drawer.compact()) {
                 renderMinimal(graphics, drawer, inventory, hoveredSlot);
             } else {

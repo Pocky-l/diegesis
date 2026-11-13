@@ -49,7 +49,7 @@ scene for completion and checks in VS Code, IntelliJ and other editors.
 | `position` | `[8, 36, -12]` | The camera's position: by default in front of the block, above it. |
 | `target` | `[8, 16, 7]` | The point it looks at. |
 | `fov` | `0` | Vertical field of view while focused, 0..170; 0 keeps the player's setting. |
-| `transition` | `0.6` | Seconds the camera takes to fly in and out. |
+| `transition` | `0.4` | Seconds the camera takes to fly in and out. |
 | `inventory` | none | A second shot, `{"position", "target", "fov"}`, the camera glides to while the scene's inventory is shown (Tab with `"show": "toggle"`, or an item on the cursor) and back when it hides. Frame the inventory together with the slots it fills, so the laid-out inventory never has to cover the controls. |
 | `glances` | `[]` | Other places the player's look can go to, see below. |
 | `neighbors` | on | Going over to a station standing next to this one, see below. |
@@ -135,7 +135,7 @@ it; it is on by default.
 | `range` | `3` | How far another station may stand, blocks along the floor; one up or down counts too. The nearest one on each edge wins. |
 | `zone` | `0.03` | How far from the edge the cursor counts as being at it, as a part of the screen. |
 | `delay` | `0.3` | Seconds the cursor must rest there, so that passing by moves nothing. |
-| `time` | `0.65` | Seconds the camera takes to fly over. |
+| `time` | `0.45` | Seconds the camera takes to fly over. |
 | `hint` | `true` | Draw a small arrow at an edge that leads to a neighbour; it shows only as the cursor comes near. |
 | `hint_color` | `#D0FFFFFF` | The arrow's colour; its alpha is the strongest it gets. |
 | `keys` | `true` | The movement and arrow keys go over at once to the neighbour on their side: A, D and left, right; W and up to the top edge, S and down to the bottom one. Where the cursor is does not matter. |
