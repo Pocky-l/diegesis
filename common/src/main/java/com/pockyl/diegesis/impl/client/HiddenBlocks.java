@@ -2,6 +2,8 @@ package com.pockyl.diegesis.impl.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -34,7 +36,11 @@ public final class HiddenBlocks {
         return false;
     }
 
-    /** Makes {@code wanted} the hidden blocks and rebuilds the chunks of those that changed. */
+    /**
+     * Makes {@code wanted} the hidden blocks and rebuilds the chunks of those that changed on the main thread at the start of the
+     * next frame, as the game does for a block a player places: the scene that stands in for a block, which knows this from
+     * {@link #isHidden}, and the block itself never show both or neither.
+     */
     static void sync(Set<BlockPos> wanted) {
         if (HIDDEN.equals(wanted)) {
             return;
@@ -44,8 +50,12 @@ public final class HiddenBlocks {
         changed.removeIf(pos -> HIDDEN.contains(pos) && wanted.contains(pos));
         HIDDEN.retainAll(wanted);
         HIDDEN.addAll(wanted);
+        Minecraft minecraft = Minecraft.getInstance();
         for (BlockPos pos : changed) {
-            Minecraft.getInstance().levelRenderer.setBlocksDirty(pos.getX(), pos.getY(), pos.getZ(), pos.getX(), pos.getY(), pos.getZ());
+            if (minecraft.level != null) {
+                BlockState state = minecraft.level.getBlockState(pos);
+                minecraft.levelRenderer.blockChanged(minecraft.level, pos, state, state, Block.UPDATE_IMMEDIATE);
+            }
         }
     }
 }

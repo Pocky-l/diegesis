@@ -164,6 +164,14 @@ public interface NodeView {
     void setFoam(float coverage, int argb);
 
     /**
+     * Shows {@code liquid} in the node's tank at {@code fraction} of its box, 0 to 1, whatever the station's tank holds: a mug that
+     * code fills at a tap, a glass carried away. The level eases there as a tank's does, and the liquid looks as registered for it.
+     * The first call, or one with another liquid, shows it at that level at once, as a new vessel; {@code null} follows the station's
+     * tank again. Nothing happens without a tank.
+     */
+    void showLiquid(net.minecraft.resources.ResourceLocation liquid, float fraction);
+
+    /**
      * Sends ripples over the node's liquid from a point, in the node's pixels: something dropped in, a stirring rod.
      * {@code strength} is about the wave's height in pixels; nothing happens without a tank.
      */

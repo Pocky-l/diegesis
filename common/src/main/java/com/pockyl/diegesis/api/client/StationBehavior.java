@@ -39,7 +39,7 @@ public interface StationBehavior {
     /**
      * Whether the scene still stands in for the block although nobody works at the station any more: a lid still closing, a
      * door swinging shut. While true, a station that {@code hidesBlock()} keeps its block hidden, so draw the scene's copy of
-     * the block until this turns false. Asked every client tick.
+     * the block until this turns false ({@code StationView.isBlockHidden} says when it is gone). Asked every frame and tick.
      */
     default boolean holdsBlock(StationView view) {
         return false;

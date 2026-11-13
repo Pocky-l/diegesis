@@ -34,10 +34,13 @@ import java.util.Optional;
  *                    from both sides
  * @param glass       how clear the model's faces are where they look straight at the camera, 0 (as textured) to 1 (not
  *                    there): they thicken towards the edges of the view, as glass does, so what is behind stays clear
+ * @param litAsBlock  a block model or block state lit as the world lights the station's block: its faces shaded as a block's,
+ *                    the light of the blocks around and smooth lighting's shadows in its corners. For a scene's copy of the
+ *                    block it hides, so that the two look the same as they swap
  */
 public record Visual(Optional<ResourceLocation> model, Optional<ResourceLocation> mesh, Optional<ResourceLocation> texture,
         Optional<Item> item, Optional<BlockState> block, Vector3fc anchor, int tint, boolean translucent, boolean emissive,
-        boolean doubleSided, float glass) {
+        boolean doubleSided, float glass, boolean litAsBlock) {
     public static final Vector3fc DEFAULT_ANCHOR = new Vector3f(8.0F, 0.0F, 8.0F);
     public static final Vector3fc MESH_ANCHOR = new Vector3f();
     public static final int WHITE = 0xFFFFFFFF;
@@ -61,14 +64,21 @@ public record Visual(Optional<ResourceLocation> model, Optional<ResourceLocation
             StrictCodecs.optional(Codec.BOOL, "translucent", false).forGetter(Visual::translucent),
             StrictCodecs.optional(Codec.BOOL, "emissive", false).forGetter(Visual::emissive),
             StrictCodecs.optional(Codec.BOOL, "double_sided", false).forGetter(Visual::doubleSided),
-            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "glass", 0.0F).forGetter(Visual::glass)
-    ).apply(instance, (model, mesh, texture, item, block, anchor, tint, translucent, emissive, doubleSided, glass) ->
+            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "glass", 0.0F).forGetter(Visual::glass),
+            StrictCodecs.optional(Codec.BOOL, "lit_as_block", false).forGetter(Visual::litAsBlock)
+    ).apply(instance, (model, mesh, texture, item, block, anchor, tint, translucent, emissive, doubleSided, glass, litAsBlock) ->
             new Visual(model, mesh, texture, item, block, anchor.map(v -> (Vector3fc) v).orElse(mesh.isPresent() ? MESH_ANCHOR : DEFAULT_ANCHOR),
-                    tint, translucent, emissive, doubleSided, glass))).comapFlatMap(Visual::validate, visual -> visual);
+                    tint, translucent, emissive, doubleSided, glass, litAsBlock))).comapFlatMap(Visual::validate, visual -> visual);
 
     public Visual {
         anchor = new Vector3f(anchor);
         translucent = translucent || (tint >>> 24) < 0xFF || glass > 0.0F;
+    }
+
+    /** A visual lit as models are, not as the station's block. */
+    public Visual(Optional<ResourceLocation> model, Optional<ResourceLocation> mesh, Optional<ResourceLocation> texture, Optional<Item> item,
+            Optional<BlockState> block, Vector3fc anchor, int tint, boolean translucent, boolean emissive, boolean doubleSided, float glass) {
+        this(model, mesh, texture, item, block, anchor, tint, translucent, emissive, doubleSided, glass, false);
     }
 
     public static Visual ofModel(ResourceLocation model) {
@@ -93,29 +103,34 @@ public record Visual(Optional<ResourceLocation> model, Optional<ResourceLocation
     }
 
     public Visual withTint(int argb) {
-        return new Visual(model, mesh, texture, item, block, anchor, argb, translucent, emissive, doubleSided, glass);
+        return new Visual(model, mesh, texture, item, block, anchor, argb, translucent, emissive, doubleSided, glass, litAsBlock);
     }
 
     public Visual withAnchor(Vector3fc newAnchor) {
-        return new Visual(model, mesh, texture, item, block, newAnchor, tint, translucent, emissive, doubleSided, glass);
+        return new Visual(model, mesh, texture, item, block, newAnchor, tint, translucent, emissive, doubleSided, glass, litAsBlock);
     }
 
     public Visual asTranslucent() {
-        return new Visual(model, mesh, texture, item, block, anchor, tint, true, emissive, doubleSided, glass);
+        return new Visual(model, mesh, texture, item, block, anchor, tint, true, emissive, doubleSided, glass, litAsBlock);
     }
 
     public Visual asEmissive() {
-        return new Visual(model, mesh, texture, item, block, anchor, tint, translucent, true, doubleSided, glass);
+        return new Visual(model, mesh, texture, item, block, anchor, tint, translucent, true, doubleSided, glass, litAsBlock);
     }
 
     /** The same visual with its faces drawn from behind too (see {@code doubleSided}). */
     public Visual asDoubleSided() {
-        return new Visual(model, mesh, texture, item, block, anchor, tint, translucent, emissive, true, glass);
+        return new Visual(model, mesh, texture, item, block, anchor, tint, translucent, emissive, true, glass, litAsBlock);
     }
 
     /** The same visual as clear glass (see {@code glass}). */
     public Visual asGlass(float clarity) {
-        return new Visual(model, mesh, texture, item, block, anchor, tint, true, emissive, doubleSided, clarity);
+        return new Visual(model, mesh, texture, item, block, anchor, tint, true, emissive, doubleSided, clarity, litAsBlock);
+    }
+
+    /** The same visual lit as the world lights the station's block (see {@code litAsBlock}). */
+    public Visual asLitAsBlock() {
+        return new Visual(model, mesh, texture, item, block, anchor, tint, translucent, emissive, doubleSided, glass, true);
     }
 
     private static DataResult<Visual> validate(Visual visual) {

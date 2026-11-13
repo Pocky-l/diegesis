@@ -115,7 +115,11 @@ public final class LiquidSim {
      * @param agitation how restless the surface is, 0 to 1
      */
     public void update(float dt, Matrix4f matrix, Box inner, TankContents contents, int capacity, float agitation) {
-        float wanted = capacity <= 0 ? 0.0F : Math.min(1.0F, (float) contents.amount() / capacity);
+        update(dt, matrix, inner, contents, capacity <= 0 ? 0.0F : Math.min(1.0F, (float) contents.amount() / capacity), agitation);
+    }
+
+    /** Advances the liquid by {@code dt} seconds towards {@code wanted}, how full it should look, 0 to 1, in what {@code contents} is. */
+    public void update(float dt, Matrix4f matrix, Box inner, TankContents contents, float wanted, float agitation) {
         if (contents != this.contents) {
             this.contents = contents;
             if (!contents.isEmpty()) {
@@ -333,6 +337,14 @@ public final class LiquidSim {
     /** How a cell of the surface is shaded by the trails, -1 to 1: darker in a furrow and on the side away from the light, lighter on the other. */
     public float wakeShade(int column, int row) {
         return wakeShades == null ? 0.0F : wakeShades[row * WAKE_CELLS + column];
+    }
+
+    /** Starts again from nothing: the next update shows its level and colour at once, without foam, as a new vessel would. */
+    public void restart() {
+        primed = false;
+        foam = 0.0F;
+        held = 0.0F;
+        filling = QUICK_FILL;
     }
 
     /**

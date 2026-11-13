@@ -4,7 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.8+1.20.1] - Unreleased
+## [1.0.0-beta.9+1.20.1] - Unreleased
 ### Added
 - `NodeView.setFoam(coverage, color)`: foam on a tank's liquid, clinging to the walls first and lying in patches further in,
   growing and settling over a second: a beer's head, scum on a stock.
@@ -12,6 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   what the tank holds over the given time, so that a bucket brought over and tipped fills it as its stream runs.
 - `StationBehavior.holdsBlock(view)`: a station that hides its block keeps it hidden after the last player left for as
   long as this says, so that its scene can finish closing, as a lid falling shut.
+- `NodeView.showLiquid(liquid, fraction)`: a tank shows a liquid at a level set by code, whatever the station's tank
+  holds: a mug filled at a tap.
+- A node drawn over everything (`setOnTop`) takes its tank's liquid along, so that a mug held low before a keg's tap is
+  not cut by the floor.
+- `StationView.isBlockHidden()`: whether a station's block is left out of the world in this frame, for the scene's copy of
+  it to show exactly then.
+- Visual option `lit_as_block` (`Visual.asLitAsBlock()`): a block model lit as the world lights the station's block,
+  faces shaded as a block's, the light around it and smooth lighting's corner shadows, so that a scene's copy of a block
+  it hides no longer looks lit up beside the block.
+
+### Fixed
+- A station that hides its block swaps it for its scene in one frame: the block's chunk is rebuilt at once, as for a
+  block a player places, instead of a few frames later, so the block no longer blinks or shows twice as a player comes
+  and goes.
+
+## [1.0.0-beta.8+1.20.1] - 2026-11-13
+### Added
 - `DiegesisClient.arrival()`: how far the camera has come to the station worked at, so that what hangs by a station can
   appear and go in step with the camera.
 - `DiegesisClient.isSceneDrawn(pos)`: whether a station's scene is drawn in this frame, for a block entity renderer

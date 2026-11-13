@@ -265,6 +265,9 @@ obj("visual", "Visual", "What a node looks like: exactly one of model, mesh, ite
     "double_sided": field(BOOL, "Faces are drawn from behind too: the inner walls of an open glass vessel.", False),
     "glass": field(num(0, 1), "How clear the faces are where they look straight at the camera: they thicken towards a"
                               " grazing angle, as glass does. 0 draws the texture as it is. Implies translucent.", 0),
+    "lit_as_block": field(BOOL, "A block model or block state lit as the world lights the station's block: faces shaded as a"
+                                " block's, the light around it, smooth lighting's corner shadows. For the scene's copy of a"
+                                " block it hides.", False),
 }, oneOf=[{"required": ["model"]}, {"required": ["mesh", "texture"]}, {"required": ["item"]}, {"required": ["block"]}])
 
 obj("box", "Box", "An axis-aligned box, pixels.", {

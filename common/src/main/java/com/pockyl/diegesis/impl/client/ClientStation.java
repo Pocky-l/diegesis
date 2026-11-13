@@ -214,6 +214,11 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     @Override
+    public boolean isBlockHidden() {
+        return type.hidesBlock() && HiddenBlocks.isHidden(pos);
+    }
+
+    @Override
     public float age() {
         return age;
     }

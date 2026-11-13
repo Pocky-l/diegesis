@@ -117,6 +117,11 @@ public final class SceneRenderer {
     private static Camera debugCamera;
     private static PoseStack debugPose;
 
+    /** The level's view turned back: from the poses of this frame into the world's directions. */
+    private static final Matrix4f TO_WORLD = new Matrix4f();
+    /** The block of the station being drawn, which a visual lit as its block takes its light from. */
+    private static net.minecraft.core.BlockPos drawnPos;
+
     private SceneRenderer() {
     }
 
@@ -127,7 +132,17 @@ public final class SceneRenderer {
      * @param projection the frame's projection matrix
      */
     public static void render(PoseStack poseStack, Matrix4f projection, Camera camera) {
+        try {
+            renderStations(poseStack, projection, camera);
+        } finally {
+            // After every station's frame: the blocks their scenes now stand in for are left out of the next frame's chunks.
+            ClientStations.get().syncHiddenBlocks();
+        }
+    }
+
+    private static void renderStations(PoseStack poseStack, Matrix4f projection, Camera camera) {
         Projector.capture(projection, poseStack.last().pose(), camera.getPosition());
+        TO_WORLD.set(poseStack.last().pose()).invert();
         SmoothPass.begin(projection, poseStack.last().pose());
         long now = Util.getNanos();
         float dt = Math.min((now - lastFrame) / 1.0e9F, 0.1F);
@@ -154,7 +169,8 @@ public final class SceneRenderer {
             clearBuffers = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
             Map<RenderType, BufferBuilder> kept = new LinkedHashMap<>();
             // The see-through item sheet is never drawn into here (CLEAR takes it), only kept: see KeptTypes.
-            for (RenderType type : List.of(Sheets.cutoutBlockSheet(), OVERLAY, SceneParticles.TYPE, Sheets.translucentCullBlockSheet())) {
+            for (RenderType type : List.of(RenderType.cutout(), Sheets.cutoutBlockSheet(), OVERLAY, SceneParticles.TYPE,
+                    Sheets.translucentCullBlockSheet())) {
                 kept.put(type, new BufferBuilder(1 << 16));
             }
             sceneBuffers = MultiBufferSource.immediateWithBuffers(kept, new BufferBuilder(1 << 16));
@@ -186,6 +202,7 @@ public final class SceneRenderer {
         // Opaque parts first: wells, highlights and shadows lie on them and must not hide them from the depth test. Then what
         // is see-through, which nothing drawn later may cross; particles last, so that a thick liquid does not bury them.
         sceneBuffers.endLastBatch();
+        sceneBuffers.endBatch(RenderType.cutout());
         sceneBuffers.endBatch(Sheets.cutoutBlockSheet());
         sceneBuffers.endBatch(OVERLAY);
         clearBuffers.endBatch();
@@ -260,6 +277,7 @@ public final class SceneRenderer {
 
     private static void renderStation(ClientStation station, PoseStack poseStack, Vec3 camera, MultiBufferSource buffers,
             ClientLevel level) {
+        drawnPos = station.pos();
         BlockPos pos = station.pos();
         int light = lightAt(level, pos);
         poseStack.pushPose();
@@ -308,7 +326,8 @@ public final class SceneRenderer {
                         station.state().getOutput(output.output()), output.display(), output.size(), 0, station.age(), at, target,
                         LightTexture.FULL_BRIGHT, level)));
             }
-            if (!(local && node.isOnTop() && SmoothPass.defer(overEverything(node, level), poseStack, nodeLight))) {
+            boolean overAll = local && node.isOnTop() && SmoothPass.defer(overEverything(node, level), poseStack, nodeLight);
+            if (!overAll) {
                 node.visual().ifPresent(visual -> renderVisual(visual, node.tint(), poseStack, buffers, nodeLight, level));
                 if (node.shape() != null) {
                     renderShape(node, poseStack, buffers, nodeLight);
@@ -317,17 +336,9 @@ public final class SceneRenderer {
             if (node.painter() != null && !(node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
                 node.painter().paint(poseStack, buffers, nodeLight);
             }
-            definition.tank().ifPresent(binding -> {
-                // The world's up (tipped by sloshing) as the node sees it: the liquid's surface stays level.
-                Vector3fc slosh = node.liquid().slosh();
-                Matrix4f toNode = node.matrix().invert(new Matrix4f());
-                Vector3f up = toNode.transformDirection(new Vector3f(slosh.x(), 1.0F, slosh.z()).normalize()).normalize();
-                Vector3f sun = toNode.transformDirection(new Vector3f(LIGHT_DIRECTION)).normalize();
-                LiquidRenderer.render(binding, node.liquid(), up, sun, poseStack, buffers, nodeLight);
-                if (node.floating() != null) {
-                    node.floating().render(binding.inner(), node.liquid(), poseStack, buffers, nodeLight);
-                }
-            });
+            if (!overAll) {
+                definition.tank().ifPresent(binding -> renderTank(node, binding, poseStack, buffers, nodeLight));
+            }
             definition.slot().ifPresent(slot -> {
                 boolean marked = local && (node.isHovered() || input.isSpreadTarget(new Target.Station(slot.slot())));
                 if (marked && slot.highlight()) {
@@ -496,6 +507,14 @@ public final class SceneRenderer {
         }
         poseStack.translate(-anchor.x(), -anchor.y(), -anchor.z());
         poseStack.scale(16.0F, 16.0F, 16.0F);
+        if (visual.litAsBlock() && !translucent && drawnPos != null && level != null) {
+            // The way the chunks draw the block itself, from a chunk render type, so that the copy looks the same.
+            VertexConsumer lit = buffers.getBuffer(RenderType.cutout());
+            BlockLit.draw(model, state != null ? state : level.getBlockState(drawnPos), drawnPos, poseStack,
+                    tint != Visual.WHITE ? new TintedConsumer(lit, tint) : lit, TO_WORLD);
+            poseStack.popPose();
+            return;
+        }
         VertexConsumer consumer = buffers.getBuffer(translucent ? Sheets.translucentCullBlockSheet() : Sheets.cutoutBlockSheet());
         if (tint != Visual.WHITE) {
             consumer = new TintedConsumer(consumer, tint);
@@ -514,7 +533,23 @@ public final class SceneRenderer {
     }
 
     /** A shape made by code: like a mesh, its texture from the node. */
-    /** A node's own look drawn as a smooth painter: over the finished frame, where nothing of the scene or the world covers it. */
+    /** The liquid in a node's tank, and what floats on it; the pose stack is at the node. */
+    private static void renderTank(NodeInstance node, TankBinding binding, PoseStack poseStack, MultiBufferSource buffers, int light) {
+        // The world's up (tipped by sloshing) as the node sees it: the liquid's surface stays level.
+        Vector3fc slosh = node.liquid().slosh();
+        Matrix4f toNode = node.matrix().invert(new Matrix4f());
+        Vector3f up = toNode.transformDirection(new Vector3f(slosh.x(), 1.0F, slosh.z()).normalize()).normalize();
+        Vector3f sun = toNode.transformDirection(new Vector3f(LIGHT_DIRECTION)).normalize();
+        LiquidRenderer.render(binding, node.liquid(), up, sun, poseStack, buffers, light);
+        if (node.floating() != null) {
+            node.floating().render(binding.inner(), node.liquid(), poseStack, buffers, light);
+        }
+    }
+
+    /**
+     * A node's own look drawn as a smooth painter: over the finished frame, where nothing of the scene or the world covers it. Its
+     * tank's liquid comes along, inside its walls: a mug held low before a keg's tap is not cut by the floor.
+     */
     private static NodePainter overEverything(NodeInstance node, ClientLevel level) {
         return new NodePainter() {
             @Override
@@ -523,6 +558,7 @@ public final class SceneRenderer {
                 if (node.shape() != null) {
                     renderShape(node, poseStack, buffers, light);
                 }
+                node.definition().tank().ifPresent(binding -> renderTank(node, binding, poseStack, buffers, light));
             }
 
             @Override

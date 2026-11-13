@@ -39,6 +39,15 @@ public interface StationView {
      */
     boolean isInUse();
 
+    /**
+     * Whether the block's own model is left out of the world in this frame, for a station that {@code hidesBlock()}: draw the
+     * scene's copy of the block exactly then, and the two swap in one frame without a blink. It follows {@link #isInUse} and
+     * {@code StationBehavior.holdsBlock} a frame late, while the chunk is rebuilt.
+     */
+    default boolean isBlockHidden() {
+        return isInUse();
+    }
+
     /** The seat the local player holds here ({@code StationType.Builder.seat}); empty when they have none. */
     Optional<String> seat();
 

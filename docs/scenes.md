@@ -201,6 +201,7 @@ Exactly one of `model`, `item`, `block`.
 | `emissive` | `false` | Drawn at full brightness. |
 | `double_sided` | `false` | Faces are drawn from behind too, in the same pass: an open glass beaker shows its far walls through the near ones, and the liquid inside stays sorted with them. Block models only. |
 | `glass` | `0` | How clear the faces are where they look straight at the camera, 0..1: they thicken towards a grazing angle, as glass does, so what stands behind or inside stays clear. `0.8` suits a vessel. Implies `translucent`. |
+| `lit_as_block` | `false` | A block model or block state lit as the world lights the station's block: its faces shaded as a block's, the light of the blocks around and smooth lighting's shadows in its corners. Use it on the scene's copy of a block the station hides (`hidesBlock`), so that block and copy look the same as they swap; other models are lit as models. |
 
 Models made in Blockbench ("Java Block/Item" format, exported as JSON) work as they are, with textures from your
 mod's or vanilla's block atlas (`"texture": "mymod:block/flask_glass"`). A scale below 1 shrinks a 16-pixel model to
