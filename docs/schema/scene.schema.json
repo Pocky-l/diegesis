@@ -196,6 +196,13 @@
         "neighbors": {
           "$ref": "#/definitions/camera_neighbors",
           "description": "Going over to a station standing next to this one: the cursor resting at the edge of the screen on its side flies the camera there."
+        },
+        "keep_width": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "The narrowest window shape (width / height) that sees the whole width of the shot: a narrower window gets a wider vertical field of view instead of losing the sides. Only with the rig's own fov; 0 keeps the vertical field of view.",
+          "default": 1.7778
         }
       },
       "patternProperties": {
@@ -1847,6 +1854,21 @@
             }
           ],
           "description": "Going over to a station standing next to this one: the cursor resting at the edge of the screen on its side flies the camera there."
+        },
+        "keep_width": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "The narrowest window shape (width / height) that sees the whole width of the shot: a narrower window gets a wider vertical field of view instead of losing the sides. Only with the rig's own fov; 0 keeps the vertical field of view.",
+              "default": 1.7778
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The narrowest window shape (width / height) that sees the whole width of the shot: a narrower window gets a wider vertical field of view instead of losing the sides. Only with the rig's own fov; 0 keeps the vertical field of view."
         }
       },
       "patternProperties": {

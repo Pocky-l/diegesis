@@ -105,6 +105,9 @@ obj("camera", "CameraRig", "The camera rig used while a player works at the stat
     "neighbors": field({"$ref": "#/definitions/camera_neighbors"},
                        "Going over to a station standing next to this one: the cursor resting at the edge of the screen on"
                        " its side flies the camera there."),
+    "keep_width": field(num(0, 10), "The narrowest window shape (width / height) that sees the whole width of the shot: a"
+                                    " narrower window gets a wider vertical field of view instead of losing the sides. Only"
+                                    " with the rig's own fov; 0 keeps the vertical field of view.", 1.7778),
 })
 
 obj("gains", "GainOptions", "What the player gets at the station, seen going into the inventory; every field is optional.", {
