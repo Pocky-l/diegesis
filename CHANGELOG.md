@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   screen, sees the whole width of the station's shot with more above and below, instead of losing its sides.
 
 ### Fixed
+- A stack whose data another mod changes all the time, such as food a spoilage mod ages every second, no longer
+  flies into the inventory with "+N" again and again while you work at a station.
 - With [Real Camera](https://www.curseforge.com/minecraft/mc-mods/real-camera) the camera keeps the station's view: Real
   Camera rests while you work at a station and takes the camera back when you leave. Before, the view ended at odd
   angles with the work off screen.

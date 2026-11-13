@@ -107,7 +107,9 @@ final class Gains {
             if (ItemStack.matches(before, now)) {
                 continue;
             }
-            if (ItemStack.isSameItemSameComponents(before, now)) {
+            if (ItemStack.isSameItem(before, now)) {
+                // The same item whose data changed in place (a mod that ages food rewrites it every second) is no new stack:
+                // only a change of its count is a gain or a loss, counted under its data now.
                 change(now, now.getCount() - before.getCount(), true, slot);
             } else {
                 if (!before.isEmpty()) {
@@ -120,7 +122,7 @@ final class Gains {
             last[slot] = now.copy();
         }
         if (!ItemStack.matches(lastCarried, carried)) {
-            if (ItemStack.isSameItemSameComponents(lastCarried, carried)) {
+            if (ItemStack.isSameItem(lastCarried, carried)) {
                 change(carried, carried.getCount() - lastCarried.getCount(), false, -1);
             } else {
                 if (!lastCarried.isEmpty()) {
