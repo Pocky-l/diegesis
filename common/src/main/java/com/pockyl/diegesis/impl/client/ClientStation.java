@@ -452,6 +452,19 @@ public final class ClientStation implements StationView, StationContext {
         return inSession || focused;
     }
 
+    /** Whether the behaviour still draws the block after the session: a lid closing. */
+    boolean holdsBlock() {
+        if (behavior == null || scene == null) {
+            return false;
+        }
+        try {
+            return behavior.holdsBlock(this);
+        } catch (RuntimeException e) {
+            DiegesisMod.LOGGER.error("Client code of station {} at {} failed", type.id(), pos, e);
+            return false;
+        }
+    }
+
     void setInSession(boolean value) {
         inSession = value;
     }

@@ -36,6 +36,15 @@ public interface StationBehavior {
     default void tick(StationView view) {
     }
 
+    /**
+     * Whether the scene still stands in for the block although nobody works at the station any more: a lid still closing, a
+     * door swinging shut. While true, a station that {@code hidesBlock()} keeps its block hidden, so draw the scene's copy of
+     * the block until this turns false. Asked every client tick.
+     */
+    default boolean holdsBlock(StationView view) {
+        return false;
+    }
+
     /** Every frame before the station is drawn; {@code deltaSeconds} since the previous frame, for smooth animation. */
     default void frame(StationView view, float deltaSeconds) {
     }
@@ -59,7 +68,6 @@ public interface StationBehavior {
         return false;
     }
 
-    /** The station logic played an effect ({@code StationContext.effect}); runs after the effect itself. */
     /**
      * Shift + click on a stack of the player's inventory while working at the station. Return true when the station takes care
      * of it (it sends its own action); false lets the library move the stack into the station's slots as usual.
@@ -71,6 +79,7 @@ public interface StationBehavior {
         return false;
     }
 
+    /** The station logic played an effect ({@code StationContext.effect}); runs after the effect itself. */
     default void onEffect(StationView view, ResourceLocation effect, String node, CompoundTag data) {
     }
 

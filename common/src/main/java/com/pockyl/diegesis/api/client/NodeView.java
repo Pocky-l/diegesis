@@ -150,6 +150,20 @@ public interface NodeView {
     void setMottle(float amount);
 
     /**
+     * Keeps the node's liquid at the level it shows for {@code seconds}, whatever the tank holds meanwhile, then lets it rise or
+     * fall to the tank's amount over about {@code over} seconds (0 for the usual quick settle): a bucket brought over and tipped
+     * before its water runs in, while the logic filled the tank at the click.
+     */
+    void holdLevel(float seconds, float over);
+
+    /**
+     * Foam on the node's liquid: {@code coverage} 0 (none) to 1 (a head over all of it), in {@code argb}. It clings to the walls
+     * first and lies in uneven patches further in, goes round with {@link #setCurrent}, and grows or settles over a second: a
+     * beer's head, scum on a stock. Works on square tanks seen from above.
+     */
+    void setFoam(float coverage, int argb);
+
+    /**
      * Sends ripples over the node's liquid from a point, in the node's pixels: something dropped in, a stirring rod.
      * {@code strength} is about the wave's height in pixels; nothing happens without a tank.
      */

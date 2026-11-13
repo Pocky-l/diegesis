@@ -69,6 +69,11 @@ public final class LiquidRenderer {
     private static final float SEETHE_AT_WALL = 0.5F;
     private static final float SEETHE_INSIDE = 0.2F;
     private static final float SEETHE_LIGHT = 0.32F;
+    /** Foam: the size of its patches, the steps of shade in it, how far its thin edge lets the liquid through. */
+    private static final float FOAM_SCALE = 0.45F;
+    private static final float FOAM_DETAIL = 1.7F;
+    private static final float FOAM_SHADE = 0.14F;
+    private static final float FOAM_EDGE = 0.07F;
     /** A trail shades the liquid's own colour, in steps, so it stays pixels and stays food; only its lit side has a little gloss. */
     private static final float WAKE_STEPS = 8.0F;
     private static final float WAKE_GLOSS = 0.3F;
@@ -156,7 +161,7 @@ public final class LiquidRenderer {
         int cuts = surfacePoints(count, hy, up, level);
         if (cuts >= 3) {
             boolean waves = sim.isRippling() && Math.min(hx, hz) * 2.0F >= MIN_WAVE_SIZE;
-            if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
+            if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.foam() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
                 pass.mottled(hx, hz, sim);
             } else {
                 pass.surface(cuts, sim, lightDir, waves);
@@ -379,12 +384,27 @@ public final class LiquidRenderer {
                             b += (1.0F - b) * SEETHE_LIGHT;
                         }
                     }
+                    float alpha = rim ? a + 0.15F : a;
+                    if (sim.foam() > 0.01F) {
+                        // Foam holds to the walls first, then lies in patches that turn with the liquid; its thin edge lets the colour through.
+                        float inward = fromWall / Math.max(1.0F, (cells - 1) / 2.0F);
+                        float lace = 0.6F * noise(sx * FOAM_SCALE + 11.0F, sz * FOAM_SCALE + 5.0F) + 0.4F * (1.0F - inward);
+                        float over = lace - (1.0F - sim.foam());
+                        if (over > 0.0F) {
+                            int foamColor = sim.foamColor();
+                            float shade = 1.0F - FOAM_SHADE * (Math.round(noise(sx * FOAM_DETAIL + 3.0F, sz * FOAM_DETAIL + 9.0F) * 3.0F) / 3.0F);
+                            float edge = over < FOAM_EDGE ? 0.55F : 1.0F;
+                            r = Mth.lerp(edge, r, (foamColor >> 16 & 0xFF) / 255.0F * shade);
+                            g = Mth.lerp(edge, g, (foamColor >> 8 & 0xFF) / 255.0F * shade);
+                            b = Mth.lerp(edge, b, (foamColor & 0xFF) / 255.0F * shade);
+                            alpha = Mth.lerp(edge, alpha, (foamColor >>> 24) / 255.0F);
+                        }
+                    }
                     float wake = Math.round(sim.wakeShade(column, row) * WAKE_STEPS) / WAKE_STEPS;
                     float gloss = Math.max(0.0F, wake) * WAKE_GLOSS;
                     r = r * (1.0F + wake) + (1.0F - r) * gloss;
                     g = g * (1.0F + wake) + (1.0F - g) * gloss;
                     b = b * (1.0F + wake) + (1.0F - b) * gloss;
-                    float alpha = rim ? a + 0.15F : a;
                     cell(x0, z0, sim, hx, hz, r, g, b, alpha);
                     cell(x0, z1, sim, hx, hz, r, g, b, alpha);
                     cell(x1, z1, sim, hx, hz, r, g, b, alpha);

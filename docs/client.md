@@ -20,6 +20,7 @@ default.
 | `onOpen(view)` / `onClose(view)` | The local player starts / stops working at the station. |
 | `tick(view)` | Every client tick while the station is shown. |
 | `frame(view, deltaSeconds)` | Every frame before the station is drawn: smooth animation. |
+| `holdsBlock(view)` | Whether the scene still stands in for a hidden block after the last player left: a lid falling shut. The block stays hidden while it returns true. |
 | `onStateChanged(view, changes)` | Slots, controls, tanks or outputs changed, by any player or by the logic. `changes.slots()`, `controls()`, `outputs()`, `tanks()` name what. |
 | `onEvent(view, event)` | The local player did something (below). |
 | `onItemClick(view, node, stack, button, shift)` | The local player clicked a node with `stack` on the cursor (or let it go there), before it goes anywhere: return true when you handled it, usually with `sendAction`, and no slot sees the click. A bowl dipped into a soup, a tool touched to a part; `shift` for the whole stack at once. |
@@ -86,6 +87,8 @@ belong to this client only.
 | `setWakeLook(seconds, contrast)` | How long trails stay on its liquid and how clearly they stand out, 0 to 1 (default 2.5 and 0.6): thin water forgets a stir at once, a thick soup keeps it. |
 | `setFloatingWake(0..1)` | How clear the trails of what floats on its liquid are (default 0.7): pieces leave them as they move, the faster the clearer, and none on calm water. 0 leaves none. |
 | `setEdgeBoil(0..1)` | How hard its liquid seethes along the walls, where a pot starts to boil: specks of foam come and go there. Square tanks seen from above. |
+| `setFoam(0..1, argb)` | Foam on its liquid: clings to the walls first, lies in patches further in, grows and settles over a second. A beer's head. Square tanks seen from above. |
+| `holdLevel(seconds, over)` | Its liquid keeps the level it shows for `seconds`, then goes to the tank's amount over about `over` seconds: a stream poured by hand that has yet to land. |
 | `setMottle(0..1)` | How uneven its liquid looks: lighter and darker patches on the surface, pixel by pixel, that go round with `setCurrent`. Square tanks seen from above. |
 | `setCurrent(radiansPerSecond)` | How fast its liquid turns, the sign saying which way round: it carries what floats on it. |
 | `setLight(0..15)` | Its light. |

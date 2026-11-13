@@ -407,6 +407,20 @@ public final class NodeInstance implements NodeView {
     }
 
     @Override
+    public void holdLevel(float seconds, float over) {
+        if (liquid != null) {
+            liquid.holdLevel(seconds, over);
+        }
+    }
+
+    @Override
+    public void setFoam(float coverage, int argb) {
+        if (liquid != null) {
+            liquid.setFoam(coverage, argb);
+        }
+    }
+
+    @Override
     public void setFloatingObstacles(float... xzRadius) {
         if (liquid != null) {
             pieces().setObstacles(xzRadius);

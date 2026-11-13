@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-beta.8+1.20.1] - Unreleased
 ### Added
+- `NodeView.setFoam(coverage, color)`: foam on a tank's liquid, clinging to the walls first and lying in patches further in,
+  growing and settling over a second: a beer's head, scum on a stock.
+- `NodeView.holdLevel(seconds, over)`: a tank's liquid keeps the level it shows for a while and then rises or falls to
+  what the tank holds over the given time, so that a bucket brought over and tipped fills it as its stream runs.
+- `StationBehavior.holdsBlock(view)`: a station that hides its block keeps it hidden after the last player left for as
+  long as this says, so that its scene can finish closing, as a lid falling shut.
 - `DiegesisClient.arrival()`: how far the camera has come to the station worked at, so that what hangs by a station can
   appear and go in step with the camera.
 - `DiegesisClient.isSceneDrawn(pos)`: whether a station's scene is drawn in this frame, for a block entity renderer

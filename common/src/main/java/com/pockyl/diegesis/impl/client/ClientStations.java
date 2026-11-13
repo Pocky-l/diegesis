@@ -115,7 +115,7 @@ public final class ClientStations {
             ClientStation station = iterator.next();
             boolean stillThere = station.type().matches(level.getBlockState(station.pos()));
             boolean near = player.distanceToSqr(station.pos().getCenter()) < KEEP_RANGE * KEEP_RANGE;
-            boolean wanted = station.isFocused() || station.isInSession() || station.isIdleVisible();
+            boolean wanted = station.isFocused() || station.isInSession() || station.isIdleVisible() || station.holdsBlock();
             if (!station.isFocused() && (!stillThere || !near || !wanted)) {
                 station.clearRemote();
                 iterator.remove();
@@ -127,7 +127,7 @@ public final class ClientStations {
         java.util.Set<BlockPos> hidden = new java.util.HashSet<>();
         for (ClientStation station : stations.values()) {
             station.tick();
-            if (station.type().hidesBlock() && station.isInSession()) {
+            if (station.type().hidesBlock() && (station.isInSession() || station.holdsBlock())) {
                 hidden.add(station.pos());
             }
         }
