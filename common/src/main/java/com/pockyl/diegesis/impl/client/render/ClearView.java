@@ -37,7 +37,12 @@ public final class ClearView {
     private static final float BEHIND = 0.5F;
     private static final Pattern TEXTURE = Pattern.compile("Optional\\[([a-z0-9_.-]+:[a-z0-9_/.-]+)]");
     private static final Map<RenderType, Optional<RenderType>> GHOSTS = new HashMap<>();
-    private static final QuadFading PARTICLES = new QuadFading();
+    /**
+     * Whether the renderer takes vertices only into buffers of its own kind: Sodium up to 0.5.3, Rubidium and Embeddium 0.1
+     * write entity shadows, glints and outlines straight into the buffer under a vertex consumer and crash on any other. Their
+     * API, like early Embeddium's, has no {@code canUseIntrinsics} yet. Entities in the way stay solid there.
+     */
+    private static final boolean STRICT_RENDERER = strictRenderer();
 
     private static final Matrix4f VIEW = new Matrix4f();
     private static final Vector3f AXIS = new Vector3f();
@@ -52,6 +57,7 @@ public final class ClearView {
     private static double cameraY;
     private static double cameraZ;
     private static Entity current;
+    private static FadingParticle faded;
 
     private ClearView() {
     }
@@ -118,7 +124,7 @@ public final class ClearView {
 
     /** What the entity noted last draws into: the game's buffers, or fading ones while it may stand in the way. */
     public static MultiBufferSource buffers(MultiBufferSource buffers) {
-        if (strength <= 0.0F || !entities || current == null || !mayBeInside(current.getBoundingBox())) {
+        if (strength <= 0.0F || !entities || STRICT_RENDERER || current == null || !mayBeInside(current.getBoundingBox())) {
             return buffers;
         }
         return type -> {
@@ -130,6 +136,18 @@ public final class ClearView {
             fading.delegate = buffers.getBuffer(ghost);
             return fading;
         };
+    }
+
+    private static boolean strictRenderer() {
+        try {
+            Class.forName("net.caffeinemc.mods.sodium.api.vertex.buffer.VertexBufferWriter", false, ClearView.class.getClassLoader())
+                    .getMethod("canUseIntrinsics");
+            return false;
+        } catch (ClassNotFoundException e) {
+            return false;
+        } catch (NoSuchMethodException e) {
+            return true;
+        }
     }
 
     private static boolean mayBeInside(AABB box) {
@@ -154,128 +172,41 @@ public final class ClearView {
         return matcher.find() ? Optional.of(DiegesisRenderTypes.ghostEntity(ResourceLocation.parse(matcher.group(1)))) : Optional.empty();
     }
 
-    /** What a particle draws into: its vertices are relative to the camera, not yet turned to it. */
-    public static VertexConsumer particles(VertexConsumer consumer) {
+    /**
+     * How solid a particle drawn now stays, 0 to 1, from where its middle lies relative to the camera. Puts back the particle faded
+     * before it first: a particle is faded only while it is drawn.
+     */
+    public static float particleFade(double x, double y, double z) {
+        restoreParticle();
         if (strength <= 0.0F || !particles) {
-            return consumer;
+            return 1.0F;
         }
-        PARTICLES.start(consumer);
-        return PARTICLES;
+        VIEW.transformDirection(POINT.set((float) x, (float) y, (float) z));
+        return fade(POINT.x, POINT.y, POINT.z);
+    }
+
+    /** Notes the particle just faded, to be put back once it is drawn. */
+    public static void fadedParticle(FadingParticle particle) {
+        faded = particle;
+    }
+
+    /** Gives the particle faded last its own alpha and size back. */
+    public static void restoreParticle() {
+        FadingParticle particle = faded;
+        if (particle != null) {
+            faded = null;
+            particle.diegesis$restore();
+        }
     }
 
     /**
-     * What a particle draws, a quad at a time: it fades and shrinks towards its middle by how deep the middle lies in the cone.
-     * Shrinking keeps it soft for particles drawn without blending (the smoke and flames of a campfire): those show whole down
-     * to a tenth of their alpha, so a fade alone made them pop in at the edge of the cone. A vertex has no end call since 1.21:
-     * the quad goes on once its fourth vertex has its position, texture, colour and light, in whatever order they came.
+     * A world particle that can be faded and shrunk towards its middle while it is drawn. Shrinking keeps it soft for particles drawn
+     * without blending (the smoke and flames of a campfire): those show whole down to a tenth of their alpha, so a fade alone made
+     * them pop in at the edge of the cone.
      */
-    private static final class QuadFading implements VertexConsumer {
-        private static final int POSITION = 1;
-        private static final int TEXTURE = 2;
-        private static final int COLOR = 4;
-        private static final int LIGHT = 8;
-        private static final int COMPLETE = POSITION | TEXTURE | COLOR | LIGHT;
-
-        private VertexConsumer delegate;
-        private final float[] position = new float[12];
-        private final float[] texture = new float[8];
-        private final int[] color = new int[16];
-        private final int[] light = new int[8];
-        /** The vertex being written, from 0; -1 before the first. */
-        private int index;
-        private int filled;
-
-        void start(VertexConsumer consumer) {
-            delegate = consumer;
-            index = -1;
-            filled = 0;
-        }
-
-        @Override
-        public VertexConsumer addVertex(float x, float y, float z) {
-            index++;
-            filled = 0;
-            position[index * 3] = x;
-            position[index * 3 + 1] = y;
-            position[index * 3 + 2] = z;
-            return got(POSITION);
-        }
-
-        @Override
-        public VertexConsumer setColor(int red, int green, int blue, int alpha) {
-            if (index >= 0) {
-                color[index * 4] = red;
-                color[index * 4 + 1] = green;
-                color[index * 4 + 2] = blue;
-                color[index * 4 + 3] = alpha;
-            }
-            return got(COLOR);
-        }
-
-        @Override
-        public VertexConsumer setUv(float u, float v) {
-            if (index >= 0) {
-                texture[index * 2] = u;
-                texture[index * 2 + 1] = v;
-            }
-            return got(TEXTURE);
-        }
-
-        @Override
-        public VertexConsumer setUv1(int u, int v) {
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv2(int u, int v) {
-            if (index >= 0) {
-                light[index * 2] = u;
-                light[index * 2 + 1] = v;
-            }
-            return got(LIGHT);
-        }
-
-        @Override
-        public VertexConsumer setNormal(float x, float y, float z) {
-            return this;
-        }
-
-        @Override
-        public void addVertex(float x, float y, float z, int argb, float u, float v, int overlay, int packedLight, float normalX, float normalY,
-                float normalZ) {
-            addVertex(x, y, z);
-            setUv(u, v);
-            setColor(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, argb >>> 24);
-            setUv2(packedLight & 0xFFFF, packedLight >> 16 & 0xFFFF);
-        }
-
-        private VertexConsumer got(int element) {
-            if (index < 0) {
-                return this;
-            }
-            filled |= element;
-            if (index == 3 && filled == COMPLETE) {
-                flush();
-            }
-            return this;
-        }
-
-        private void flush() {
-            float cx = (position[0] + position[3] + position[6] + position[9]) / 4.0F;
-            float cy = (position[1] + position[4] + position[7] + position[10]) / 4.0F;
-            float cz = (position[2] + position[5] + position[8] + position[11]) / 4.0F;
-            VIEW.transformDirection(POINT.set(cx, cy, cz));
-            float fade = ClearView.fade(POINT.x, POINT.y, POINT.z);
-            for (int i = 0; i < 4; i++) {
-                delegate.addVertex(cx + (position[i * 3] - cx) * fade, cy + (position[i * 3 + 1] - cy) * fade,
-                                cz + (position[i * 3 + 2] - cz) * fade)
-                        .setUv(texture[i * 2], texture[i * 2 + 1])
-                        .setColor(color[i * 4], color[i * 4 + 1], color[i * 4 + 2], Math.round(color[i * 4 + 3] * fade))
-                        .setUv2(light[i * 2], light[i * 2 + 1]);
-            }
-            index = -1;
-            filled = 0;
-        }
+    public interface FadingParticle {
+        /** Puts back the alpha and size the particle had before it was faded. */
+        void diegesis$restore();
     }
 
     /** Passes vertices on with their alpha scaled by where they are. */
