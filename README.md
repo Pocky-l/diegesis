@@ -94,6 +94,9 @@ Scene, `assets/mymod/diegesis/scenes/lab_table.json` (Blockbench pixels, block f
 }
 ```
 
+The camera keeps the width of a 16:9 shot in narrower windows: add `"keep_width": 0` to keep its height instead, or another
+width / height for a shot framed for another shape.
+
 Ready controls: `diegesis:control/lever`, `switch`, `button`, `knob` and `slider`. A node template is a node file
 without an `id` in `assets/<namespace>/diegesis/nodes/`; the scene's own fields are laid over it (objects merge field
 by field, `null` removes one). Your own control looks the same way: a moving `visual`, and `"base"` inside `control`

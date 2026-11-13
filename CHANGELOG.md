@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `DiegesisClient.isSceneDrawn(pos)`: whether a station's scene is drawn in this frame, for a block entity renderer
   that the scene stands in for.
+- Camera option `keep_width`, 16:9 by default: a window narrower than that, such as 4:3 or a game snapped to half a
+  screen, sees the whole width of the station's shot with more above and below, instead of losing its sides.
 
 ### Fixed
 - With [Real Camera](https://www.curseforge.com/minecraft/mc-mods/real-camera) the camera keeps the station's view: Real

@@ -1,5 +1,6 @@
 package com.pockyl.diegesis.impl.client.focus;
 
+import com.mojang.blaze3d.platform.Window;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -450,7 +451,7 @@ public final class FocusController {
         if (look.amount() > 0.0F && look.shot().fov() > 0.0F) {
             rigFov = Mth.lerp(look.amount(), rigFov <= 0.0F ? (float) original : rigFov, look.shot().fov());
         }
-        double there = rigFov <= 0.0F ? original : rigFov;
+        double there = rigFov <= 0.0F ? original : keepWidth(rigFov, rig.keepWidth());
         if (flightFrom != null) {
             lastFov = Mth.lerp(blend(), flightFromFov > 0.0 ? flightFromFov : there, there);
         } else if (phase == Phase.EXITING && exitFrom != null) {
@@ -459,6 +460,21 @@ public final class FocusController {
             lastFov = Mth.lerp(blend(), original, there);
         }
         return lastFov;
+    }
+
+    /**
+     * The vertical field of view that shows the width {@code fov} shows in a window of shape {@code keep} (width / height), when
+     * the window is narrower: the game keeps the vertical field, so a 4:3 window or a tall one lost the sides of the shot, where
+     * stations put their books.
+     */
+    private static double keepWidth(double fov, float keep) {
+        Window window = Minecraft.getInstance().getWindow();
+        double aspect = window.getHeight() > 0 ? (double) window.getWidth() / window.getHeight() : keep;
+        if (keep <= 0.0F || aspect >= keep) {
+            return fov;
+        }
+        double wider = 2.0 * Math.toDegrees(Math.atan(Math.tan(Math.toRadians(fov) / 2.0) * keep / aspect));
+        return Math.min(wider, 170.0);
     }
 
     /** How far the camera is towards the rig's inventory shot, 0 to 1, eased; 0 without one. */

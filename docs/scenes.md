@@ -53,6 +53,7 @@ scene for completion and checks in VS Code, IntelliJ and other editors.
 | `inventory` | none | A second shot, `{"position", "target", "fov"}`, the camera glides to while the scene's inventory is shown (Tab with `"show": "toggle"`, or an item on the cursor) and back when it hides. Frame the inventory together with the slots it fills, so the laid-out inventory never has to cover the controls. |
 | `glances` | `[]` | Other places the player's look can go to, see below. |
 | `neighbors` | on | Going over to a station standing next to this one, see below. |
+| `keep_width` | `1.7778` | The narrowest window shape (width / height) that sees the whole width of the shot, 16:9 by default. A narrower window (4:3, a game snapped to half a screen) gets a wider vertical field of view instead of losing the sides. Only with the rig's own `fov`; `0` keeps the vertical field of view in any window. |
 
 Frame the shot with the debug view on (F3+B): it marks the camera target. A camera much closer than ~16 pixels to the
 objects makes carried things look huge.
