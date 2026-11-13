@@ -4,7 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.9+1.21.1] - Unreleased
+## [1.0.0-beta.9+1.21.1] - 2026-11-14
 ### Added
 - `NodeView.setFoam(coverage, color)`: foam on a tank's liquid, clinging to the walls first and lying in patches further in,
   growing and settling over a second: a beer's head, scum on a stock.
