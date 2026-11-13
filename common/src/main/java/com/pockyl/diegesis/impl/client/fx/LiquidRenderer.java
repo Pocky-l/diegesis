@@ -79,6 +79,8 @@ public final class LiquidRenderer {
     private static final float WAKE_GLOSS = 0.3F;
     /** Tanks narrower than this (node pixels) are too small for waves to be seen. */
     private static final float MIN_WAVE_SIZE = 3.0F;
+    /** How strongly a ring's slope lights a cloudy or foamy liquid's cells. */
+    private static final float MOTTLE_WAVE_LIGHT = 6.0F;
 
     // Scratch space: rendering happens on one thread.
     private static final float[] RING_X = new float[SEGMENTS];
@@ -162,7 +164,7 @@ public final class LiquidRenderer {
         if (cuts >= 3) {
             boolean waves = sim.isRippling() && Math.min(hx, hz) * 2.0F >= MIN_WAVE_SIZE;
             if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.foam() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
-                pass.mottled(hx, hz, sim);
+                pass.mottled(hx, hz, sim, lightDir);
             } else {
                 pass.surface(cuts, sim, lightDir, waves);
             }
@@ -342,8 +344,9 @@ public final class LiquidRenderer {
          * The surface of a liquid that is not one colour: a sheet of cells, each lighter or darker by where it lies in patches that turn
          * with the liquid. Cells next to the wall are the meniscus, and it is brightest in the middle, where the light falls in.
          */
-        void mottled(float hx, float hz, LiquidSim sim) {
+        void mottled(float hx, float hz, LiquidSim sim, Vector3fc lightDir) {
             int cells = MOTTLE_CELLS;
+            boolean waves = sim.isRippling();
             float cos = Mth.cos(sim.turned());
             float sin = Mth.sin(sim.turned());
             float strength = sim.mottle() * MOTTLE_STRENGTH;
@@ -399,6 +402,20 @@ public final class LiquidRenderer {
                             b = Mth.lerp(edge, b, (foamColor & 0xFF) / 255.0F * shade);
                             alpha = Mth.lerp(edge, alpha, (foamColor >>> 24) / 255.0F);
                         }
+                    }
+                    if (waves) {
+                        // A ring's slope turned to the light is brighter and the side turned away darker, in steps as the rest of
+                        // the sheet: rings read on a cloudy or foamy liquid too, as they do on a clear one.
+                        float u = 0.5F + mx / (2.0F * hx);
+                        float v = 0.5F - mz / (2.0F * hz);
+                        float e = 0.5F / cells;
+                        float slopeX = (sim.height(u + e, v) - sim.height(u - e, v)) / (4.0F * e * hx);
+                        float slopeZ = -(sim.height(u, v + e) - sim.height(u, v - e)) / (4.0F * e * hz);
+                        float lit = Mth.clamp((slopeX * lightDir.x() + slopeZ * lightDir.z()) * MOTTLE_WAVE_LIGHT, -0.3F, 0.45F);
+                        lit = Math.round(lit * WAKE_STEPS) / WAKE_STEPS;
+                        r = r * (1.0F + Math.min(0.0F, lit)) + (1.0F - r) * Math.max(0.0F, lit);
+                        g = g * (1.0F + Math.min(0.0F, lit)) + (1.0F - g) * Math.max(0.0F, lit);
+                        b = b * (1.0F + Math.min(0.0F, lit)) + (1.0F - b) * Math.max(0.0F, lit);
                     }
                     float wake = Math.round(sim.wakeShade(column, row) * WAKE_STEPS) / WAKE_STEPS;
                     float gloss = Math.max(0.0F, wake) * WAKE_GLOSS;

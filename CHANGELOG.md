@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Splashes and drops are as big as vanilla's and splashes last longer, so that they are seen from a station's camera.
   Splashes are vanilla's in white, so that they take a liquid's colour: in honey they were black.
+- Ripples show on a cloudy or foamy liquid too (`setMottle`, `setFoam`, trails): their slopes catch the light as on a
+  clear one, where before they only moved its surface unseen.
 
 ### Fixed
 - A station that hides its block swaps it for its scene in one frame: the block's chunk is rebuilt at once, as for a
