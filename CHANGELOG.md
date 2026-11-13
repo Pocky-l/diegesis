@@ -6,12 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-beta.8+1.21.1] - Unreleased
 ### Added
+- `DiegesisClient.arrival()`: how far the camera has come to the station worked at, so that what hangs by a station can
+  appear and go in step with the camera.
 - `DiegesisClient.isSceneDrawn(pos)`: whether a station's scene is drawn in this frame, for a block entity renderer
   that the scene stands in for.
 - Camera option `keep_width`, 16:9 by default: a window narrower than that, such as 4:3 or a game snapped to half a
   screen, sees the whole width of the station's shot with more above and below, instead of losing its sides.
 
+### Changed
+- The camera flies to a station and back faster: 0.4 seconds instead of 0.6, and 0.45 instead of 0.65 over to a
+  neighbour. It sets off at once and lands softly, on a slight arc, and the zoom, the inventory and the first-person
+  hand go in step with it: the hand goes down and comes back up instead of vanishing and popping back. Scenes that set
+  their own `transition` keep it.
+
 ### Fixed
+- Using a station again while the camera flies back from it no longer jerks the view round.
 - A stack whose data another mod changes all the time, such as food a spoilage mod ages every second, no longer
   flies into the inventory with "+N" again and again while you work at a station.
 - With [Real Camera](https://www.curseforge.com/minecraft/mc-mods/real-camera) the camera keeps the station's view: Real

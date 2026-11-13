@@ -224,6 +224,7 @@ less (a soup 0.6). A mixture blends its parts by amount and drifts to a new colo
 | `DiegesisClient.registerModel(id)` | Load a block model outside `models/diegesis/` for scenes. |
 | `DiegesisClient.setDebugView(on)` / `isDebugView()` | The debug view. |
 | `DiegesisClient.isFocused()`, `focusedStation()`, `station(pos)` | What the local player works at; a shown station. |
+| `DiegesisClient.arrival()` | How far the camera has come to the station worked at, 0 to 1: rising as it flies in, falling as it flies back after `onClose`. A book or a badge that hangs by the station can appear and go with it, in step with the camera. |
 | `DiegesisClient.isSceneDrawn(pos)` | Whether the station's scene is drawn this frame. A block entity renderer the scene stands in for stops exactly then: a station is kept a little farther away than its scene is drawn. |
 
 ## Rendering and shaders

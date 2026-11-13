@@ -25,7 +25,7 @@ public record CameraNeighbors(boolean enabled, int range, float zone, float dela
      * Owner, 2026-11-08: stations standing side by side are one kitchen, the camera goes along it; A, D and the arrows
      * go along it too.
      */
-    public static final CameraNeighbors DEFAULT = new CameraNeighbors(true, 3, 0.03F, 0.3F, 0.65F, true, 0xD0FFFFFF, true);
+    public static final CameraNeighbors DEFAULT = new CameraNeighbors(true, 3, 0.03F, 0.3F, 0.45F, true, 0xD0FFFFFF, true);
     public static final CameraNeighbors NONE = new CameraNeighbors(false, DEFAULT.range, DEFAULT.zone, DEFAULT.delay, DEFAULT.time,
             DEFAULT.hint, DEFAULT.hintColor, DEFAULT.keys);
 

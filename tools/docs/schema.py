@@ -93,7 +93,7 @@ obj("camera", "CameraRig", "The camera rig used while a player works at the stat
     "position": field(VEC3, "Camera position, scene pixels.", [8, 36, -12]),
     "target": field(VEC3, "The point the camera looks at, scene pixels.", [8, 16, 7]),
     "fov": field(num(0, 170), "Vertical field of view in degrees while focused; 0 keeps the player's setting.", 0),
-    "transition": field(num(0, 10), "Seconds the camera takes to fly in and out.", 0.6),
+    "transition": field(num(0, 10), "Seconds the camera takes to fly in and out.", 0.4),
     "inventory": field({"$ref": "#/definitions/camera_shot"}, "A second shot the camera glides to while the scene's"
                                                               " inventory is shown, and back when it hides."),
     "seats": field({"type": "object", "additionalProperties": {"$ref": "#/definitions/camera_shot"}},
@@ -125,7 +125,7 @@ obj("camera_neighbors", "CameraNeighbors", "Going over to neighbouring stations 
                    "How far another station may stand, blocks along the floor; one up or down counts too.", 3),
     "zone": field(num(0.005, 0.3), "How far from the edge the cursor counts as being at it, as a part of the screen.", 0.03),
     "delay": field(num(0, 2), "Seconds the cursor must rest there, so that passing by moves nothing.", 0.3),
-    "time": field(num(0.05, 5), "Seconds the camera takes to fly over.", 0.65),
+    "time": field(num(0.05, 5), "Seconds the camera takes to fly over.", 0.45),
     "hint": field(BOOL, "Draw a small arrow at an edge that leads to a neighbour, as the cursor comes near it.", True),
     "hint_color": field(COLOR, "Colour of the arrow; its alpha is the strongest it gets, with the cursor at the edge.",
                         "#D0FFFFFF"),

@@ -9,6 +9,7 @@
     "client.ChatComponentMixin",
     "client.GameRendererMixin",
     "client.GuiGraphicsMixin",
+    "client.ItemInHandRendererMixin",
     "client.ItemRendererMixin",
     "client.LevelRendererAccessor",
     "client.LevelRendererMixin",

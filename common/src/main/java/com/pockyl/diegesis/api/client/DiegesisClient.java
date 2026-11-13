@@ -102,6 +102,16 @@ public final class DiegesisClient {
         return FocusController.get().goingOver();
     }
 
+    /**
+     * How far the camera has come from the player's view to the station worked at, eased, 0 to 1: rising while it flies in, falling
+     * while it flies back after {@code onClose} ({@link #focusedStation()} is still the station left then), 1 at the station and
+     * while going over to a neighbour, 0 when nobody works at one. What comes with a station, such as a book that hangs by it, can
+     * appear and go with this, in step with the camera.
+     */
+    public static float arrival() {
+        return FocusController.get().arrival();
+    }
+
     /** The station the local player works at. */
     public static Optional<StationView> focusedStation() {
         return Optional.ofNullable(FocusController.get().station());

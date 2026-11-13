@@ -33,9 +33,10 @@ abstract class GameRendererMixin {
         }
     }
 
+    /** Once it has gone down ({@code ItemInHandRendererMixin}). */
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
     private void diegesis$noHandAtStation(Camera camera, float partialTick, Matrix4f projection, CallbackInfo ci) {
-        if (FocusController.get().isActive()) {
+        if (FocusController.get().isHandGone()) {
             ci.cancel();
         }
     }
