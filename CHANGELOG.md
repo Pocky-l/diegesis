@@ -4,7 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.8+1.21.1] - Unreleased
+## [1.0.0-beta.8+1.21.1] - 2026-11-13
 ### Added
 - `DiegesisClient.arrival()`: how far the camera has come to the station worked at, so that what hangs by a station can
   appear and go in step with the camera.
