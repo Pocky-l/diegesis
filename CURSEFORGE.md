@@ -55,3 +55,5 @@
 <!-- more-mods:end -->
 
 <p style="text-align:center"><span style="font-size:12px">Made by Pocky. Source on <a href="https://github.com/Pocky-l/diegesis">GitHub</a> under the MIT license.</span></p>
+
+<p style="text-align:center"><a href="https://ko-fi.com/pockyi"><img src="https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/showcase/coffee.png" width="834" alt="Enjoying my mods? Buy me a coffee on Ko-fi"></a></p>
