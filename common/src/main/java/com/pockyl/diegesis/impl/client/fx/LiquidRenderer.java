@@ -79,6 +79,8 @@ public final class LiquidRenderer {
     private static final float WAKE_GLOSS = 0.3F;
     /** Tanks narrower than this (node pixels) are too small for waves to be seen. */
     private static final float MIN_WAVE_SIZE = 3.0F;
+    /** The most of its box a liquid fills as drawn. */
+    private static final float FULLEST = 0.995F;
     /** How strongly a ring's slope lights a cloudy or foamy liquid's cells. */
     private static final float MOTTLE_WAVE_LIGHT = 6.0F;
 
@@ -117,7 +119,9 @@ public final class LiquidRenderer {
         float hx = (inner.to().x() - inner.from().x()) / 2.0F;
         float hy = (inner.to().y() - inner.from().y()) / 2.0F;
         float hz = (inner.to().z() - inner.from().z()) / 2.0F;
-        float level = LiquidVolume.level(hx, hy, hz, up.x(), up.y(), up.z(), fraction);
+        // A full tank stands a hair under its top: at the top itself the box's lid would be drawn for the surface, plain, without
+        // its foam, patches or rings.
+        float level = LiquidVolume.level(hx, hy, hz, up.x(), up.y(), up.z(), Math.min(fraction, FULLEST));
 
         int count = binding.round() ? SEGMENTS : 4;
         for (int i = 0; i < count; i++) {
