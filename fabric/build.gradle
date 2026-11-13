@@ -11,6 +11,9 @@ dependencies {
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    // Sable's companion API in Mojang names, as the common sources are compiled here; the jar is remapped with them, and Sable's
+    // Fabric build bundles the same API in intermediary names.
+    compileOnly "dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"
 }
 
 loom {

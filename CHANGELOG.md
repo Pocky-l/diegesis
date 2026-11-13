@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   angles with the work off screen.
 - With [Leawind's Third Person](https://www.curseforge.com/minecraft/mc-mods/leawind-third-person) the station's view
   wins too, and the camera flies in from the third-person view and back to it.
+- Stations on structures that [Sable](https://modrinth.com/mod/sable) moves now open on Fabric too, such as builds of
+  [Sable Beyond](https://modrinth.com/mod/sable_beyond): before, such a block kept its own menu there.
 
 ## [1.0.0-beta.7+1.21.1] - 2026-11-11
 ### Added

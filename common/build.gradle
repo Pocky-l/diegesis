@@ -16,6 +16,8 @@ neoForge {
 dependencies {
     compileOnly 'org.spongepowered:mixin:0.8.5'
     compileOnly 'org.ow2.asm:asm-tree:9.7.1'
+    // Sable's companion API, bundled by Sable on both loaders: impl.SableSubLevels compiles against it.
+    compileOnly "dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"
 }
 
 configurations {

@@ -72,17 +72,6 @@ if (file('src/devtools').isDirectory()) {
 }
 
 // Sable (the physics of Create Aeronautics' ships): its companion API, bundled by Sable, only to compile against.
-repositories {
-    exclusiveContent {
-        forRepository {
-            maven {
-                name = 'RyanHCode'
-                url = 'https://maven.ryanhcode.dev/releases'
-            }
-        }
-        filter { includeGroup('dev.ryanhcode.sable-companion') }
-    }
-}
 dependencies {
     compileOnly "dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"
 }

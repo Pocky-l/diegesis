@@ -36,6 +36,16 @@ repositories {
         )
         filter { includeGroup('org.parchmentmc.data') }
     }
+    // Sable's companion API (moving structures: Create Aeronautics, Sable Beyond), compile only.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'RyanHCode'
+                url = 'https://maven.ryanhcode.dev/releases'
+            }
+        }
+        filter { includeGroup('dev.ryanhcode.sable-companion') }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

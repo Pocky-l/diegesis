@@ -7,7 +7,9 @@ import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 
 import com.pockyl.diegesis.api.Diegesis;
+import com.pockyl.diegesis.impl.SableSubLevels;
 import com.pockyl.diegesis.impl.server.StationManager;
+import com.pockyl.diegesis.platform.Platform;
 
 /**
  * Internal entry point of the library: the loaders call these hooks. Mods use {@link Diegesis} and
@@ -24,6 +26,10 @@ public final class DiegesisMod {
     }
 
     public static void init() {
+        // Sable runs on NeoForge and on Fabric; its classes are touched only when it is there.
+        if (Platform.INSTANCE.isModLoaded("sable")) {
+            SableSubLevels.install();
+        }
         LOGGER.debug("Diegesis ready");
     }
 
