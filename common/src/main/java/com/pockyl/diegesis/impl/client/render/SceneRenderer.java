@@ -169,7 +169,7 @@ public final class SceneRenderer {
         };
         for (ClientStation station : stations) {
             station.frame(dt);
-            if (station.scene() == null || station.pos().distToCenterSqr(cameraPos) > RENDER_RANGE * RENDER_RANGE) {
+            if (!isDrawn(station, cameraPos)) {
                 continue;
             }
             // Each station draws on its own copy of the pose stack: a failure halfway can never leave the level's stack
@@ -251,6 +251,11 @@ public final class SceneRenderer {
         copy.last().pose().set(poseStack.last().pose());
         copy.last().normal().set(poseStack.last().normal());
         return copy;
+    }
+
+    /** Whether {@code station}'s scene is drawn from a camera at {@code camera}: it has one, and it is near enough. */
+    public static boolean isDrawn(ClientStation station, Vec3 camera) {
+        return station.scene() != null && station.pos().distToCenterSqr(camera) <= RENDER_RANGE * RENDER_RANGE;
     }
 
     private static void renderStation(ClientStation station, PoseStack poseStack, Vec3 camera, MultiBufferSource buffers,

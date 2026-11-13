@@ -1,15 +1,18 @@
 package com.pockyl.diegesis.api.client;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 
 import com.pockyl.diegesis.api.scene.SceneDefinition;
 import com.pockyl.diegesis.api.state.TankContents;
 import com.pockyl.diegesis.impl.client.ClientRegistry;
+import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.ClientStations;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 import com.pockyl.diegesis.impl.client.fx.LiquidRenderer;
+import com.pockyl.diegesis.impl.client.render.SceneRenderer;
 
 import java.util.Optional;
 
@@ -133,5 +136,15 @@ public final class DiegesisClient {
     /** A station shown on this client at {@code pos}. */
     public static Optional<StationView> station(BlockPos pos) {
         return Optional.ofNullable(ClientStations.get().at(pos));
+    }
+
+    /**
+     * Whether the scene of the station at {@code pos} is drawn in this frame: the station is shown and the camera is near enough.
+     * A station is kept a little farther than its scene is drawn, so a block entity renderer that a scene stands in for should
+     * stop exactly when this is true, or the block is missing in between. Asked while the level is drawn, before the scenes.
+     */
+    public static boolean isSceneDrawn(BlockPos pos) {
+        ClientStation station = ClientStations.get().at(pos);
+        return station != null && SceneRenderer.isDrawn(station, Minecraft.getInstance().gameRenderer.getMainCamera().getPosition());
     }
 }
