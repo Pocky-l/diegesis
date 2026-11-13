@@ -4,6 +4,41 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.9+1.21.1] - Unreleased
+### Added
+- `NodeView.setFoam(coverage, color)`: foam on a tank's liquid, clinging to the walls first and lying in patches further in,
+  growing and settling over a second: a beer's head, scum on a stock.
+- `NodeView.holdLevel(seconds, over)`: a tank's liquid keeps the level it shows for a while and then rises or falls to
+  what the tank holds over the given time, so that a bucket brought over and tipped fills it as its stream runs.
+- `StationBehavior.holdsBlock(view)`: a station that hides its block keeps it hidden after the last player left for as
+  long as this says, so that its scene can finish closing, as a lid falling shut.
+- `NodeView.showLiquid(liquid, fraction)`: a tank shows a liquid at a level set by code, whatever the station's tank
+  holds: a mug filled at a tap.
+- A node drawn over everything (`setOnTop`) takes its tank's liquid along, so that a mug held low before a keg's tap is
+  not cut by the floor.
+  A stream poured into such a node is drawn with it, so that it runs into the vessel instead of ending at its rim.
+- `StationView.isBlockHidden()`: whether a station's block is left out of the world in this frame, for the scene's copy of
+  it to show exactly then.
+- Visual option `lit_as_block` (`Visual.asLitAsBlock()`): a block model lit as the world lights the station's block,
+  faces shaded as a block's, the light around it and smooth lighting's corner shadows, so that a scene's copy of a block
+  it hides no longer looks lit up beside the block.
+
+### Changed
+- Splashes and drops are as big as vanilla's and splashes last longer, so that they are seen from a station's camera.
+  Splashes are vanilla's in white, so that they take a liquid's colour: in honey they were black.
+- A full tank shows its liquid's surface, foam and patches as a fuller one does: at 100% the plain top of the box stood in
+  for it.
+- Ripples show on a cloudy or foamy liquid too (`setMottle`, `setFoam`, trails): their slopes catch the light as on a
+  clear one, where before they only moved its surface unseen.
+
+### Fixed
+- With [Sodium](https://modrinth.com/mod/sodium) 0.5.11, opening a station while smoke, flames or other particles are in
+  view, such as by a lit stove or a campfire, could crash the game with "does not implement interface
+  VertexBufferWriter". Particles in the way of the camera now fade through the particle itself, with any renderer.
+- A station that hides its block swaps it for its scene in one frame: the block's chunk is rebuilt at once, as for a
+  block a player places, instead of a few frames later, so the block no longer blinks or shows twice as a player comes
+  and goes.
+
 ## [1.0.0-beta.8+1.21.1] - 2026-11-13
 ### Added
 - `DiegesisClient.arrival()`: how far the camera has come to the station worked at, so that what hangs by a station can

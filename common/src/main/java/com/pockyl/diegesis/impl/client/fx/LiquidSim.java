@@ -41,6 +41,8 @@ public final class LiquidSim {
 
     /** How many cells a side the surface reads trails on. */
     public static final int WAKE_CELLS = 16;
+    /** How fast the level follows the tank by itself: the half-life, seconds. */
+    private static final float QUICK_FILL = 0.09F;
     /**
      * Trails are furrows on a sheet that turns with the liquid, so they stay where they were drawn in it and only fade: how many cells a side, and
      * how wide it is, in tanks: the corners of a tank must stay on it as it turns.
@@ -93,6 +95,11 @@ public final class LiquidSim {
     private float wakeBlurClock;
     private float mottleWanted;
     private float mottle;
+    private float held;
+    private float filling = QUICK_FILL;
+    private float foamWanted;
+    private float foam;
+    private int foamColor = 0xFFFFFFFF;
     private float current;
     private float turned;
     private TankContents contents;
@@ -108,7 +115,11 @@ public final class LiquidSim {
      * @param agitation how restless the surface is, 0 to 1
      */
     public void update(float dt, Matrix4f matrix, Box inner, TankContents contents, int capacity, float agitation) {
-        float wanted = capacity <= 0 ? 0.0F : Math.min(1.0F, (float) contents.amount() / capacity);
+        update(dt, matrix, inner, contents, capacity <= 0 ? 0.0F : Math.min(1.0F, (float) contents.amount() / capacity), agitation);
+    }
+
+    /** Advances the liquid by {@code dt} seconds towards {@code wanted}, how full it should look, 0 to 1, in what {@code contents} is. */
+    public void update(float dt, Matrix4f matrix, Box inner, TankContents contents, float wanted, float agitation) {
         if (contents != this.contents) {
             this.contents = contents;
             if (!contents.isEmpty()) {
@@ -127,12 +138,21 @@ public final class LiquidSim {
             return;
         }
         mottle = Easing.approach(mottle, mottleWanted, 0.3F, dt);
+        foam = Easing.approach(foam, foamWanted, 0.8F, dt);
         edgeBoil = Easing.approach(edgeBoil, edgeBoilWanted, 0.5F, dt);
         clock += dt;
         turned += current * dt;
-        fraction = Easing.approach(fraction, wanted, 0.09F, dt);
+        if (held > 0.0F) {
+            // Something is still on its way in: the level waits for it.
+            held -= dt;
+            wanted = fraction;
+        }
+        fraction = Easing.approach(fraction, wanted, filling, dt);
         if (Math.abs(fraction - wanted) < 0.0005F) {
             fraction = wanted;
+            if (held <= 0.0F) {
+                filling = QUICK_FILL;
+            }
         }
         if (look != null) {
             easeColor(shownTarget(), dt);
@@ -319,6 +339,24 @@ public final class LiquidSim {
         return wakeShades == null ? 0.0F : wakeShades[row * WAKE_CELLS + column];
     }
 
+    /** Starts again from nothing: the next update shows its level and colour at once, without foam, as a new vessel would. */
+    public void restart() {
+        primed = false;
+        foam = 0.0F;
+        held = 0.0F;
+        filling = QUICK_FILL;
+    }
+
+    /**
+     * Keeps the level where it is shown for {@code seconds}, then lets it go to what the tank holds over {@code over} seconds (0.09
+     * by default): a stream poured by hand that has yet to reach the liquid.
+     */
+    public void holdLevel(float seconds, float over) {
+        held = Math.max(held, seconds);
+        // Four half-lives bring it nearly there.
+        filling = over > 0.0F ? over / 4.0F : QUICK_FILL;
+    }
+
     /** How hard the liquid should seethe along the walls, 0 to 1; it gets there slowly, as heat does. */
     public void setEdgeBoil(float amount) {
         edgeBoilWanted = amount;
@@ -340,6 +378,20 @@ public final class LiquidSim {
 
     public float mottle() {
         return mottle;
+    }
+
+    /** How much of the surface foam should cover, 0 to 1, and its colour; it grows and settles there. */
+    public void setFoam(float coverage, int argb) {
+        foamWanted = Math.max(0.0F, Math.min(1.0F, coverage));
+        foamColor = argb;
+    }
+
+    public float foam() {
+        return foam;
+    }
+
+    public int foamColor() {
+        return foamColor;
     }
 
     /** How fast the liquid turns, radians per second. */

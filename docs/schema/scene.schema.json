@@ -933,6 +933,11 @@
           "maximum": 1,
           "description": "How clear the faces are where they look straight at the camera: they thicken towards a grazing angle, as glass does. 0 draws the texture as it is. Implies translucent.",
           "default": 0
+        },
+        "lit_as_block": {
+          "type": "boolean",
+          "description": "A block model or block state lit as the world lights the station's block: faces shaded as a block's, the light around it, smooth lighting's corner shadows. For the scene's copy of a block it hides.",
+          "default": false
         }
       },
       "patternProperties": {
@@ -3272,6 +3277,19 @@
             }
           ],
           "description": "How clear the faces are where they look straight at the camera: they thicken towards a grazing angle, as glass does. 0 draws the texture as it is. Implies translucent."
+        },
+        "lit_as_block": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "A block model or block state lit as the world lights the station's block: faces shaded as a block's, the light around it, smooth lighting's corner shadows. For the scene's copy of a block it hides.",
+              "default": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A block model or block state lit as the world lights the station's block: faces shaded as a block's, the light around it, smooth lighting's corner shadows. For the scene's copy of a block it hides."
         }
       },
       "patternProperties": {

@@ -49,10 +49,13 @@ public final class DiegesisParticles {
             popping.add(DiegesisMod.id("bubble_pop_" + i));
         }
         styles.put(BUBBLE_POP, ParticleStyle.builder(popping).color(0xDDFFFFFF).size(0.8F, 1.3F).life(0.45F, 0.85F).drag(1.0F).grow(1.3F).pop().build());
-        styles.put(DROPLET, ParticleStyle.builder(ResourceLocation.withDefaultNamespace("drip_fall")).color(0xFF3F76E4).size(0.3F, 0.45F)
+        styles.put(DROPLET, ParticleStyle.builder(ResourceLocation.withDefaultNamespace("drip_fall")).color(0xFF3F76E4).size(0.9F, 1.4F)
                 .life(0.5F, 0.9F).gravity(60.0F).drag(0.1F).stretch().pop().build());
-        styles.put(SPLASH, new ParticleStyle(ParticleStyle.frames("splash", 4), 0xFF3F76E4, new float[] {0.4F, 0.7F},
-                new float[] {0.25F, 0.45F}, 40.0F, 0.3F, false, false, 1.0F, false, 0.0F));
+        // Vanilla's splash in white, so that it takes any liquid's colour (vanilla's own is blue and turns black in honey), at vanilla's
+        // size, a tenth to a fifth of a block.
+        List<ResourceLocation> splash = java.util.stream.IntStream.range(0, 4).mapToObj(i -> DiegesisMod.id("splash_" + i)).toList();
+        styles.put(SPLASH, new ParticleStyle(splash, 0xFF3F76E4, new float[] {1.6F, 3.0F},
+                new float[] {0.5F, 0.9F}, 40.0F, 0.3F, false, false, 1.0F, false, 0.0F));
         styles.put(STEAM, ParticleStyle.builder(steamFrames()).color(0x50FFFFFF).size(0.6F, 1.0F).life(1.0F, 1.7F).gravity(-3.0F).drag(0.7F).grow(2.0F)
                 .wobble(0.5F).fadeIn(0.45F).emissive().build());
         styles.put(SMOKE, new ParticleStyle(ParticleStyle.frames("big_smoke", 12), 0xCC303030, new float[] {0.8F, 1.3F},

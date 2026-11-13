@@ -116,7 +116,7 @@ public final class ClientStations {
             ClientStation station = iterator.next();
             boolean stillThere = station.type().matches(level.getBlockState(station.pos()));
             boolean near = player.distanceToSqr(SubLevels.center(level, station.pos(), true)) < KEEP_RANGE * KEEP_RANGE;
-            boolean wanted = station.isFocused() || station.isInSession() || station.isIdleVisible();
+            boolean wanted = station.isFocused() || station.isInSession() || station.isIdleVisible() || station.holdsBlock();
             if (!station.isFocused() && (!stillThere || !near || !wanted)) {
                 station.clearRemote();
                 iterator.remove();
@@ -125,11 +125,23 @@ public final class ClientStations {
         if (++ticks % IDLE_SCAN_TICKS == 0) {
             scanIdle(player);
         }
-        java.util.Set<BlockPos> hidden = new java.util.HashSet<>();
         for (ClientStation station : stations.values()) {
             station.tick();
-            if (station.type().hidesBlock() && station.isInSession()) {
-                hidden.add(station.pos());
+        }
+        syncHiddenBlocks();
+    }
+
+    /**
+     * Leaves the blocks of the stations whose scenes stand in for them out of the chunks, from the next frame on: asked after
+     * the stations' frames and on every tick, so that a scene and its block swap in one frame.
+     */
+    public void syncHiddenBlocks() {
+        java.util.Set<BlockPos> hidden = new java.util.HashSet<>();
+        if (level != null) {
+            for (ClientStation station : stations.values()) {
+                if (station.type().hidesBlock() && (station.isInSession() || station.holdsBlock())) {
+                    hidden.add(station.pos());
+                }
             }
         }
         HiddenBlocks.sync(hidden);

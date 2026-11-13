@@ -216,6 +216,11 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     @Override
+    public boolean isBlockHidden() {
+        return type.hidesBlock() && HiddenBlocks.isHidden(pos);
+    }
+
+    @Override
     public float age() {
         return age;
     }
@@ -471,6 +476,19 @@ public final class ClientStation implements StationView, StationContext {
 
     public boolean isInSession() {
         return inSession || focused;
+    }
+
+    /** Whether the behaviour still draws the block after the session: a lid closing. */
+    boolean holdsBlock() {
+        if (behavior == null || scene == null) {
+            return false;
+        }
+        try {
+            return behavior.holdsBlock(this);
+        } catch (RuntimeException e) {
+            DiegesisMod.LOGGER.error("Client code of station {} at {} failed", type.id(), pos, e);
+            return false;
+        }
     }
 
     void setInSession(boolean value) {

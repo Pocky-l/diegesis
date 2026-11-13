@@ -89,6 +89,9 @@ public final class NodeInstance implements NodeView {
 
     /** What the liquid does; null without a tank. */
     private final LiquidSim liquid;
+    /** What code shows in the tank instead of the station's tank, and how full; null follows the tank. */
+    private com.pockyl.diegesis.api.state.TankContents shownLiquid;
+    private float shownFraction;
 
     /** A shape made by code, drawn at the node, and its texture. */
     private com.pockyl.diegesis.api.client.MeshShape shape;
@@ -403,6 +406,34 @@ public final class NodeInstance implements NodeView {
     public void setMottle(float amount) {
         if (liquid != null) {
             liquid.setMottle(amount);
+        }
+    }
+
+    @Override
+    public void holdLevel(float seconds, float over) {
+        if (liquid != null) {
+            liquid.holdLevel(seconds, over);
+        }
+    }
+
+    @Override
+    public void showLiquid(net.minecraft.resources.ResourceLocation id, float fraction) {
+        if (liquid == null) {
+            return;
+        }
+        if (id == null) {
+            shownLiquid = null;
+        } else if (shownLiquid == null || !id.equals(shownLiquid.main())) {
+            shownLiquid = com.pockyl.diegesis.api.state.TankContents.of(id, 1);
+            liquid.restart();
+        }
+        shownFraction = Math.max(0.0F, Math.min(1.0F, fraction));
+    }
+
+    @Override
+    public void setFoam(float coverage, int argb) {
+        if (liquid != null) {
+            liquid.setFoam(coverage, argb);
         }
     }
 
@@ -738,6 +769,13 @@ public final class NodeInstance implements NodeView {
 
     private void updateLiquid(float dt) {
         TankBinding binding = definition.tank().get();
+        if (shownLiquid != null) {
+            liquid.update(dt, matrix, binding.inner(), shownLiquid, shownFraction, agitation);
+            if (floating != null) {
+                floating.update(dt);
+            }
+            return;
+        }
         TankSpec spec = scene.station().type().schema().tanks().get(binding.tank());
         if (spec != null) {
             liquid.update(dt, matrix, binding.inner(), scene.station().state().getTank(binding.tank()), spec.capacity(), agitation);

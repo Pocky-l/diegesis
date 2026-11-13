@@ -70,11 +70,20 @@ public final class LiquidRenderer {
     private static final float SEETHE_AT_WALL = 0.5F;
     private static final float SEETHE_INSIDE = 0.2F;
     private static final float SEETHE_LIGHT = 0.32F;
+    /** Foam: the size of its patches, the steps of shade in it, how far its thin edge lets the liquid through. */
+    private static final float FOAM_SCALE = 0.45F;
+    private static final float FOAM_DETAIL = 1.7F;
+    private static final float FOAM_SHADE = 0.14F;
+    private static final float FOAM_EDGE = 0.07F;
     /** A trail shades the liquid's own colour, in steps, so it stays pixels and stays food; only its lit side has a little gloss. */
     private static final float WAKE_STEPS = 8.0F;
     private static final float WAKE_GLOSS = 0.3F;
     /** Tanks narrower than this (node pixels) are too small for waves to be seen. */
     private static final float MIN_WAVE_SIZE = 3.0F;
+    /** The most of its box a liquid fills as drawn. */
+    private static final float FULLEST = 0.995F;
+    /** How strongly a ring's slope lights a cloudy or foamy liquid's cells. */
+    private static final float MOTTLE_WAVE_LIGHT = 6.0F;
 
     // Scratch space: rendering happens on one thread.
     private static final float[] RING_X = new float[SEGMENTS];
@@ -111,7 +120,9 @@ public final class LiquidRenderer {
         float hx = (inner.to().x() - inner.from().x()) / 2.0F;
         float hy = (inner.to().y() - inner.from().y()) / 2.0F;
         float hz = (inner.to().z() - inner.from().z()) / 2.0F;
-        float level = LiquidVolume.level(hx, hy, hz, up.x(), up.y(), up.z(), fraction);
+        // A full tank stands a hair under its top: at the top itself the box's lid would be drawn for the surface, plain, without
+        // its foam, patches or rings.
+        float level = LiquidVolume.level(hx, hy, hz, up.x(), up.y(), up.z(), Math.min(fraction, FULLEST));
 
         int count = binding.round() ? SEGMENTS : 4;
         for (int i = 0; i < count; i++) {
@@ -157,8 +168,8 @@ public final class LiquidRenderer {
         int cuts = surfacePoints(count, hy, up, level);
         if (cuts >= 3) {
             boolean waves = sim.isRippling() && Math.min(hx, hz) * 2.0F >= MIN_WAVE_SIZE;
-            if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
-                pass.mottled(hx, hz, sim);
+            if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.foam() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
+                pass.mottled(hx, hz, sim, lightDir);
             } else {
                 pass.surface(cuts, sim, lightDir, waves);
             }
@@ -338,8 +349,9 @@ public final class LiquidRenderer {
          * The surface of a liquid that is not one colour: a sheet of cells, each lighter or darker by where it lies in patches that turn
          * with the liquid. Cells next to the wall are the meniscus, and it is brightest in the middle, where the light falls in.
          */
-        void mottled(float hx, float hz, LiquidSim sim) {
+        void mottled(float hx, float hz, LiquidSim sim, Vector3fc lightDir) {
             int cells = MOTTLE_CELLS;
+            boolean waves = sim.isRippling();
             float cos = Mth.cos(sim.turned());
             float sin = Mth.sin(sim.turned());
             float strength = sim.mottle() * MOTTLE_STRENGTH;
@@ -380,12 +392,41 @@ public final class LiquidRenderer {
                             b += (1.0F - b) * SEETHE_LIGHT;
                         }
                     }
+                    float alpha = rim ? a + 0.15F : a;
+                    if (sim.foam() > 0.01F) {
+                        // Foam holds to the walls first, then lies in patches that turn with the liquid; its thin edge lets the colour through.
+                        float inward = fromWall / Math.max(1.0F, (cells - 1) / 2.0F);
+                        float lace = 0.6F * noise(sx * FOAM_SCALE + 11.0F, sz * FOAM_SCALE + 5.0F) + 0.4F * (1.0F - inward);
+                        float over = lace - (1.0F - sim.foam());
+                        if (over > 0.0F) {
+                            int foamColor = sim.foamColor();
+                            float shade = 1.0F - FOAM_SHADE * (Math.round(noise(sx * FOAM_DETAIL + 3.0F, sz * FOAM_DETAIL + 9.0F) * 3.0F) / 3.0F);
+                            float edge = over < FOAM_EDGE ? 0.55F : 1.0F;
+                            r = Mth.lerp(edge, r, (foamColor >> 16 & 0xFF) / 255.0F * shade);
+                            g = Mth.lerp(edge, g, (foamColor >> 8 & 0xFF) / 255.0F * shade);
+                            b = Mth.lerp(edge, b, (foamColor & 0xFF) / 255.0F * shade);
+                            alpha = Mth.lerp(edge, alpha, (foamColor >>> 24) / 255.0F);
+                        }
+                    }
+                    if (waves) {
+                        // A ring's slope turned to the light is brighter and the side turned away darker, in steps as the rest of
+                        // the sheet: rings read on a cloudy or foamy liquid too, as they do on a clear one.
+                        float u = 0.5F + mx / (2.0F * hx);
+                        float v = 0.5F - mz / (2.0F * hz);
+                        float e = 0.5F / cells;
+                        float slopeX = (sim.height(u + e, v) - sim.height(u - e, v)) / (4.0F * e * hx);
+                        float slopeZ = -(sim.height(u, v + e) - sim.height(u, v - e)) / (4.0F * e * hz);
+                        float lit = Mth.clamp((slopeX * lightDir.x() + slopeZ * lightDir.z()) * MOTTLE_WAVE_LIGHT, -0.3F, 0.45F);
+                        lit = Math.round(lit * WAKE_STEPS) / WAKE_STEPS;
+                        r = r * (1.0F + Math.min(0.0F, lit)) + (1.0F - r) * Math.max(0.0F, lit);
+                        g = g * (1.0F + Math.min(0.0F, lit)) + (1.0F - g) * Math.max(0.0F, lit);
+                        b = b * (1.0F + Math.min(0.0F, lit)) + (1.0F - b) * Math.max(0.0F, lit);
+                    }
                     float wake = Math.round(sim.wakeShade(column, row) * WAKE_STEPS) / WAKE_STEPS;
                     float gloss = Math.max(0.0F, wake) * WAKE_GLOSS;
                     r = r * (1.0F + wake) + (1.0F - r) * gloss;
                     g = g * (1.0F + wake) + (1.0F - g) * gloss;
                     b = b * (1.0F + wake) + (1.0F - b) * gloss;
-                    float alpha = rim ? a + 0.15F : a;
                     cell(x0, z0, sim, hx, hz, r, g, b, alpha);
                     cell(x0, z1, sim, hx, hz, r, g, b, alpha);
                     cell(x1, z1, sim, hx, hz, r, g, b, alpha);
