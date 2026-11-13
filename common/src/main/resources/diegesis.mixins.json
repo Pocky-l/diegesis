@@ -15,6 +15,7 @@
     "client.LevelRendererAccessor",
     "client.LevelRendererMixin",
     "client.MultiPlayerGameModeMixin",
+    "client.ParticleEngineMixin",
     "client.RenderChunkRegionMixin",
     "client.SingleQuadParticleMixin",
     "client.SodiumWorldSliceMixin"

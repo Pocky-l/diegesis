@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   their own `transition` keep it.
 
 ### Fixed
+- With [Sodium](https://modrinth.com/mod/sodium) 0.5.11 or older, or [Rubidium](https://modrinth.com/mod/rubidium),
+  opening a station while smoke, flames or other particles are in view, such as by a lit stove or a campfire, no longer
+  crashes the game with "does not implement interface VertexBufferWriter". Particles in the way of the camera still
+  fade, now with any renderer. With Sodium 0.5.3 or older and Rubidium the same crash came from an item or a mob
+  standing in the way: there they now stay solid.
 - Using a station again while the camera flies back from it no longer jerks the view round.
 - A stack whose data another mod changes all the time, such as food a spoilage mod ages every second, no longer
   flies into the inventory with "+N" again and again while you work at a station.
