@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   faces shaded as a block's, the light around it and smooth lighting's corner shadows, so that a scene's copy of a block
   it hides no longer looks lit up beside the block.
 
+### Changed
+- Splashes and drops are as big as vanilla's and splashes last longer, so that they are seen from a station's camera.
+  Splashes are vanilla's in white, so that they take a liquid's colour: in honey they were black.
+
 ### Fixed
 - A station that hides its block swaps it for its scene in one frame: the block's chunk is rebuilt at once, as for a
   block a player places, instead of a few frames later, so the block no longer blinks or shows twice as a player comes
