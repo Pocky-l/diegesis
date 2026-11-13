@@ -105,9 +105,29 @@ public final class PourStreams {
      * @param view the direction the camera looks, in station space (unit)
      */
     public void render(PoseStack poseStack, MultiBufferSource buffers, Vector3fc view, int light, float width) {
+        render(poseStack, buffers, view, light, width, false);
+    }
+
+    /**
+     * Draws the streams that land in a node drawn over everything ({@code overAll}), or the others: those are drawn with that node, so
+     * that they run into it and are not covered by it.
+     */
+    public void render(PoseStack poseStack, MultiBufferSource buffers, Vector3fc view, int light, float width, boolean overAll) {
         for (Stream stream : streams) {
-            stream.render(poseStack, buffers, view, light, width);
+            if (landsOverAll(stream) == overAll) {
+                stream.render(poseStack, buffers, view, light, width);
+            }
         }
+    }
+
+    /** Whether a stream lands in a node drawn over everything. */
+    public boolean anyOverAll() {
+        return streams.stream().anyMatch(PourStreams::landsOverAll);
+    }
+
+    private static boolean landsOverAll(Stream stream) {
+        NodeInstance into = stream.into != null ? stream.into : stream.target;
+        return into != null && into.isOnTop();
     }
 
     /** Where a node's spout is, in station space. */

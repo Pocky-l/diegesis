@@ -398,7 +398,22 @@ public final class SceneRenderer {
             Vector3f up = toStation.transformDirection(new Vector3f(debugCamera.getUpVector())).normalize();
             Vector3f view = toStation.transformDirection(new Vector3f(debugCamera.getLookVector())).normalize();
             if (scene.definition().pouring().stream()) {
-                station.pourStreams().render(poseStack, buffers, view, light, scene.definition().pouring().streamWidth());
+                float width = scene.definition().pouring().streamWidth();
+                boolean deferred = local && station.pourStreams().anyOverAll() && SmoothPass.defer(new NodePainter() {
+                    @Override
+                    public void paint(PoseStack pose, MultiBufferSource target, int packedLight) {
+                        station.pourStreams().render(pose, target, view, packedLight, width, true);
+                    }
+
+                    @Override
+                    public boolean smooth() {
+                        return true;
+                    }
+                }, poseStack, light);
+                station.pourStreams().render(poseStack, buffers, view, light, width, false);
+                if (!deferred) {
+                    station.pourStreams().render(poseStack, buffers, view, light, width, true);
+                }
             }
             station.particles().render(poseStack, buffers, right, up, view, light);
         }

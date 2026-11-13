@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   holds: a mug filled at a tap.
 - A node drawn over everything (`setOnTop`) takes its tank's liquid along, so that a mug held low before a keg's tap is
   not cut by the floor.
+  A stream poured into such a node is drawn with it, so that it runs into the vessel instead of ending at its rim.
 - `StationView.isBlockHidden()`: whether a station's block is left out of the world in this frame, for the scene's copy of
   it to show exactly then.
 - Visual option `lit_as_block` (`Visual.asLitAsBlock()`): a block model lit as the world lights the station's block,
