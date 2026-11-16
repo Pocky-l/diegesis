@@ -58,6 +58,13 @@ public final class ClearView {
     private static double cameraZ;
     private static Entity current;
     private static FadingParticle faded;
+    /** This frame's cone for particles, for {@link #particleFadeAt}; null while nothing fades. */
+    private static volatile Cone cone;
+
+    /** The clear view's cone as it stands this frame, unchanging: readable from any thread. */
+    private record Cone(Matrix4f view, float axisX, float axisY, float axisZ, float length, float radius, float soft, float strength,
+                        double cameraX, double cameraY, double cameraZ) {
+    }
 
     private ClearView() {
     }
@@ -69,6 +76,7 @@ public final class ClearView {
      */
     public static void begin(Matrix4f view, Camera camera) {
         strength = 0.0F;
+        cone = null;
         FocusController focus = FocusController.get();
         ClientStation station = focus.station();
         if (!focus.isActive() || station == null || station.scene() == null) {
@@ -93,23 +101,45 @@ public final class ClearView {
         entities = options.entities();
         particles = options.particles();
         strength = focus.blend();
+        if (particles && strength > 0.0F) {
+            cone = new Cone(new Matrix4f(VIEW), AXIS.x, AXIS.y, AXIS.z, length, radius, soft, strength, cameraX, cameraY, cameraZ);
+        }
     }
 
     /** How solid a point in view space stays, 0 to 1. */
     private static float fade(float x, float y, float z) {
-        float along = x * AXIS.x + y * AXIS.y + z * AXIS.z;
+        return fade(AXIS.x, AXIS.y, AXIS.z, length, radius, soft, strength, x, y, z);
+    }
+
+    private static float fade(float axisX, float axisY, float axisZ, float length, float radius, float soft, float strength,
+                              float x, float y, float z) {
+        float along = x * axisX + y * axisY + z * axisZ;
         if (along <= 0.0F || along >= length + BEHIND) {
             return 1.0F;
         }
-        float dx = x - AXIS.x * along;
-        float dy = y - AXIS.y * along;
-        float dz = z - AXIS.z * along;
+        float dx = x - axisX * along;
+        float dy = y - axisY * along;
+        float dz = z - axisZ * along;
         float width = NEAR_RADIUS + (radius - NEAR_RADIUS) * Math.min(1.0F, along / length);
         float inside = 1.0F - smooth(((float) Math.sqrt(dx * dx + dy * dy + dz * dz) - width) / soft);
         if (along > length) {
             inside *= 1.0F - smooth((along - length) / BEHIND);
         }
         return 1.0F - strength * inside;
+    }
+
+    /**
+     * How solid a particle at {@code x, y, z} in the world stays, 0 to 1, for a renderer that takes particles off the render thread
+     * and draws them later (AsyncParticles' GPU particles): it reads this frame's cone only, and changes nothing.
+     */
+    public static float particleFadeAt(double x, double y, double z) {
+        Cone c = cone;
+        if (c == null) {
+            return 1.0F;
+        }
+        Vector3f point = c.view().transformDirection(
+                new Vector3f((float) (x - c.cameraX()), (float) (y - c.cameraY()), (float) (z - c.cameraZ())));
+        return fade(c.axisX(), c.axisY(), c.axisZ(), c.length(), c.radius(), c.soft(), c.strength(), point.x, point.y, point.z);
     }
 
     private static float smooth(float t) {

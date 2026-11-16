@@ -20,6 +20,7 @@
     "client.ParticleEngineMixin",
     "client.RenderChunkRegionMixin",
     "client.SingleQuadParticleMixin",
+    "client.TextureSheetParticleGpuMixin",
     "client.SodiumOcclusionMixin",
     "client.SodiumWorldSliceMixin"
   ],
