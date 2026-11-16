@@ -1,6 +1,9 @@
 package com.pockyl.diegesis.mixin.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -26,5 +29,17 @@ abstract class ItemInHandRendererMixin {
         float shown = 1.0F - FocusController.get().handAway();
         mainHandHeight = Math.min(mainHandHeight, shown);
         offHandHeight = Math.min(offHandHeight, shown);
+    }
+
+    /**
+     * No hands at all once they have gone down. {@code GameRendererMixin} stops the game drawing them, but a shader pack under Iris
+     * draws them itself, straight through this method, and a sliver of the held item stayed in view at the station.
+     */
+    @Inject(method = "renderHandsWithItems", at = @At("HEAD"), cancellable = true, require = 0)
+    private void diegesis$noHandsAtStation(float partialTick, PoseStack poseStack, MultiBufferSource.BufferSource buffer,
+                                           LocalPlayer player, int light, CallbackInfo ci) {
+        if (FocusController.get().isHandGone()) {
+            ci.cancel();
+        }
     }
 }
