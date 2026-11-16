@@ -1,5 +1,6 @@
 package com.pockyl.diegesis.platform;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 
 import com.pockyl.diegesis.impl.network.Packets;
@@ -19,6 +20,12 @@ public interface Platform {
     boolean hasChannel(ServerPlayer player);
 
     void send(ServerPlayer player, Packets.ServerPacket packet);
+
+    /**
+     * Whether the loader's block-use event lets the player use the block at {@code pos}, as a right-click on it would: claim and
+     * protection mods deny it there. Opening a station replaces that right-click, so it asks the same question first.
+     */
+    boolean mayUseBlock(ServerPlayer player, BlockPos pos);
 
     static <T> T load(Class<T> type) {
         return ServiceLoader.load(type, type.getClassLoader()).findFirst()

@@ -111,6 +111,11 @@ public final class StationManager {
         if (station != null && station == byPlayer.get(player.getUUID())) {
             return true;
         }
+        // Opening stands in for the right-click the client cancelled: spawn protection, the world border and claim mods
+        // (through the loader's block-use event) decide as they would for that click.
+        if (!level.mayInteract(player, pos) || !Platform.INSTANCE.mayUseBlock(player, pos)) {
+            return false;
+        }
         if (station != null && (station.type() != type || !type.shared() && !station.isEmpty())) {
             return false;
         }

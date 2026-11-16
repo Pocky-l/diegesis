@@ -1,7 +1,14 @@
 package com.pockyl.diegesis.fabric;
 
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.Platform;
@@ -22,5 +29,12 @@ public final class FabricPlatform implements Platform {
         if (hasChannel(player)) {
             FabricNetwork.send(player, packet);
         }
+    }
+
+    @Override
+    public boolean mayUseBlock(ServerPlayer player, BlockPos pos) {
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
+        return UseBlockCallback.EVENT.invoker().interact(player, player.level(), InteractionHand.MAIN_HAND, hit)
+                != InteractionResult.FAIL;
     }
 }
