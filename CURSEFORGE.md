@@ -25,7 +25,9 @@
 <li>✋ <strong>Carried objects:</strong> held by a grip point, with weight and lean, a shadow of their own shape and triggers on touch.</li>
 <li>💧 <strong>Liquids and pouring:</strong> tanks hold real volumes and mixtures that rock and ripple. The server paces and checks every pour.</li>
 <li>🎛️ <strong>Ready controls:</strong> lever, rocker switch, push button, knob and slider, one line of JSON each.</li>
-<li>✨ <strong>Particles, light and sound:</strong> emitters, boiling surfaces, glowing nodes that light what is near.</li>
+<li>✨ <strong>Particles, light and sound:</strong> emitters, boiling surfaces, glowing nodes that light what is near. Effects and particle styles can be JSON files too.</li>
+<li>🎯 <strong>Events and reactions:</strong> knocks, landings, things dipped in a liquid or held into a flame are reported, and a scene file alone can answer them with sparks, sounds or a flash, seen by everyone nearby.</li>
+<li>🧩 <strong>Open to other mods:</strong> any mod can listen to any station, refuse what it should not take and add its own client effects.</li>
 <li>🪑 <strong>Seats and multiblocks:</strong> a station can span several blocks and seat several players, each with their own view.</li>
 <li>🌐 <strong>Client-only or server:</strong> client stations work on any server. Server stations check every action, so items cannot be duplicated, and share one state between players.</li>
 </ul>

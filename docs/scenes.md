@@ -533,8 +533,8 @@ How the scene answers what the player does. Nothing changes by default; every fi
 
 ### feedback.reactions
 
-A reaction plays an effect when an event happens in the scene, before the behaviour's `onEvent`. It is only the look: it
-never changes the station's state. It is seen by the local player, and with `shared` by everyone near the station.
+A reaction plays an effect when an event happens in the scene, before the behaviour's `onEvent`, at the event's node (at
+the other node for the stack in the hand, which has none). It is only the look: it never changes the station's state. It is seen by the local player, and with `shared` by everyone near the station.
 
 | Field | Default | Meaning |
 |---|---|---|

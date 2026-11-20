@@ -152,7 +152,7 @@ belong to this client only.
 | `FellOff(slot)` | With physics: a placed thing fell off its surfaces; it goes back to the inventory next. |
 | `StreamLanded(source, target, point, color)` | A stream of liquid reached where it lands, once per stream: the player's pour (`source` the vessel) or `pourStream` (`source` null); `target` the node it fills. |
 | `Submerge(node, tank, under, depth)` | A carried node went under the liquid of `tank`'s node, or came out (also when let go). `depth` in pixels below the surface. |
-| `ItemContact(stack, other, touching, speed)` | The stack in the hand started or stopped touching a node that is a `trigger` or has marks. |
+| `ItemContact(stack, other, touching, speed)` | The stack in the hand started or stopped touching a node that is a `trigger` or has marks: judged as the player sees it, the stack over the node on the screen and not far in front of or behind it. |
 | `Exposed(node, mark, source, exposed)` | A carried node (`node`), or the stack in the hand (`node` null), started touching a node with `mark`, or left the last one (also when let go). Marks are labels; the logic decides what they do. |
 
 The scene, physics and liquid events are seen by the local player's client only: the server has no scene and no physics,

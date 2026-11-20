@@ -1056,6 +1056,9 @@ public final class FocusInput {
         float dt = Math.min((now - lastFrame) / 1.0e9F, 0.1F);
         lastFrame = now;
         ClientStation station = station();
+        if (stackStation != null && stackStation != station) {
+            endStackContacts();
+        }
         if (station == null || station.scene() == null || !Projector.isValid()) {
             return;
         }
@@ -1086,10 +1089,128 @@ public final class FocusInput {
             setHovered(picked.node());
         }
         updateCarry(station, dt, carrying);
+        stackContacts(station, dt, carrying);
         reportCarry(station);
         if (gesture == null && !carrying && hovered != null && hovered.definition().strokes()) {
             station.onEvent(new SceneEvent.Stroke(hovered.id(), SceneEvent.Stroke.Phase.HOVER, -1, strokePoint(station, hovered)));
         }
+    }
+
+    // The stack in the hand against triggers and marked nodes (SceneEvent.ItemContact, Exposed).
+    private ClientStation stackStation;
+    private final java.util.Set<NodeInstance> stackTouching = new java.util.HashSet<>();
+    private final com.pockyl.diegesis.impl.client.fx.ExposureTracker stackExposure = new com.pockyl.diegesis.impl.client.fx.ExposureTracker(null);
+    private ItemStack stackTouched = ItemStack.EMPTY;
+    private final Vector3f stackLastAt = new Vector3f(Float.NaN, 0.0F, 0.0F);
+    private final float[] stackSight = new float[3];
+    private final float[] stackOther = new float[6];
+    private final Vector3f stackScratch = new Vector3f();
+
+    /** How far (pixels) along the line of sight the held stack may be from a node it is seen over and still touch it. */
+    private static final float STACK_DEPTH_SLACK = 8.0F;
+
+    /**
+     * The stack in the hand, while it is drawn in the scene: which triggers and marked nodes it starts or stops touching. Judged
+     * as the player sees it: the line of sight through the stack passes through the node's box (widened by half the stack's
+     * size), and the stack is no farther in front of or behind that box than {@link #STACK_DEPTH_SLACK}. It moves over the work
+     * plane, so held "into" a flame on the screen it is often a little behind it. An icon over the drawer touches nothing.
+     */
+    private void stackContacts(ClientStation station, float dt, boolean carrying) {
+        if (!carrying || !carryInWorld || gesture instanceof NodeGrab) {
+            if (stackStation != null) {
+                endStackContacts();
+            }
+            stackLastAt.set(Float.NaN, 0.0F, 0.0F);
+            return;
+        }
+        ItemStack stack = carriedStack();
+        if (stackStation != null && !ItemStack.isSameItemSameComponents(stack, stackTouched)) {
+            // Another stack in the hand: what the old one touched ends first.
+            endStackContacts();
+        }
+        if (stackStation == null) {
+            stackStation = station;
+            stackTouched = stack.copy();
+        }
+        Vector3fc at = carry.value();
+        float speed = Float.isNaN(stackLastAt.x) || dt <= 0.0F ? 0.0F : stackLastAt.distance(at.x(), at.y(), at.z()) / dt;
+        stackLastAt.set(at);
+        float half = carrySize * 0.5F;
+        Vector3f eye = stationRay(station, mouseX, mouseY).origin();
+        Vector3f sight = stackScratch.set(at).sub(eye);
+        float distance = sight.length();
+        if (distance < 0.001F) {
+            return;
+        }
+        sight.div(distance);
+        // Kept apart: the scratch vector serves the boxes in the loop.
+        stackSight[0] = sight.x;
+        stackSight[1] = sight.y;
+        stackSight[2] = sight.z;
+        for (NodeInstance other : station.scene().nodes()) {
+            boolean marked = com.pockyl.diegesis.impl.client.fx.Exposure.canBeMarked(other.definition());
+            if (other.collider() == null || !other.definition().trigger() && !marked) {
+                continue;
+            }
+            boolean overlaps = false;
+            if (other.isVisible()) {
+                float[] box = NodeGrab.bounds(other, other.collider().from(), other.collider().to(), stackOther, stackScratch);
+                overlaps = seenIn(eye, stackSight, distance, box, half);
+            }
+            if (overlaps && stackTouching.add(other)) {
+                station.onEvent(new SceneEvent.ItemContact(stack.copy(), other.id(), true, speed),
+                        com.pockyl.diegesis.api.scene.fx.Reaction.On.ITEM_CONTACT, null, null, other.id(), null, speed, null);
+                if (marked) {
+                    stackExposure.touch(station, other.id());
+                }
+            } else if (!overlaps && stackTouching.remove(other)) {
+                station.onEvent(new SceneEvent.ItemContact(stack.copy(), other.id(), false, speed),
+                        com.pockyl.diegesis.api.scene.fx.Reaction.On.ITEM_CONTACT_END, null, null, other.id(), null, speed, null);
+                stackExposure.leave(station, other.id());
+            }
+        }
+    }
+
+    /**
+     * Whether the line of sight from {@code eye} along {@code direction} (its first three values) passes through {@code box}
+     * widened by {@code grow}, with the stack at {@code distance} within {@link #STACK_DEPTH_SLACK} of where it is inside.
+     */
+    private static boolean seenIn(Vector3f eye, float[] direction, float distance, float[] box, float grow) {
+        float near = -Float.MAX_VALUE;
+        float far = Float.MAX_VALUE;
+        for (int axis = 0; axis < 3; axis++) {
+            float lo = box[axis] - grow;
+            float hi = box[axis + 3] + grow;
+            float d = direction[axis];
+            float o = axis == 0 ? eye.x : axis == 1 ? eye.y : eye.z;
+            if (Math.abs(d) < 1.0e-6F) {
+                if (o < lo || o > hi) {
+                    return false;
+                }
+                continue;
+            }
+            float t0 = (lo - o) / d;
+            float t1 = (hi - o) / d;
+            near = Math.max(near, Math.min(t0, t1));
+            far = Math.min(far, Math.max(t0, t1));
+        }
+        return near <= far && far >= 0.0F && distance >= near - STACK_DEPTH_SLACK && distance <= far + STACK_DEPTH_SLACK;
+    }
+
+    /** The stack left the scene, was put down or changed: every touch and exposure of it ends. */
+    private void endStackContacts() {
+        ClientStation station = stackStation;
+        stackStation = null;
+        if (station == null) {
+            return;
+        }
+        for (NodeInstance other : stackTouching) {
+            station.onEvent(new SceneEvent.ItemContact(stackTouched.copy(), other.id(), false, 0.0F),
+                    com.pockyl.diegesis.api.scene.fx.Reaction.On.ITEM_CONTACT_END, null, null, other.id(), null, 0.0F, null);
+        }
+        stackTouching.clear();
+        stackExposure.clear(station);
+        stackTouched = ItemStack.EMPTY;
     }
 
     /** Where the cursor is on the upright plane through a node's origin that faces the camera. */

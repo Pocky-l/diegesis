@@ -112,6 +112,30 @@ public final class FeedbackGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void marksComeFromTheNodeAndItsLiquid(GameTestHelper helper) {
+        SceneDefinition scene = parse(SceneDefinition.CODEC, """
+                {"nodes": [
+                  {"id": "flame", "collider": {"from": [7, 9, 7], "to": [9, 12, 9]}, "trigger": true,
+                   "feedback": {"marks": ["diegesis:fire", "mymod:blessed"]}},
+                  {"id": "flask", "tank": {"tank": "flask", "inner": {"from": [6, 1, 6], "to": [10, 8, 10]}},
+                   "feedback": {"marks": ["diegesis:hot"]}},
+                  {"id": "plain"}]}""").result().orElseThrow();
+        NodeDefinition flame = scene.nodes().get(0);
+        NodeDefinition flask = scene.nodes().get(1);
+        NodeDefinition plain = scene.nodes().get(2);
+        ResourceLocation lava = ResourceLocation.fromNamespaceAndPath("minecraft", "lava");
+        ResourceLocation water = ResourceLocation.fromNamespaceAndPath("minecraft", "water");
+        check(helper, Marks.of(flame, null).equals(java.util.Set.of(Marks.FIRE, ResourceLocation.fromNamespaceAndPath("mymod", "blessed"))), "own marks");
+        check(helper, Marks.of(flask, com.pockyl.diegesis.api.state.TankContents.EMPTY).equals(java.util.Set.of(Marks.HOT)),
+                "an empty tank is not wet");
+        check(helper, Marks.of(flask, com.pockyl.diegesis.api.state.TankContents.of(water, 100).plus(
+                com.pockyl.diegesis.api.state.TankContents.of(lava, 10))).equals(java.util.Set.of(Marks.HOT, Marks.WET, water, lava)),
+                "a filled tank is wet with each of its liquids");
+        check(helper, Marks.of(plain, com.pockyl.diegesis.api.state.TankContents.of(water, 100)).isEmpty(), "no tank, no liquid marks");
+        helper.succeed();
+    }
+
     private static <T> DataResult<T> parse(Codec<T> codec, String json) {
         return codec.parse(JsonOps.INSTANCE, JsonParser.parseString(json));
     }

@@ -124,14 +124,16 @@ public final class Reactions {
             }
             entry.readyAt = now + reaction.cooldown();
             CompoundTag data = EffectPlayer.data(other, point, speed);
+            // An event without a node of its own (the stack in the hand) plays at what it touched.
+            String at = node != null ? node : other;
             if (entry.steps != null) {
-                station.playSteps(entry.steps, node, data);
+                station.playSteps(entry.steps, at, data);
             } else {
                 Identifier effect = reaction.effect().orElseThrow();
                 if (reaction.shared()) {
-                    station.shareEffect(effect, node, data);
+                    station.shareEffect(effect, at, data);
                 } else {
-                    station.playLook(effect, node, data);
+                    station.playLook(effect, at, data);
                 }
             }
         }

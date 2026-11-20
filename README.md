@@ -57,7 +57,12 @@ Made something with Diegesis? Open an issue and it will be listed here.
   into it. The server checks every pour.
 - ✨ **Particles, light and sound** - sparks, bubbles, steam, smoke and more, glowing parts that light up what is near
   them, and quiet station sounds a resource pack can replace.
-- 🎯 **Triggers** - a carried object reports when it touches another part of the scene, and zones react to the cursor.
+- 🎯 **Triggers and events** - a carried object or the stack in the hand reports what it touches, dips into or holds over a
+  flame, placed things report knocks, landings and falls, and zones react to the cursor.
+- 🎆 **Reactions without code** - a scene file plays sparks, sounds, flashes of light or ripples when something happens,
+  swaps or silences the library's sounds, and can show an effect to everyone nearby.
+- 🧩 **Open to other mods** - any mod can listen to any station, refuse what it should not take, and add its own client
+  effects beside the station's own.
 - 🪑 **Multiblocks and seats** - a station can cover several blocks and seat several players, each with their own view.
 - 🔌 **Blocks from other mods** - a station can sit on another mod's block and use that block's inventory, so hoppers
   keep working.
@@ -130,8 +135,19 @@ The inventory can live in the scene instead of the screen panel:
 `"inventory": {"pos": [8, 15.2, -5.4], "rotation": [-18, 0, 0], "spacing": 2.2, "size": 1.75, "slot_color": "#66000000"}`
 (add `"surface": "<block state>"` for a board under the slots).
 
+Effects on events, written in the scene (all optional): sparks where a blade touches the grindstone, a sound swapped:
+
+```json
+"feedback": {
+  "sounds": {"put_down": "mymod:station.clink"},
+  "reactions": [{"on": "contact", "other": "grindstone", "steps": [
+    {"type": "particles", "style": "diegesis:spark", "count": 6, "at": "point"}]}]
+}
+```
+
 Client code (optional): `DiegesisClient.registerBehavior(id, MyBehavior::new)` for animations, sounds and effects that
-react to the state and to what the player does.
+react to the state and to what the player does. Another mod's station: `Diegesis.addListener` on both sides,
+`DiegesisClient.addBehavior` on the client.
 
 ## Documentation
 
