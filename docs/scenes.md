@@ -261,6 +261,9 @@ gathers, dragging over several slots spreads.
 | `counts` | `"always"` | When the stack's count is drawn: `always`, `hover` (slots close together stay readable), `never`. |
 | `highlight` | `true` | The square over the slot under the cursor. Off for things that are no slots to the eye, like food in a pot; the hover outline stays. An `upright` slot's square stands in the item's plane, behind it. |
 | `idle_highlight` | `0` | How strongly the square shows while the cursor is elsewhere, 0..1 of the hovered one, so the places to put things are seen at a glance. |
+| `ghost` | `[]` | What goes here, shown see-through and still in the empty slot to the player at the station, as vanilla's screens outline an empty armour slot: item ids or `#tags` (`["minecraft:coal", "#minecraft:logs"]`); several take turns. Ids of mods that are not installed are left out. A behaviour can set its own with `NodeView.setGhostItems`. |
+| `ghost_alpha` | `0.4` | How opaque the ghost is, 0..1. |
+| `ghost_period` | `1.5` | Seconds each of several ghosts is shown before the next. |
 | `count_facing` | `"up"` | `up`: the count lies on the slot, read from above; `front`: it stands at the item's foot facing the block's front, for an item standing in a hollow the camera looks into (a furnace's mouth); `camera`: at the item's foot, always turned to the camera like a name tag. |
 
 A slot node needs no visual: it is an invisible pad on the surface. Put it where the block's texture shows a cell.
@@ -495,14 +498,15 @@ framed. Nobody else sees a change, and the scene's own particles stay. On by def
 When a player starts to work at the station, the game's HUD leaves the screen: every part of it slides off to the edge nearest
 to it, the hotbar and the health down, the chat to the left, effects and a scoreboard to the right, boss bars up. Other mods'
 overlays go the same way, each to the edge nearest to where it is drawn: on Forge every overlay by itself, on Fabric what mods
-draw through `HudRenderCallback` as one part. What covers most of the screen (a vignette) stays until the HUD is hidden. The
-HUD slides back while the camera flies back. Whether the HUD and the chat go at all is `interface.hide_hud` and
+draw through `HudRenderCallback` as one part. What covers most of the screen (the vignette, frost) does not slide and stays
+while the rest of the HUD is gone (`keep_vignette`). The HUD slides back while the camera flies back. Whether the HUD and the chat go at all is `interface.hide_hud` and
 `interface.hide_chat`; a player who hid the HUD with F1 sees no slide. Every field is optional.
 
 | Field | Default | Meaning |
 |---|---|---|
 | `slide` | `true` | The parts slide away and back; `false`: they are gone and back at once. |
 | `seconds` | `0.3` | How long the slide takes. |
+| `keep_vignette` | `true` | What covers the whole screen stays while the rest of the HUD is gone: the vignette, frost, the view through a carved pumpkin, the portal's swirl, the game's own (other mods' screen layers go with the HUD, as F1 hides them). `false`: they go with the HUD. |
 
 ## Meshes
 
@@ -584,6 +588,17 @@ file has no node per item.
 | `physics` | none | Items fall, tip over and push each other, see below. Without it they stand exactly as they are put. |
 | `hover_lift` | `0` | Pixels an item rises while the cursor is on it. 0 keeps it still; the outline says what the cursor is on. |
 | `frame_pose` | `false` | Every item stands as an item frame shows it. By default an item with a 3D model (a can, a jar, a bottle) stands as it is modelled, upright, where a frame would lay it on its back to face out of the wall; flat icons stand as in a frame either way. |
+| `stack_low` | `0.45` | An item lower than this share of `item_size` is all top: pointed at anywhere, the stack in the hand goes on it (a lying book, a plate). |
+| `stack_from` | `0.5` | Of a taller item, the share of its height from its foot up from which pointing at it means on top of it; lower, the stack goes in front of it. |
+| `stack_snap` | `0.3` | Put on a wider thing, the stack in the hand goes where the cursor points on its top; within this share of that thing's half size from its middle (each way) it goes to the exact middle, so same things pile up neatly. 1: always the middle. |
+| `stack_edge` | `0` | How far in from the edge of what it goes on the middle of the stack in the hand stays, as a share of its own half size: 0 lets its middle reach the edge, no further; 0.5 keeps half of it over the top. |
+| `stack_align` | `12` | Degrees: a flat thing laid on a flat thing turned within this much of it (or of a quarter turn from it) takes its turn, so a pile of sheets lies square. 0: never. |
+| `stack_shrink` | `0.75` | Of the size the player gave it, how small a thing put on another is made at most to fit under what is over it (never below `scale_range`). Where it does not fit at that, the mark shows it beside the pile and the pile's top gives a short nod. Taken again later, a squeezed thing has its own size back. 1: never smaller. |
+| `right_puts_one` | `true` | A right click with a stack in the hand that does not move the mouse puts one of it down, as in a chest; the rest stays in the hand. Held and moved, the right button turns the stack as before. `false`: the right button only turns. |
+| `turn_detents` | `90` | Degrees between the turns about the vertical a turn by hand (the right button held) settles on: square. |
+| `turn_detent` | `3` | Degrees: a turn by hand let go of within this much of one of those settles onto it with a tiny turn; anywhere else it stays as it is. 0: never. The wheel keeps its `turn_step` notches. |
+| `grip_blend` | `12` | GUI pixels of the cursor's travel over which an item just taken goes from where it stood to under the cursor. Taken and put again without moving, it stands exactly where it stood; a drag of a placed item (with `physics`) keeps the point grabbed under the cursor, so small nudges work. 0: it jumps under the cursor at once. |
+| `pick_min` | `0.75` | Pixels each side of an item's hit box measures at least for the cursor: a lying sheet seen edge-on or the tip of a slanted icon is still hit, though only where the cursor is on no item exactly. A slanted icon (a carrot, a sword) is hit on its narrow box round its pixels, not on its square. 0: the exact boxes. |
 
 A surface:
 
@@ -595,11 +610,13 @@ A surface:
 | `aim_height` | 0 | How the cursor finds a place. 0: it points at the surface itself, right for a table seen from above. A shelf seen from the front is too thin a sliver for that: with a height, the cursor points at a slope from the front edge (the side of the smaller z) up to this height over the back edge, so that low in the opening means at the front and high in the opening means at the back. |
 | `wall` | none | The z of a wall behind the surface: light in the room falls on it too. |
 | `open` | `[]` | With `physics`, the sides with no wall: `front` (-z), `back`, `left` (+x, the viewer's left), `right`. A thing pushed or pulled over such an edge falls off, onto a surface below or, with none there, out of the station into the player's inventory, and onto the ground in front of the station where the inventory is full. |
+| `flat_rest` | `"stand"` | How a flat thing (an icon: bread, paper, a sword) is put down here unless the player turns it otherwise: `stand`, standing facing the front, right for a shelf seen from the front; `lie`, lying on its back with its top towards the far side, right for a drawer or box seen from above, where it reads whole and piles up. The stack in the hand takes the way of each surface it goes over; things that come without a place lie there too, and the same flat things go onto a pile of them first. |
+| `fill` | `"back"` | Where a thing that comes without a place (shift-clicked in, brought by a hopper) is set out on this surface: `back`, from the back row to the front, each row from its middle out, to the side away from the camera first, right for a shelf; `middle`, as near the middle of the surface as there is room, then round it, nearest first, right for a plate or a turntable. |
 
 What the player does: a stack on the cursor stands see-through where the cursor points. A click puts it down (as much of it as
 a slot takes: with `maxStack(1)` one item, and the rest stays in the hand for the next place). A click on an item takes it,
 with the turn and size it had; a drag moves it. The wheel turns what is in the hand or under the cursor, Shift+wheel tips it
-towards the player, Control+wheel sizes it; the right button held turns it freely with the mouse. Items settle on their lowest
+towards the player, Control+wheel sizes it; the right button held turns it freely with the mouse. A right click without moving the mouse puts one of the stack down (`right_puts_one`, default true), the rest stays in the hand. Items settle on their lowest
 point whichever way they are turned. Shift-click takes an item back into the inventory.
 
 ### placing.physics
@@ -637,8 +654,12 @@ above, it pushes the item. Going to another surface (a shelf, a door's bin) it h
 touching nothing on the way. Let go of, it drops under the grip with the swing's tilt (a rigid item's tilt cut below its own
 tipping angle, so the swing alone never knocks it over); with `toss` a moving hand tosses it on a little.
 
+A pile is one thing: pointed at anywhere, the stack in the hand goes on its top, where the cursor points on that top (near
+its middle on the middle, `stack_snap`), so two small things stand side by side on a big one and a pile can be fanned. A single item takes it on top where the
+cursor is on its upper part (`stack_from`) or anywhere on a low thing (`stack_low`), and in front of it lower down.
+Taken from a pile, a piece leaves what stood on it coming straight down by its height, still a pile.
 Aimed at the top of an item, the stack in the hand goes on it, made as small as it must be to fit under the clearance (down
-to the smallest of `scale_range`; smaller than that, it keeps beside the item). Put on another item, a thing stands as put
+to `stack_shrink` of its size; smaller than that, it keeps beside the item). Put on another item, a thing stands as put
 until something touches it or the item under it is moved or taken away.
 
 Things move only when the hand means them to. The left button held on an item and moved drags it along its own surface (the
@@ -653,9 +674,9 @@ with `fall_off: held` only an item dragged by hand over it and let go of there d
 |---|---|---|
 | `gravity` | `200` | How fast things fall, pixels per second squared. |
 | `friction` | `0.6` | 0..1, how hard a thing grips what it stands on or touches, as a share of its weight: pushed less than that it stays put, pushed harder it slides and slows down. |
-| `upright_flat` | `true` | Flat items (an icon: bread, a carrot) stand as they were turned and rock back when bumped. `false`: thin rigid cards that fall over. |
+| `upright_flat` | `true` | Flat items (an icon: bread, a carrot) standing straight (within 10 degrees) stay standing and rock back when bumped; at a lean or lying they are thin rigid plates. `false`: thin rigid cards that fall over also standing straight. |
 | `rock` | `25` | Degrees a flat item rocks at most when bumped; 0 keeps it rigidly upright. |
-| `flat_depth` | `0` | Pixels of depth a flat item collides with at least. 0: as thin as it is drawn, so a lying icon lies right on what is under it and icons stand against each other with nothing between. |
+| `flat_depth` | `0` | Pixels of depth a flat item collides with at least (never under 0.2, and 0.02 more so that faces put against each other never share a plane and flicker). The physics, the stack in the hand and free spots all reckon with this one thickness. |
 | `hover` | `1.5` | Pixels the stack in the hand floats over what is under it (0..8). |
 | `carry_lag` | `0.035` | Seconds the point held takes to close half the way to the cursor. 0 follows at once. |
 | `reach` | `4` | With `hand_pushes`, pixels around the stack in the hand within which it rises onto an item. |
@@ -671,6 +692,10 @@ with `fall_off: held` only an item dragged by hand over it and let go of there d
 | `fall_off` | `any` | What may go over an open edge: `any`, anything pushed, bumped or crowded there; `held`, only what the hand drags there. |
 | `max_speed` | `80` | Pixels per second a thing moves at most: a push never flings it far. |
 | `bounce` | `0` | 0..0.5, how much of the speed a thing hits something with it bounces back with. 0: it stops dead where it lands or hits. |
+| `landing_sound` | `true` | A thing put down sounds when it touches what it lands on, and as what it is: a block with its own place sound, a flat thing a light tick, anything else lower the heavier it is; louder the faster it comes down. A thing let go of after a drag sounds only if it falls. `false`: the same sound at the click for everything. |
+| `flush` | `0.3` | Pixels: put down this close to a neighbour or a wall, a thing lands touching it, with no sliver of a gap (never more than this along each way, never into anything). Kept beside an item it cannot go on, it goes to the side the cursor is nearer to, except on a shelf seen from the front (`aim_height`), where it goes in front. 0: where it was let go. |
+| `flat_poses` | `"free"` | How a flat thing (an icon: bread, paper) may be turned. `free`: to any angle by the wheel (Shift+wheel tilts it in `turn_step` notches) or by hand; let go of, it rests as it falls: standing straight it stays standing and rocks back when bumped, at a lean it falls flat or leans on what is beside it, lying it does not rock and comes to rest dead flat. `two`: standing up or lying down only; Shift+wheel goes over to the other in one notch, and a turn by hand that ends between settles on the nearer. |
+| `pile_rides` | `true` | A pile is one thing: what stands on an item goes along with it, standing as it stood, when that item is dragged, turned (also by the wheel) or pushed, and falls only when the item tips over (more than 8 degrees), the pile would go through a wall, or a dragged thing hits the pile itself. `false`: what stands on an item holds on by friction alone. |
 
 A surface's `headroom` (pixels, the `clearance` when not given) is how high over it the stack in the hand may be lifted to
 pass over what stands there: more than the clearance where open air is over the surface (a drawer pulled out).

@@ -15,6 +15,7 @@
   <a href="https://neoforged.net"><img alt="NeoForge" src="https://img.shields.io/badge/Loader-NeoForge-D7742F"></a>
   <a href="https://fabricmc.net"><img alt="Fabric" src="https://img.shields.io/badge/Loader-Fabric-C6BBA5"></a>
   <a href="docs/README.md"><img alt="Documentation" src="https://img.shields.io/badge/Docs-guide%20%26%20cookbook-4A6CB0"></a>
+  <a href="https://discord.gg/mGkPKccJEf"><img alt="Discord: Pocky's Kitchen" src="https://img.shields.io/badge/Discord-Pocky's%20Kitchen-5865F2?logo=discord&logoColor=white"></a>
   <a href="LICENSE"><img alt="License MIT" src="https://img.shields.io/badge/License-MIT-blue"></a>
 </p>
 
@@ -40,15 +41,16 @@ Made something with Diegesis? Open an issue and it will be listed here.
 ## Features
 
 - 🎥 **Camera** - using a station block moves the camera to a point set in the scene. Other players see you look at the
-  block.
+  block. With stations side by side, the cursor at the edge of the screen or A and D fly the camera over to the next one.
 - 🧱 **Scenes from Blockbench** - nodes show [Blockbench](https://www.blockbench.net) models, items or blocks. They can
   be nested, moved, turned, scaled, faded and made to glow.
 - 📦 **Item slots** - clicks work as in a vanilla menu, including shift-click, double click and dragging a stack across
   slots. The inventory stays at the bottom of the screen, slides in as a drawer or is laid out in the scene.
 - ✋ **Carried objects** - the player picks objects up and moves them over the block. They lag slightly behind the
   cursor, lean and cast a shadow.
-- 🫙 **Free placing** - items are put down anywhere on a station's shelves, turned and sized by hand. With physics on
-  they fall, tip over and push each other, and lanterns among them light the shelves.
+- 🫙 **Free placing** - items are put down anywhere on a station's shelves, turned and sized by hand, stacked into piles
+  that move as one, flat things standing or lying. With physics on they fall, tip over and push each other, land with
+  their own sound, and lanterns among them light the shelves.
 - 🎛️ **Controls** - toggles, buttons, knobs and sliders. A lever, a switch, a button, a knob and a slider come ready to
   use with one line in a scene.
 - 💧 **Liquids and pouring** - tanks hold real amounts of liquid that sway and ripple. Point a vessel at a tank to pour
@@ -117,6 +119,13 @@ Interface options (all optional, defaults shown):
 
 Add `"carry_margin": 6` to keep carried things within 6 pixels of the block's sides (no limit by default).
 
+The HUD slides away while the player works and comes back after (all optional, defaults shown); the vignette and other
+whole-screen overlays stay unless `keep_vignette` is `false`:
+
+```json
+"hud": {"slide": true, "seconds": 0.3, "keep_vignette": true}
+```
+
 The inventory can live in the scene instead of the screen panel:
 `"inventory": {"pos": [8, 15.2, -5.4], "rotation": [-18, 0, 0], "spacing": 2.2, "size": 1.75, "slot_color": "#66000000"}`
 (add `"surface": "<block state>"` for a board under the slots).
@@ -135,6 +144,9 @@ react to the state and to what the player does.
 | [Cookbook](docs/cookbook.md) | A board game, crafting on a block, a lever and a lamp, a gauge, pouring, a burner. |
 | [JSON Schema](docs/schema/scene.schema.json) | Add `"$schema": "https://raw.githubusercontent.com/Pocky-l/diegesis/main/docs/schema/scene.schema.json"` to a scene for completion and checks in the editor. |
 
+Questions about the API or a station you are building can go to [Pocky's Kitchen](https://discord.gg/mGkPKccJEf), our
+Discord server.
+
 ## Compatibility
 
 [![Sodium](https://raw.githubusercontent.com/Pocky-l/diegesis/1.21.1/docs/compat/sodium.png)](https://modrinth.com/mod/sodium) ✅ **[Sodium](https://modrinth.com/mod/sodium)** - scenes, hidden blocks and particles draw as usual
@@ -147,7 +159,8 @@ react to the state and to what the player does.
 
 1. Install [NeoForge](https://neoforged.net) or [Fabric](https://fabricmc.net) (with
    [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)) for Minecraft 1.21.1.
-2. Put the jar into the `mods` folder of the client, and of the server for server stations.
+2. Put the jar into the `mods` folder of the client, and of the server for server stations. Client and server need the
+   same version of Diegesis.
 
 ## Building
 
@@ -226,6 +239,14 @@ react to the state and to what the player does.
   <tr>
     <td width="56"><a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-delight"><img src="docs/more-mods/handson_delight.png" width="48" alt="Hands-On Delight"></a></td>
     <td><a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-delight"><b>Hands-On Delight</b></a> - cook in Farmer's Delight with your own hands, right on its blocks (<a href="https://github.com/Pocky-l/handson-delight">source</a>)</td>
+  </tr>
+  <tr>
+    <td width="56"><a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-furniture"><img src="docs/more-mods/handson_furniture.png" width="48" alt="Hands-On Furniture"></a></td>
+    <td><a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-furniture"><b>Hands-On Furniture</b></a> - open MrCrayfish's fridges, cabinets and drawers by hand and put food anywhere on their shelves (<a href="https://github.com/Pocky-l/handson-furniture">source</a>)</td>
+  </tr>
+  <tr>
+    <td width="56"><a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-vanilla"><img src="docs/more-mods/handson_vanilla.png" width="48" alt="Hands-On Vanilla"></a></td>
+    <td><a href="https://www.curseforge.com/minecraft/mc-mods/hands-on-vanilla"><b>Hands-On Vanilla</b></a> - craft and smelt with your own hands, right on the crafting table and the furnace, client-side (<a href="https://github.com/Pocky-l/handson-vanilla">source</a>)</td>
   </tr>
 </table>
 

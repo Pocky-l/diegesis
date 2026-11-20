@@ -168,6 +168,8 @@ obj("hud", "HudOptions", "How the game's HUD leaves and comes back; every field 
     "slide": field(BOOL, "Every part of the HUD slides off to the screen edge nearest to it (the hotbar down, the chat left),"
                          " other mods' overlays too; false: it is gone and back at once.", True),
     "seconds": field(num(0.05, 3), "How long the slide takes.", 0.3),
+    "keep_vignette": field(BOOL, "What covers the whole screen (the vignette, frost, a carved pumpkin's view, the portal's swirl)"
+                           " stays while the rest of the HUD is gone; false: it goes with the HUD.", True),
 })
 
 obj("captions", "CaptionOptions", "How the lines of StationView.showCaption look; every field is optional.", {
@@ -198,12 +200,23 @@ obj("placing", "PlacingOptions", "Free placing: items of a slot group with place
                      "Items fall, tip over and push each other; without it they stand exactly as put."),
     "hover_lift": field(num(0, 4), "Pixels an item rises while the cursor is on it; 0 keeps it still.", 0),
     "frame_pose": field(BOOL, "Every item stands as an item frame shows it; false: 3D item models stand as they are modelled.", False),
+    "stack_low": field(num(0, 1), "An item lower than this share of item_size is all top: pointed at anywhere, the stack goes on it.", 0.45),
+    "stack_from": field(num(0, 1), "Of a taller item, the share of its height from its foot up from which pointing means on top of it.", 0.5),
+    "stack_snap": field(num(0, 1), "On a wider thing, within this share of its half size from its middle the stack goes to the middle; 1: always.", 0.3),
+    "stack_edge": field(num(0, 0.5), "How far in from the edge of what it goes on the stack's middle stays, as a share of its own half size.", 0),
+    "stack_align": field(num(0, 45), "Degrees within which a flat thing laid on a flat thing takes its turn; 0: never.", 12),
+    "stack_shrink": field(num(0.25, 1), "Of its size, how small a thing put on another is made at most to fit; 1: never smaller.", 0.75),
+    "right_puts_one": field({"type": "boolean"}, "A right click with the stack in the hand that does not move the mouse puts one of it down; held and moved, it turns the stack.", True),
+    "turn_detents": field(num(1, 180), "Degrees between the turns about the vertical a turn by hand settles on.", 90),
+    "turn_detent": field(num(0, 20), "Degrees within which a turn by hand let go of settles onto a detent; 0: never.", 3),
+    "grip_blend": field(num(0, 64), "GUI pixels of travel over which an item just taken goes from where it stood to under the cursor; 0: at once.", 12),
+    "pick_min": field(num(0, 2), "Pixels each side of an item's hit box measures at least for the cursor, where it is on no item exactly; 0: exact.", 0.75),
 }, required=["group", "surfaces"])
 
 obj("placing_physics", "PlacingPhysics", "Solid placed items: they fall, tip over and shove each other.", {
     "gravity": field(num(1, 4000), "How fast things fall, pixels per second squared.", 200),
     "friction": field(num(0, 1), "How hard a thing grips what it stands on or touches, as a share of its weight.", 0.6),
-    "upright_flat": field(BOOL, "Flat items (icons) stand as turned and rock back when bumped; false: thin cards that fall over.", True),
+    "upright_flat": field(BOOL, "Flat items (icons) standing straight stay standing and rock back when bumped; at a lean they are plates; false: cards.", True),
     "rock": field(num(0, 45), "Degrees a flat item rocks at most when bumped; 0 keeps it rigidly upright.", 25),
     "flat_depth": field(num(0, 2), "Pixels of depth a flat item collides with at least; 0: as thin as it is drawn.", 0),
     "hover": field(num(0, 8), "Pixels the stack in the hand floats over what is under it.", 1.5),
@@ -222,6 +235,10 @@ obj("placing_physics", "PlacingPhysics", "Solid placed items: they fall, tip ove
     "fall_off": field({"enum": ["held", "any"]}, "What may go over an open edge: only what the hand drags there, or anything.", "any"),
     "max_speed": field(num(10, 400), "Pixels per second a thing moves at most.", 80),
     "bounce": field(num(0, 0.5), "How much of the speed a thing hits something with it bounces back with; 0 stops it dead.", 0),
+    "landing_sound": field(BOOL, "A thing put down sounds as it touches what it lands on, as what it is; false: at the click.", True),
+    "flush": field(num(0, 1), "Pixels: put down this close to a neighbour or a wall, a thing lands touching it; 0: off.", 0.3),
+    "flat_poses": field({"enum": ["two", "free"]}, "How a flat thing may be turned: free (any angle, resting as it falls) or two (standing or lying only).", "free"),
+    "pile_rides": field(BOOL, "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone.", True),
 })
 
 obj("place_surface", "PlaceSurface", "A level surface items can stand on.", {
@@ -234,6 +251,8 @@ obj("place_surface", "PlaceSurface", "A level surface items can stand on.", {
     "open": field({"type": "array", "items": {"enum": ["front", "back", "left", "right"]}},
                   "Sides with no wall (physics): a thing pushed over them falls off, onto a surface below or into the inventory.", []),
     "headroom": field(num(0, 256), "Physics: how high over the surface the stack in the hand may be lifted; the clearance by default."),
+    "flat_rest": field({"enum": ["stand", "lie"]}, "How a flat thing (an icon) is put down here: standing facing the front, or lying on its back.", "stand"),
+    "fill": field({"enum": ["back", "middle"]}, "Where a thing that comes without a place is set out: from the back row, or from the middle of the surface outwards (a plate).", "back"),
 }, required=["from", "to", "height"])
 
 obj("camera_shot", "CameraShot", "Another view of the scene, in the rig's coordinates.", {
@@ -359,6 +378,11 @@ obj("slot", "SlotBinding", "A place for an item of a station slot; clicked like 
                           "up: the count lies on the slot; front: it stands at the item's foot facing the front; camera: at the"
                           " item's foot, always turned to the camera like a name tag.", "up"),
     "idle_highlight": field(num(0, 1), "How strongly the square shows while the cursor is elsewhere, 0..1 of the hovered one.", 0),
+    "ghost": field({"type": "array", "items": STRING},
+                   "What goes here, shown see-through in the empty slot to the player at the station: item ids or #tags,"
+                   " taking turns."),
+    "ghost_alpha": field(num(0, 1), "How opaque the ghost is.", 0.4),
+    "ghost_period": field(num(0.1, 60), "Seconds each of several ghosts is shown.", 1.5),
 }, required=["slot"])
 
 obj("output", "OutputBinding", "Shows a result the station logic computes; clicking takes it.", {

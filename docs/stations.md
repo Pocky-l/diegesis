@@ -35,7 +35,7 @@ public static final StationType STILL = Diegesis.station(ResourceLocation.fromNa
 | `scene(ResourceLocation)` | the station id | Another scene than `assets/<ns>/diegesis/scenes/<path>.json` of the id. |
 | `logic(StationLogic.Factory)` | none | The rules; one logic object per station in use. |
 | `openWhen(OpenCondition)` | vanilla-like | `(player, pos, state)`: whether a use opens the station; false leaves the block its normal use. The default lets sneaking with an item in hand use the item. |
-| `orientation(Orientation)` | `AUTO` | How the scene is turned: `AUTO` (the block's facing if it has one, else towards the player), `BLOCK`, `PLAYER`, `FIXED` (as authored), `BLOCK_OPPOSITE` (the block's facing turned round, for blocks whose facing names their back). |
+| `orientation(Orientation)` | `AUTO` | How the scene is turned: `AUTO` (the block's facing if it has one, else towards the player), `BLOCK`, `PLAYER`, `FIXED` (as authored), `BLOCK_OPPOSITE` (the block's facing turned round, for blocks whose facing names their back), `PLAYER_FREE` (towards the player at their own angle round the block, not only the four sides, for blocks alike from every side; `StationView.turn()` gives the degrees past `facing()`, and a node standing in for the block is kept square to the world by `rotateTo(0, turn(), 0, 0)`). |
 | `reach(double)` | `6` | How far (blocks) from the eyes to the block centre a player may work. |
 | `exclusive()` | shared | One player at a time; others get the block's normal use while it is busy. |
 | `hidesBlock()` | off | The block's own model is not drawn while the station is in use: the scene shows it instead, so its parts can open and move. Any block, also another mod's. |

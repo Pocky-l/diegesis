@@ -455,6 +455,11 @@
           "maximum": 3,
           "description": "How long the slide takes.",
           "default": 0.3
+        },
+        "keep_vignette": {
+          "type": "boolean",
+          "description": "What covers the whole screen (the vignette, frost, a carved pumpkin's view, the portal's swirl) stays while the rest of the HUD is gone; false: it goes with the HUD.",
+          "default": true
         }
       },
       "patternProperties": {
@@ -616,6 +621,81 @@
           "type": "boolean",
           "description": "Every item stands as an item frame shows it; false: 3D item models stand as they are modelled.",
           "default": false
+        },
+        "stack_low": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "An item lower than this share of item_size is all top: pointed at anywhere, the stack goes on it.",
+          "default": 0.45
+        },
+        "stack_from": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Of a taller item, the share of its height from its foot up from which pointing means on top of it.",
+          "default": 0.5
+        },
+        "stack_snap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "On a wider thing, within this share of its half size from its middle the stack goes to the middle; 1: always.",
+          "default": 0.3
+        },
+        "stack_edge": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "description": "How far in from the edge of what it goes on the stack's middle stays, as a share of its own half size.",
+          "default": 0
+        },
+        "stack_align": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 45,
+          "description": "Degrees within which a flat thing laid on a flat thing takes its turn; 0: never.",
+          "default": 12
+        },
+        "stack_shrink": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 1,
+          "description": "Of its size, how small a thing put on another is made at most to fit; 1: never smaller.",
+          "default": 0.75
+        },
+        "right_puts_one": {
+          "type": "boolean",
+          "description": "A right click with the stack in the hand that does not move the mouse puts one of it down; held and moved, it turns the stack.",
+          "default": true
+        },
+        "turn_detents": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 180,
+          "description": "Degrees between the turns about the vertical a turn by hand settles on.",
+          "default": 90
+        },
+        "turn_detent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20,
+          "description": "Degrees within which a turn by hand let go of settles onto a detent; 0: never.",
+          "default": 3
+        },
+        "grip_blend": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 64,
+          "description": "GUI pixels of travel over which an item just taken goes from where it stood to under the cursor; 0: at once.",
+          "default": 12
+        },
+        "pick_min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Pixels each side of an item's hit box measures at least for the cursor, where it is on no item exactly; 0: exact.",
+          "default": 0.75
         }
       },
       "patternProperties": {
@@ -647,7 +727,7 @@
         },
         "upright_flat": {
           "type": "boolean",
-          "description": "Flat items (icons) stand as turned and rock back when bumped; false: thin cards that fall over.",
+          "description": "Flat items (icons) standing straight stay standing and rock back when bumped; at a lean they are plates; false: cards.",
           "default": true
         },
         "rock": {
@@ -765,6 +845,31 @@
           "maximum": 0.5,
           "description": "How much of the speed a thing hits something with it bounces back with; 0 stops it dead.",
           "default": 0
+        },
+        "landing_sound": {
+          "type": "boolean",
+          "description": "A thing put down sounds as it touches what it lands on, as what it is; false: at the click.",
+          "default": true
+        },
+        "flush": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Pixels: put down this close to a neighbour or a wall, a thing lands touching it; 0: off.",
+          "default": 0.3
+        },
+        "flat_poses": {
+          "enum": [
+            "two",
+            "free"
+          ],
+          "description": "How a flat thing may be turned: free (any angle, resting as it falls) or two (standing or lying only).",
+          "default": "free"
+        },
+        "pile_rides": {
+          "type": "boolean",
+          "description": "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone.",
+          "default": true
         }
       },
       "patternProperties": {
@@ -824,6 +929,22 @@
           "minimum": 0,
           "maximum": 256,
           "description": "Physics: how high over the surface the stack in the hand may be lifted; the clearance by default."
+        },
+        "flat_rest": {
+          "enum": [
+            "stand",
+            "lie"
+          ],
+          "description": "How a flat thing (an icon) is put down here: standing facing the front, or lying on its back.",
+          "default": "stand"
+        },
+        "fill": {
+          "enum": [
+            "back",
+            "middle"
+          ],
+          "description": "Where a thing that comes without a place is set out: from the back row, or from the middle of the surface outwards (a plate).",
+          "default": "back"
         }
       },
       "patternProperties": {
@@ -1382,6 +1503,27 @@
           "maximum": 1,
           "description": "How strongly the square shows while the cursor is elsewhere, 0..1 of the hovered one.",
           "default": 0
+        },
+        "ghost": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What goes here, shown see-through in the empty slot to the player at the station: item ids or #tags, taking turns."
+        },
+        "ghost_alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How opaque the ghost is.",
+          "default": 0.4
+        },
+        "ghost_period": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Seconds each of several ghosts is shown.",
+          "default": 1.5
         }
       },
       "patternProperties": {
@@ -2639,6 +2781,19 @@
             }
           ],
           "description": "How long the slide takes."
+        },
+        "keep_vignette": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "What covers the whole screen (the vignette, frost, a carved pumpkin's view, the portal's swirl) stays while the rest of the HUD is gone; false: it goes with the HUD.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What covers the whole screen (the vignette, frost, a carved pumpkin's view, the portal's swirl) stays while the rest of the HUD is gone; false: it goes with the HUD."
         }
       },
       "patternProperties": {
@@ -2976,6 +3131,169 @@
             }
           ],
           "description": "Every item stands as an item frame shows it; false: 3D item models stand as they are modelled."
+        },
+        "stack_low": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "An item lower than this share of item_size is all top: pointed at anywhere, the stack goes on it.",
+              "default": 0.45
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An item lower than this share of item_size is all top: pointed at anywhere, the stack goes on it."
+        },
+        "stack_from": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Of a taller item, the share of its height from its foot up from which pointing means on top of it.",
+              "default": 0.5
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Of a taller item, the share of its height from its foot up from which pointing means on top of it."
+        },
+        "stack_snap": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "On a wider thing, within this share of its half size from its middle the stack goes to the middle; 1: always.",
+              "default": 0.3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "On a wider thing, within this share of its half size from its middle the stack goes to the middle; 1: always."
+        },
+        "stack_edge": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5,
+              "description": "How far in from the edge of what it goes on the stack's middle stays, as a share of its own half size.",
+              "default": 0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far in from the edge of what it goes on the stack's middle stays, as a share of its own half size."
+        },
+        "stack_align": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 45,
+              "description": "Degrees within which a flat thing laid on a flat thing takes its turn; 0: never.",
+              "default": 12
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Degrees within which a flat thing laid on a flat thing takes its turn; 0: never."
+        },
+        "stack_shrink": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 1,
+              "description": "Of its size, how small a thing put on another is made at most to fit; 1: never smaller.",
+              "default": 0.75
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Of its size, how small a thing put on another is made at most to fit; 1: never smaller."
+        },
+        "right_puts_one": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "A right click with the stack in the hand that does not move the mouse puts one of it down; held and moved, it turns the stack.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A right click with the stack in the hand that does not move the mouse puts one of it down; held and moved, it turns the stack."
+        },
+        "turn_detents": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 180,
+              "description": "Degrees between the turns about the vertical a turn by hand settles on.",
+              "default": 90
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Degrees between the turns about the vertical a turn by hand settles on."
+        },
+        "turn_detent": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20,
+              "description": "Degrees within which a turn by hand let go of settles onto a detent; 0: never.",
+              "default": 3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Degrees within which a turn by hand let go of settles onto a detent; 0: never."
+        },
+        "grip_blend": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 64,
+              "description": "GUI pixels of travel over which an item just taken goes from where it stood to under the cursor; 0: at once.",
+              "default": 12
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "GUI pixels of travel over which an item just taken goes from where it stood to under the cursor; 0: at once."
+        },
+        "pick_min": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Pixels each side of an item's hit box measures at least for the cursor, where it is on no item exactly; 0: exact.",
+              "default": 0.75
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Pixels each side of an item's hit box measures at least for the cursor, where it is on no item exactly; 0: exact."
         }
       },
       "patternProperties": {
@@ -3021,14 +3339,14 @@
           "anyOf": [
             {
               "type": "boolean",
-              "description": "Flat items (icons) stand as turned and rock back when bumped; false: thin cards that fall over.",
+              "description": "Flat items (icons) standing straight stay standing and rock back when bumped; at a lean they are plates; false: cards.",
               "default": true
             },
             {
               "type": "null"
             }
           ],
-          "description": "Flat items (icons) stand as turned and rock back when bumped; false: thin cards that fall over."
+          "description": "Flat items (icons) standing straight stay standing and rock back when bumped; at a lean they are plates; false: cards."
         },
         "rock": {
           "anyOf": [
@@ -3281,6 +3599,63 @@
             }
           ],
           "description": "How much of the speed a thing hits something with it bounces back with; 0 stops it dead."
+        },
+        "landing_sound": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "A thing put down sounds as it touches what it lands on, as what it is; false: at the click.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A thing put down sounds as it touches what it lands on, as what it is; false: at the click."
+        },
+        "flush": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Pixels: put down this close to a neighbour or a wall, a thing lands touching it; 0: off.",
+              "default": 0.3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Pixels: put down this close to a neighbour or a wall, a thing lands touching it; 0: off."
+        },
+        "flat_poses": {
+          "anyOf": [
+            {
+              "enum": [
+                "two",
+                "free"
+              ],
+              "description": "How a flat thing may be turned: free (any angle, resting as it falls) or two (standing or lying only).",
+              "default": "free"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How a flat thing may be turned: free (any angle, resting as it falls) or two (standing or lying only)."
+        },
+        "pile_rides": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone.",
+              "default": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone."
         }
       },
       "patternProperties": {
@@ -3404,6 +3779,38 @@
             }
           ],
           "description": "Physics: how high over the surface the stack in the hand may be lifted; the clearance by default."
+        },
+        "flat_rest": {
+          "anyOf": [
+            {
+              "enum": [
+                "stand",
+                "lie"
+              ],
+              "description": "How a flat thing (an icon) is put down here: standing facing the front, or lying on its back.",
+              "default": "stand"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How a flat thing (an icon) is put down here: standing facing the front, or lying on its back."
+        },
+        "fill": {
+          "anyOf": [
+            {
+              "enum": [
+                "back",
+                "middle"
+              ],
+              "description": "Where a thing that comes without a place is set out: from the back row, or from the middle of the surface outwards (a plate).",
+              "default": "back"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where a thing that comes without a place is set out: from the back row, or from the middle of the surface outwards (a plate)."
         }
       },
       "patternProperties": {
@@ -4386,6 +4793,51 @@
             }
           ],
           "description": "How strongly the square shows while the cursor is elsewhere, 0..1 of the hovered one."
+        },
+        "ghost": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "What goes here, shown see-through in the empty slot to the player at the station: item ids or #tags, taking turns."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What goes here, shown see-through in the empty slot to the player at the station: item ids or #tags, taking turns."
+        },
+        "ghost_alpha": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "How opaque the ghost is.",
+              "default": 0.4
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How opaque the ghost is."
+        },
+        "ghost_period": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 60,
+              "description": "Seconds each of several ghosts is shown.",
+              "default": 1.5
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds each of several ghosts is shown."
         }
       },
       "patternProperties": {
