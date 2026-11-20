@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /** What client code registered: behaviours, code-built scenes, extra models, effects. */
 public final class ClientRegistry {
     private static final Map<Identifier, StationBehavior.Factory> BEHAVIORS = new ConcurrentHashMap<>();
+    private static final Map<Identifier, java.util.List<StationBehavior.Factory>> EXTRA_BEHAVIORS = new ConcurrentHashMap<>();
+    private static final java.util.List<StationBehavior.Factory> EXTRA_FOR_ALL = new java.util.concurrent.CopyOnWriteArrayList<>();
     private static final Map<Identifier, SceneDefinition> SCENES = new ConcurrentHashMap<>();
     private static final Set<Identifier> MODELS = ConcurrentHashMap.newKeySet();
     private static final Map<Identifier, EffectHandler> EFFECTS = new ConcurrentHashMap<>();
@@ -84,6 +86,29 @@ public final class ClientRegistry {
         if (BEHAVIORS.putIfAbsent(station, factory) != null) {
             throw new IllegalStateException("Station " + station + " already has a behaviour");
         }
+    }
+
+    /** A behaviour added beside a station's own: for one station type, or for all with {@code station} null. */
+    public static void addBehavior(Identifier station, StationBehavior.Factory factory) {
+        if (station == null) {
+            EXTRA_FOR_ALL.add(factory);
+        } else {
+            EXTRA_BEHAVIORS.computeIfAbsent(station, key -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(factory);
+        }
+    }
+
+    /** The behaviours added to a station type, its own ones first, then those for every station. */
+    public static java.util.List<StationBehavior.Factory> extraBehaviors(Identifier station) {
+        java.util.List<StationBehavior.Factory> own = EXTRA_BEHAVIORS.get(station);
+        if ((own == null || own.isEmpty()) && EXTRA_FOR_ALL.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<StationBehavior.Factory> all = new java.util.ArrayList<>();
+        if (own != null) {
+            all.addAll(own);
+        }
+        all.addAll(EXTRA_FOR_ALL);
+        return all;
     }
 
     public static void registerScene(Identifier id, SceneDefinition scene) {

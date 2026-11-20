@@ -24,9 +24,26 @@ public final class DiegesisClient {
     private DiegesisClient() {
     }
 
-    /** Client code (animations, sounds, effects) for the stations of a type. */
+    /** Client code (animations, sounds, effects) for the stations of a type. Each type has one; a second is an error. */
     public static void registerBehavior(Identifier station, StationBehavior.Factory factory) {
         ClientRegistry.registerBehavior(station, factory);
+    }
+
+    /**
+     * Client code added to a station type that is not yours, or that already has its own behaviour: sparks on another mod's
+     * anvil, a sound when its kettle boils. It runs after the station's own behaviour, as many as are added, in that order.
+     * Hooks that take input ({@code onItemClick}, {@code onScroll}, keys, {@code onInventoryShiftClick}) reach it only when no
+     * behaviour before it took the input, so it can add gestures but never take one away.
+     */
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    public static void addBehavior(Identifier station, StationBehavior.Factory factory) {
+        ClientRegistry.addBehavior(java.util.Objects.requireNonNull(station, "station"), factory);
+    }
+
+    /** Like {@link #addBehavior(Identifier, StationBehavior.Factory)}, for every station of every mod. */
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    public static void addBehavior(StationBehavior.Factory factory) {
+        ClientRegistry.addBehavior(null, factory);
     }
 
     /**
@@ -65,12 +82,12 @@ public final class DiegesisClient {
         ClientRegistry.registerLiquid(id, look);
     }
 
-    /** An effect the stations' logic can play with {@code StationContext.effect(id, ...)}. */
     /** The colour a mixture is drawn in (the liquids' looks blended by amount), ARGB: for particles of the same colour. */
     public static int liquidColor(TankContents contents) {
         return LiquidRenderer.look(contents).color();
     }
 
+    /** An effect the stations' logic can play with {@code StationContext.effect(id, ...)}. */
     public static void registerEffect(Identifier id, EffectHandler handler) {
         ClientRegistry.registerEffect(id, handler);
     }

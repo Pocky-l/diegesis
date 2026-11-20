@@ -30,6 +30,25 @@ default.
 | `onInventoryShiftClick(view, slot, stack)` | Shift + click on a stack of the inventory: return true when the station takes it itself (a stack laid on a board), false for the usual move into its slots. |
 | `onEffect(view, effect, node, data)` | The logic played an effect (`StationContext.effect`), after the effect itself. |
 
+### Behaviours added by other mods
+
+`DiegesisClient.addBehavior(stationId, factory)` adds a behaviour to a station type that has its own already, yours or
+another mod's; `addBehavior(factory)` adds one to every station. It is a whole `StationBehavior`, created per shown station
+like the station's own, and runs after it in the order added. Hooks that take input (`onItemClick`, `onScroll`, `onKey`,
+`onChar`, `onInventoryShiftClick`) reach it only when no behaviour before it took the input, so it can add a gesture but never
+take one away; `holdsBlock` holds while any says so. One that throws is logged once and the others still run.
+
+```java
+DiegesisClient.addBehavior(new ResourceLocation("othermod", "anvil"), view -> new StationBehavior() {
+    @Override
+    public void onEvent(StationView view, SceneEvent event) {
+        if (event instanceof SceneEvent.ButtonPressed) {
+            view.spawnParticles(DiegesisParticles.SPARK, null, 6, 0);
+        }
+    }
+});
+```
+
 For a client-only station the behaviour is the whole client logic. For a server station it is purely visual: real
 changes go through the server with `view.sendAction(action, data)` (arrives in `StationLogic.onCustomAction`).
 
@@ -41,7 +60,8 @@ Because every player near a server station runs its behaviour on the same synced
 `type()`, `level()`, `pos()`, `facing()`, `state()` (read only), `isFocused()`, `isInUse()` (anybody works there now),
 `isBlockHidden()` (a `hidesBlock()` station's block is left out of the world in this frame: show the scene's copy of the block
 exactly then, and the two swap in one frame without a blink), `age()` (seconds shown),
-`node(id)`, `toWorld(x, y, z)` (scene pixels to world), `sendAction(action, data)`,
+`node(id)`, `toWorld(x, y, z)` (scene pixels to world), `sendAction(action, data)`, `isShiftDown()` (shift as the
+station's clicks see it: read it for a `Click` that does more with shift, not `Screen.hasShiftDown()`),
 `spawnParticles(style, node, count, color)`, `spawnParticles(style, at, velocity, spread, count, color)`,
 `spawnInLiquid(style, node, count, color, velocity)` (anywhere inside a tank node's liquid, wherever the node is now -
 also carried or tipped - rising to the surface: glints in a reacting brew; they dim with their depth, and a style with a `surface`
@@ -112,7 +132,8 @@ belong to this client only.
 
 ### Scene events
 
-`SceneEvent` is a sealed interface; switch over it with `instanceof` patterns:
+`SceneEvent` is a sealed interface that gains events in new versions; test it with `instanceof` patterns, or give a
+`switch` over it a `default` branch:
 
 | Event | When |
 |---|---|

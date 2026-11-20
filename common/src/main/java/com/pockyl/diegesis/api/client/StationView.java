@@ -78,6 +78,14 @@ public interface StationView {
     void sendAction(String action, CompoundTag data);
 
     /**
+     * Whether shift is held now, as the station's own clicks see it: for a {@code SceneEvent.Click} or a key that does more
+     * with shift. Read it here rather than from {@code Screen.hasShiftDown()}, which test drivers cannot press.
+     */
+    default boolean isShiftDown() {
+        return com.pockyl.diegesis.impl.client.focus.FocusScreen.shiftDown();
+    }
+
+    /**
      * Throws a burst of scene particles from a node (its origin; the station's centre for {@code null}).
      *
      * @param particle a style id ({@link DiegesisParticles} or registered)

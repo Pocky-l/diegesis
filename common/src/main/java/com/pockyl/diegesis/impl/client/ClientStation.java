@@ -112,11 +112,11 @@ public final class ClientStation implements StationView, StationContext {
         }
         this.hostState = shared != null;
         this.state = shared != null ? shared : new StationState(type.schema());
-        this.logic = type.authority() == Authority.CLIENT ? type.logic().create(this) : StationLogic.NONE;
+        this.logic = type.authority() == Authority.CLIENT
+                ? com.pockyl.diegesis.impl.Listeners.wrap(type.id(), type.logic().create(this)) : StationLogic.NONE;
         this.idleLogic = type.authority() == Authority.SERVER && type.idleLogic() ? startIdleLogic() : StationLogic.NONE;
         rebuildScene();
-        this.behavior = ClientRegistry.behavior(type.id()).map(factory -> safeCreate(factory)).orElse(new StationBehavior() {
-        });
+        this.behavior = createBehavior();
         sceneReady();
     }
 
@@ -130,6 +130,24 @@ public final class ClientStation implements StationView, StationContext {
             DiegesisMod.LOGGER.error("Idle logic of station {} at {} failed to start", type.id(), pos, e);
             return StationLogic.NONE;
         }
+    }
+
+    /** The station's own behaviour, followed by the ones other mods added ({@code DiegesisClient.addBehavior}). */
+    private StationBehavior createBehavior() {
+        StationBehavior own = ClientRegistry.behavior(type.id()).map(this::safeCreate).orElse(null);
+        java.util.List<StationBehavior.Factory> extraFactories = ClientRegistry.extraBehaviors(type.id());
+        if (extraFactories.isEmpty()) {
+            return own != null ? own : new StationBehavior() {
+            };
+        }
+        java.util.List<StationBehavior> all = new java.util.ArrayList<>();
+        if (own != null) {
+            all.add(own);
+        }
+        for (StationBehavior.Factory factory : extraFactories) {
+            all.add(safeCreate(factory));
+        }
+        return new BehaviorChain(type.id(), all.toArray(new StationBehavior[0]));
     }
 
     private StationBehavior safeCreate(StationBehavior.Factory factory) {
@@ -569,7 +587,9 @@ public final class ClientStation implements StationView, StationContext {
 
     @Override
     public void effect(Identifier effect, String node, CompoundTag data) {
-        playEffect(effect, node == null || node.isEmpty() ? null : node, data);
+        String at = node == null || node.isEmpty() ? null : node;
+        playEffect(effect, at, data);
+        com.pockyl.diegesis.impl.Listeners.effect(logic, this, effect, at, data);
     }
 
     // ---------------------------------------------------------------------------------------------------------------

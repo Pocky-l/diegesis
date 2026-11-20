@@ -7,7 +7,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
 
 import com.pockyl.diegesis.api.station.StationContext;
+import com.pockyl.diegesis.api.station.StationListener;
 import com.pockyl.diegesis.api.station.StationType;
+import com.pockyl.diegesis.impl.Listeners;
 import com.pockyl.diegesis.impl.StationRegistry;
 import com.pockyl.diegesis.impl.server.StationManager;
 
@@ -59,6 +61,21 @@ public final class Diegesis {
     /** Ends the player's work at whatever station they use. */
     public static void close(ServerPlayer player) {
         StationManager.get(player.level().getServer()).close(player, true);
+    }
+
+    /**
+     * Watches the stations of one type, yours or another mod's: hears what players do there and may refuse it, but never
+     * allow what the station's own logic refused. Call it during mod setup, the same on both sides.
+     */
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    public static void addListener(Identifier station, StationListener listener) {
+        Listeners.add(java.util.Objects.requireNonNull(station, "station"), listener);
+    }
+
+    /** Like {@link #addListener(Identifier, StationListener)}, for every station of every mod. */
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    public static void addListener(StationListener listener) {
+        Listeners.add(listener);
     }
 
     /** A station currently in use at {@code pos}. */

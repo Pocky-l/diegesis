@@ -72,7 +72,7 @@ final class ActiveStation implements StationContext {
         }
         this.hosted = hostState != null;
         this.state = hosted ? hostState : new StationState(type.schema());
-        this.logic = type.logic().create(this);
+        this.logic = com.pockyl.diegesis.impl.Listeners.wrap(type.id(), type.logic().create(this));
         if (!hosted && keepsLooseItems()) {
             DiegesisMod.LOGGER.warn("Station {} keeps items but the block entity at {} is not a StationHost and no storage is bound:"
                     + " they are lost on close", type.id(), pos);
@@ -162,6 +162,7 @@ final class ActiveStation implements StationContext {
     public void effect(Identifier effect, String node, CompoundTag data) {
         Packets.Effect packet = new Packets.Effect(pos, effect, node == null ? "" : node, data);
         forEachRecipient(player -> Platform.INSTANCE.send(player, packet));
+        com.pockyl.diegesis.impl.Listeners.effect(logic, this, effect, node == null || node.isEmpty() ? null : node, data);
     }
 
     void addUser(ServerPlayer player) {

@@ -258,6 +258,37 @@ ahead of the chunk and blinks) and turn it when the station faces another way th
 block. A player without your
 mod, or on a server without it, keeps the block's menu.
 
+## Listening to any station
+
+A mod can watch stations it did not make, or add rules to its own from another place: register a `StationListener` during
+mod setup, the same on both sides.
+
+```java
+Diegesis.addListener(new ResourceLocation("othermod", "furnace"), new StationListener() {
+    @Override
+    public boolean mayPlace(StationContext station, Player player, SlotRef slot, ItemStack stack) {
+        return !stack.is(MyTags.CURSED);   // refuse; never allows what the station refused
+    }
+
+    @Override
+    public void onPoured(StationContext station, Player player, String from, String to, TankContents poured) {
+        MyAdvancements.POURED.trigger((ServerPlayer) player, poured);
+    }
+});
+Diegesis.addListener(new StationListener() { ... });   // every station of every mod
+```
+
+A listener has the logic's hooks (`onOpen`, `onClose`, `mayPlace`, `mayTake`, `mayPour`, `onSlotChanged`, `onTaken`,
+`onPoured`, `onControlChanged`, `onButton`, `onPoseChanged`, `onCustomAction`) and `onEffect`, which hears every effect
+played at the station. It runs where the logic runs, after the logic's own hook, and never while a client only predicts an
+action.
+
+- The `may` methods only refuse: the station's logic is asked first, then the listeners in the order they were added, and the
+  first `false` ends it. A listener is not asked when the logic already refused.
+- A listener never computes outputs or ticks; those stay the station's.
+- One that throws is logged once and skipped for that call; the others still run.
+- Listeners are picked up when a station starts being used: add them during setup.
+
 ## Opening from code
 
 `Diegesis.open(serverPlayer, pos)` opens the station at `pos` from server code (for example from your block's `use`
