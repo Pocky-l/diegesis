@@ -159,6 +159,39 @@ public final class SceneInstance {
         }
 
         @Override
+        public void settled(int index, int under, float speed, float mass, boolean flat) {
+            com.pockyl.diegesis.api.state.SlotRef slot = item(index).slot();
+            com.pockyl.diegesis.api.state.SlotRef on = under >= 0 ? item(under).slot() : null;
+            com.pockyl.diegesis.api.state.ItemPose pose = item(index).pose();
+            org.joml.Vector3f point = pose == null ? null : new org.joml.Vector3f(pose.x(), pose.y(), pose.z());
+            station.onEvent(new com.pockyl.diegesis.api.event.SceneEvent.Landed(slot, on, speed, mass, flat),
+                    com.pockyl.diegesis.api.scene.fx.Reaction.On.LANDED, items.get(index).id(), slot.toString(),
+                    under >= 0 ? items.get(under).id() : null, on == null ? null : on.toString(), speed, point);
+        }
+
+        @Override
+        public void impact(int index, int other, float speed, float mass, org.joml.Vector3fc point) {
+            com.pockyl.diegesis.api.state.SlotRef slot = item(index).slot();
+            com.pockyl.diegesis.api.state.SlotRef hit = other >= 0 ? item(other).slot() : null;
+            org.joml.Vector3f at = new org.joml.Vector3f(point);
+            station.onEvent(new com.pockyl.diegesis.api.event.SceneEvent.Impact(slot, hit, speed, mass, at),
+                    com.pockyl.diegesis.api.scene.fx.Reaction.On.IMPACT, items.get(index).id(), slot.toString(),
+                    other >= 0 ? items.get(other).id() : null, hit == null ? null : hit.toString(), speed, at);
+        }
+
+        @Override
+        public float impactMinSpeed() {
+            return definition.feedback().impactMinSpeed();
+        }
+
+        @Override
+        public void fellOff(int index) {
+            com.pockyl.diegesis.api.state.SlotRef slot = item(index).slot();
+            station.onEvent(new com.pockyl.diegesis.api.event.SceneEvent.FellOff(slot), com.pockyl.diegesis.api.scene.fx.Reaction.On.FELL_OFF,
+                    items.get(index).id(), slot.toString(), null, null, 0.0F, null);
+        }
+
+        @Override
         public void landed(int index, float speed, float mass, boolean flat) {
             com.pockyl.diegesis.api.state.ItemPose pose = item(index).pose();
             if (pose != null) {

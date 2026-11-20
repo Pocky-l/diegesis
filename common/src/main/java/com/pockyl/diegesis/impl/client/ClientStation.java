@@ -916,6 +916,18 @@ public final class ClientStation implements StationView, StationContext {
         fire(() -> behavior.onEvent(this, event));
     }
 
+    /**
+     * An event the library found itself (physics, liquids, exposure): the scene's reactions to {@code on} first, then the
+     * behaviour. {@code nodeSlot} and {@code otherSlot} name placed things by their slot for the reactions' filters.
+     */
+    public void onEvent(SceneEvent event, com.pockyl.diegesis.api.scene.fx.Reaction.On on, String node, String nodeSlot, String other,
+            String otherSlot, float speed, org.joml.Vector3fc point) {
+        if (reactions.wants(on)) {
+            fire(() -> reactions.fire(this, on, node, nodeSlot, other, otherSlot, speed, point));
+        }
+        fire(() -> behavior.onEvent(this, event));
+    }
+
     /** The scene's reactions, for events found by the library itself (physics, liquids). */
     public com.pockyl.diegesis.impl.client.fx.Reactions reactions() {
         return reactions;

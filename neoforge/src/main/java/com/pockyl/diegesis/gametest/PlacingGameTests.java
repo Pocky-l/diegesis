@@ -331,6 +331,30 @@ public final class PlacingGameTests {
         scene.run(3.0F);
         check(helper, scene.sent.stream().anyMatch(action -> action instanceof StationAction.Click),
                 "past its balance point it tips over the edge and falls out: " + scene.poses.get(0));
+        check(helper, scene.told.stream().filter(line -> line.startsWith("fell")).toList().equals(List.of("fell 0")),
+                "its fall is told once: " + scene.told);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void aFallingPileKnocksAndThenRestsQuietly(GameTestHelper helper) {
+        Scene scene = tower();
+        check(helper, scene.told.stream().noneMatch(line -> line.startsWith("impact")), "a standing pile knocks nothing: " + scene.told);
+        ItemPose base = scene.poses.get(0);
+        ItemPose tipped = new ItemPose(base.x(), base.y(), base.z(), base.lift(), new Quaternionf().rotateX(0.5F), base.scale(), -1);
+        scene.physics.hold(0, true);
+        scene.poses.set(0, tipped);
+        scene.physics.steer(0, tipped);
+        scene.run(1.0F);
+        scene.physics.release(0);
+        scene.run(2.0F);
+        List<String> knocks = scene.told.stream().filter(line -> line.startsWith("impact")).toList();
+        check(helper, !knocks.isEmpty() && knocks.size() <= 40, "the falling pile knocks, a few times: " + knocks);
+        check(helper, scene.impactSpeeds.stream().allMatch(speed -> speed >= com.pockyl.diegesis.api.scene.fx.FeedbackOptions.DEFAULT_IMPACT_SPEED),
+                "only knocks over the threshold: " + scene.impactSpeeds);
+        scene.told.clear();
+        scene.run(2.0F);
+        check(helper, scene.told.isEmpty(), "at rest it knocks no more: " + scene.told);
         helper.succeed();
     }
 
@@ -522,6 +546,7 @@ public final class PlacingGameTests {
         fresh.put(1, new ItemStack(Items.STONE), CUBE, let);
         fresh.run(2.0F);
         check(helper, fresh.landings.equals(List.of(1)), "one landing sound, for the stone: " + fresh.landings);
+        check(helper, fresh.told.equals(List.of("settled 1 on 0")), "one landing told, on the planks, and no knock: " + fresh.told);
         ItemPose stone = fresh.poses.get(1);
         check(helper, Math.abs(stone.y() + stone.lift() - (1.0F + half * 3.0F)) < 0.05F && stone.on() == 0, "it came down onto the planks: " + stone);
         check(helper, fresh.physics.rides(1), "come to rest on them, it is part of their pile");
@@ -634,6 +659,9 @@ public final class PlacingGameTests {
         final List<ItemPose> poses = new ArrayList<>();
         final List<StationAction> sent = new ArrayList<>();
         final List<Integer> landings = new ArrayList<>();
+        /** What the physics told: "impact 0>1", "settled 1 on 0", "fell 0", in order, and each impact's speed. */
+        final List<String> told = new ArrayList<>();
+        final List<Float> impactSpeeds = new ArrayList<>();
         final PlacedPhysics physics;
 
         Scene(PlacingOptions options, int slots) {
@@ -718,6 +746,27 @@ public final class PlacingGameTests {
         @Override
         public void landed(int index, float speed, float mass, boolean flat) {
             landings.add(index);
+        }
+
+        @Override
+        public void settled(int index, int under, float speed, float mass, boolean flat) {
+            told.add("settled " + index + " on " + under);
+        }
+
+        @Override
+        public void impact(int index, int other, float speed, float mass, org.joml.Vector3fc point) {
+            told.add("impact " + index + ">" + other);
+            impactSpeeds.add(speed);
+        }
+
+        @Override
+        public float impactMinSpeed() {
+            return com.pockyl.diegesis.api.scene.fx.FeedbackOptions.DEFAULT_IMPACT_SPEED;
+        }
+
+        @Override
+        public void fellOff(int index) {
+            told.add("fell " + index);
         }
     }
 }

@@ -1943,6 +1943,7 @@ public final class FocusInput {
         private final Vector3f grip;
 
         NodeGrab(ClientStation station, NodeInstance node, Grabbable grabbable, double x, double y) {
+            this.exposure = new com.pockyl.diegesis.impl.client.fx.ExposureTracker(node.id());
             this.station = station;
             this.node = node;
             this.grabbable = grabbable;
@@ -2282,31 +2283,111 @@ public final class FocusInput {
         }
 
         private final java.util.Set<NodeInstance> touching = new java.util.HashSet<>();
+        private final java.util.Set<NodeInstance> submerged = new java.util.HashSet<>();
+        private final com.pockyl.diegesis.impl.client.fx.ExposureTracker exposure;
         private final Vector3f lastAt = new Vector3f(Float.NaN, 0.0F, 0.0F);
+        /** Scratch boxes and point for the scan below: it runs every frame over every node. */
+        private final float[] ownBox = new float[6];
+        private final float[] otherBox = new float[6];
+        private final Vector3f corner = new Vector3f();
 
-        /** Reports which nodes the carried one starts or stops touching (hit boxes in station space). */
+        /**
+         * Reports which nodes the carried one starts or stops touching (hit boxes in station space), which liquids it goes under,
+         * and what marked nodes expose it to.
+         */
         private void contacts() {
             Box touchingPart = grabbable.contact().orElse(node.collider());
             if (touchingPart == null) {
                 return;
             }
-            Vector3f at = new Vector3f(node.carryPosition());
+            Vector3f at = corner.set(node.carryPosition());
             float speed = Float.isNaN(lastAt.x) || frameDt <= 0.0F ? 0.0F : at.distance(lastAt) / frameDt;
             lastAt.set(at);
-            float[] own = bounds(node, touchingPart);
+            bounds(node, touchingPart.from(), touchingPart.to(), ownBox, corner);
+            float[] own = ownBox;
             for (NodeInstance other : station.scene().nodes()) {
-                if (other.collider() == null || !other.isVisible() || isPartOfHeld(other)) {
+                if (!other.isVisible() || isPartOfHeld(other)) {
                     continue;
                 }
-                float[] box = bounds(other, other.collider());
+                if (other.liquid() != null && other.definition().tank().isPresent()) {
+                    submerge(other);
+                }
+                if (other.collider() == null) {
+                    continue;
+                }
+                float[] box = bounds(other, other.collider().from(), other.collider().to(), otherBox, corner);
                 boolean overlaps = own[0] < box[3] && own[3] > box[0] && own[1] < box[4] && own[4] > box[1] && own[2] < box[5]
                         && own[5] > box[2];
                 if (overlaps && touching.add(other)) {
                     station.onEvent(new SceneEvent.Contact(node.id(), other.id(), true, speed));
+                    if (com.pockyl.diegesis.impl.client.fx.Exposure.canBeMarked(other.definition())) {
+                        exposure.touch(station, other.id());
+                    }
                 } else if (!overlaps && touching.remove(other)) {
                     station.onEvent(new SceneEvent.Contact(node.id(), other.id(), false, speed));
+                    exposure.leave(station, other.id());
                 }
             }
+        }
+
+        /** Whether the carried node's contact box is under the liquid of {@code tank}'s node now; tells when that changes. */
+        private void submerge(NodeInstance tank) {
+            Box inner = tank.definition().tank().get().inner();
+            float fraction = tank.liquid().fraction();
+            boolean under = false;
+            float depth = 0.0F;
+            if (fraction > 0.01F) {
+                float surface = inner.from().y() + (inner.to().y() - inner.from().y()) * fraction;
+                float[] liquid = bounds(tank, inner.from(), corner.set(inner.to().x(), surface, inner.to().z()), otherBox, corner);
+                float[] own = ownBox;
+                under = own[0] < liquid[3] && own[3] > liquid[0] && own[2] < liquid[5] && own[5] > liquid[2] && own[1] < liquid[4]
+                        && own[4] > liquid[1];
+                depth = liquid[4] - own[1];
+            }
+            if (under && submerged.add(tank)) {
+                station.onEvent(new SceneEvent.Submerge(node.id(), tank.id(), true, depth),
+                        com.pockyl.diegesis.api.scene.fx.Reaction.On.SUBMERGE, node.id(), null, tank.id(), null, 0.0F, null);
+            } else if (!under && submerged.remove(tank)) {
+                station.onEvent(new SceneEvent.Submerge(node.id(), tank.id(), false, 0.0F),
+                        com.pockyl.diegesis.api.scene.fx.Reaction.On.EMERGE, node.id(), null, tank.id(), null, 0.0F, null);
+            }
+        }
+
+        /** Let go of: what it was under comes out of it and what it was exposed to ends. Touches end without a word, as ever. */
+        private void endContacts() {
+            for (NodeInstance tank : submerged) {
+                station.onEvent(new SceneEvent.Submerge(node.id(), tank.id(), false, 0.0F),
+                        com.pockyl.diegesis.api.scene.fx.Reaction.On.EMERGE, node.id(), null, tank.id(), null, 0.0F, null);
+            }
+            submerged.clear();
+            exposure.clear(station);
+        }
+
+        /** A box of a node (in its pixels) as an axis-aligned box in station space, into {@code dest}: min x, y, z, max x, y, z. */
+        private static float[] bounds(NodeInstance node, Vector3fc from, Vector3fc to, float[] dest, Vector3f scratch) {
+            float x0 = from.x();
+            float y0 = from.y();
+            float z0 = from.z();
+            float x1 = to.x();
+            float y1 = to.y();
+            float z1 = to.z();
+            dest[0] = Float.MAX_VALUE;
+            dest[1] = Float.MAX_VALUE;
+            dest[2] = Float.MAX_VALUE;
+            dest[3] = -Float.MAX_VALUE;
+            dest[4] = -Float.MAX_VALUE;
+            dest[5] = -Float.MAX_VALUE;
+            for (int corner = 0; corner < 8; corner++) {
+                Vector3f point = node.matrix().transformPosition(scratch.set((corner & 1) == 0 ? x0 : x1, (corner & 2) == 0 ? y0 : y1,
+                        (corner & 4) == 0 ? z0 : z1));
+                dest[0] = Math.min(dest[0], point.x);
+                dest[1] = Math.min(dest[1], point.y);
+                dest[2] = Math.min(dest[2], point.z);
+                dest[3] = Math.max(dest[3], point.x);
+                dest[4] = Math.max(dest[4], point.y);
+                dest[5] = Math.max(dest[5], point.z);
+            }
+            return dest;
         }
 
         /** A box of a node (in its pixels) as an axis-aligned box in station space: min x, y, z, max x, y, z. */
@@ -2343,6 +2424,7 @@ public final class FocusInput {
         }
 
         private void letGo() {
+            endContacts();
             stopRunning();
             pourTarget = null;
             candidates.clear();

@@ -147,6 +147,17 @@ belong to this client only.
 | `Glance(glance, looking)` | The camera set off for a glance, or back from it. |
 | `ControlMoved(control, value)` | The local player moved a control. |
 | `ButtonPressed(control)` | The local player pressed a button. |
+| `Impact(slot, other, speed, mass, point)` | With `placing.physics`: a placed thing knocked into another (`other` its slot) or into a wall or the floor (`other` null), at least `feedback.impact_min_speed` fast. At most every 0.1 second per thing, never while things rest; a put-down landing is a `Landed` instead. |
+| `Landed(slot, on, speed, mass, flat)` | With physics: a thing put down touched what it lands on (`on` its slot, null for a surface), once, also with the landing sound off. |
+| `FellOff(slot)` | With physics: a placed thing fell off its surfaces; it goes back to the inventory next. |
+| `StreamLanded(source, target, point, color)` | A stream of liquid reached where it lands, once per stream: the player's pour (`source` the vessel) or `pourStream` (`source` null); `target` the node it fills. |
+| `Submerge(node, tank, under, depth)` | A carried node went under the liquid of `tank`'s node, or came out (also when let go). `depth` in pixels below the surface. |
+| `ItemContact(stack, other, touching, speed)` | The stack in the hand started or stopped touching a node that is a `trigger` or has marks. |
+| `Exposed(node, mark, source, exposed)` | A carried node (`node`), or the stack in the hand (`node` null), started touching a node with `mark`, or left the last one (also when let go). Marks are labels; the logic decides what they do. |
+
+The scene, physics and liquid events are seen by the local player's client only: the server has no scene and no physics,
+so it cannot check them. Show them to others with `shareEffect`, and let real changes go through `sendAction`, where the
+logic checks what it can (the item is in the player's hand, the burner is on).
 
 ```java
 @Override

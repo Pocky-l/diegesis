@@ -100,6 +100,15 @@ public final class Reactions {
      * @param point where it happened in scene pixels, or null
      */
     public void fire(ClientStation station, Reaction.On on, String node, String other, float speed, Vector3fc point) {
+        fire(station, on, node, null, other, null, speed, point);
+    }
+
+    /**
+     * As {@link #fire(ClientStation, Reaction.On, String, String, float, Vector3fc)}, where a placed thing's node also answers to
+     * its slot ({@code nodeSlot}, {@code otherSlot}: {@code "shelf[2]"}) in the {@code node} and {@code other} filters.
+     */
+    public void fire(ClientStation station, Reaction.On on, String node, String nodeSlot, String other, String otherSlot, float speed,
+            Vector3fc point) {
         Entry[] entries = byEvent.get(on);
         if (entries == null) {
             return;
@@ -108,8 +117,8 @@ public final class Reactions {
         for (Entry entry : entries) {
             Reaction reaction = entry.reaction;
             if (now < entry.readyAt || speed < reaction.minSpeed()
-                    || reaction.node().isPresent() && !reaction.node().get().equals(node)
-                    || reaction.other().isPresent() && !reaction.other().get().equals(other)
+                    || reaction.node().isPresent() && !reaction.node().get().equals(node) && !reaction.node().get().equals(nodeSlot)
+                    || reaction.other().isPresent() && !reaction.other().get().equals(other) && !reaction.other().get().equals(otherSlot)
                     || reaction.mark().isPresent() && !Exposure.marks(station, other).contains(reaction.mark().get())) {
                 continue;
             }

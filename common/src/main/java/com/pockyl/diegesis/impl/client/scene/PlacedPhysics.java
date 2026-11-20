@@ -127,6 +127,14 @@ public final class PlacedPhysics {
     private static final float PILE_TIP = 8.0F;
     /** The index the stack in the hand goes by in the pushes: it is no slot's. */
     private static final int HAND = -2;
+    /** At most this many impacts are told in one frame; a thing tells one at most every {@link #IMPACT_SECONDS}. */
+    private static final int MAX_IMPACTS = 8;
+    private static final float IMPACT_SECONDS = 0.1F;
+    private int impactsThisFrame;
+    /** Seconds the physics has run, for the impacts' pause. */
+    private float clock;
+    /** Whether a slot's thing was told to have fallen off, until the slot is empty. */
+    private final boolean[] fellTold;
 
     /** The turn the stack in the hand has this frame. */
     private final Quaternionf handTurn = new Quaternionf();
@@ -240,6 +248,29 @@ public final class PlacedPhysics {
         default void landed(int index, float speed, float mass, boolean flat) {
         }
 
+        /**
+         * The item put down or let go of has touched what it lands on ({@code under}, -1 for a surface), once per putting down,
+         * also without the landing sound.
+         */
+        default void settled(int index, int under, float speed, float mass, boolean flat) {
+        }
+
+        /**
+         * Two things knocked together ({@code other} -1: into the room's side) at {@code speed} pixels a second, at least
+         * {@link #impactMinSpeed()}; {@code point} in scene pixels.
+         */
+        default void impact(int index, int other, float speed, float mass, org.joml.Vector3fc point) {
+        }
+
+        /** How fast things must knock together for {@link #impact}; infinite: nobody wants to know. */
+        default float impactMinSpeed() {
+            return Float.POSITIVE_INFINITY;
+        }
+
+        /** An item fell off its surfaces: the server takes it next. */
+        default void fellOff(int index) {
+        }
+
         /** The time now, milliseconds: how long the server's answers are still expected. */
         default long millis() {
             return System.currentTimeMillis();
@@ -257,6 +288,7 @@ public final class PlacedPhysics {
         this.physics = physics;
         this.slots = slots;
         this.bodies = new Body[slots];
+        this.fellTold = new boolean[slots];
         this.known = new ItemPose[slots];
         this.committed = new ItemPose[slots];
         this.dirty = new boolean[slots];
@@ -631,6 +663,8 @@ public final class PlacedPhysics {
      * the state over; re-syncs those it moved.
      */
     public void update(float dt) {
+        impactsThisFrame = 0;
+        clock += dt;
         boolean local = host.focused();
         boolean changed = sync(local);
         if (!local) {
@@ -785,6 +819,7 @@ public final class PlacedPhysics {
                     bodies[i] = null;
                     changed = true;
                 }
+                fellTold[i] = false;
                 known[i] = null;
                 committed[i] = null;
                 dirty[i] = false;
@@ -902,6 +937,11 @@ public final class PlacedPhysics {
             known[index] = start;
         }
         host.hideWhileTaken(index, TAKE_MILLIS);
+        if (!fellTold[index]) {
+            // Told once: until the server takes it, it may come back where it stood and fall again.
+            fellTold[index] = true;
+            host.fellOff(index);
+        }
         host.perform(new StationAction.Click(new StationAction.Target.Station(host.slot(index)), 0, StationAction.ClickKind.SPILL));
         wakeAll();
     }
@@ -1517,8 +1557,11 @@ public final class PlacedPhysics {
             return;
         }
         body.armed = false;
-        if (physics.landingSound() && (body.fromHand || speed >= LAND_QUIET)) {
-            host.landed(index, Math.max(0.0F, speed), 1.0F / body.inverseMass, body.flat);
+        if (body.fromHand || speed >= LAND_QUIET) {
+            if (physics.landingSound()) {
+                host.landed(index, Math.max(0.0F, speed), 1.0F / body.inverseMass, body.flat);
+            }
+            host.settled(index, under != null && underIndex >= 0 ? underIndex : -1, Math.max(0.0F, speed), 1.0F / body.inverseMass, body.flat);
         }
         if (body.fromHand && physics.pileRides() && under != null && underIndex >= 0 && underIndex != held) {
             if (body.faceUp() && under.faceUp() && clearOfAllBut(body, under)) {
@@ -1530,6 +1573,29 @@ public final class PlacedPhysics {
                 body.supportSeen = false;
             }
         }
+    }
+
+    /**
+     * Tells of a knock: two things (or one and the room's side) came together fast. Not a landing, which is told as such, nor the
+     * hand's touch; once per thing in {@link #IMPACT_SECONDS}, and a few a frame at most.
+     */
+    private void knock(Contact contact, Vector3f onA, Vector3f onB) {
+        Body a = contact.a;
+        Body b = contact.b;
+        if (impactsThisFrame >= MAX_IMPACTS || contact.ai < 0 || b != null && contact.bi < 0
+                || contact.normal.y > 0.5F && a.armed || contact.normal.y < -0.5F && b != null && b.armed) {
+            return;
+        }
+        if (clock - a.lastImpact < IMPACT_SECONDS || b != null && clock - b.lastImpact < IMPACT_SECONDS) {
+            return;
+        }
+        a.lastImpact = clock;
+        if (b != null) {
+            b.lastImpact = clock;
+        }
+        impactsThisFrame++;
+        Vector3f point = new Vector3f(onA).add(onB).mul(0.5F);
+        host.impact(contact.ai, b == null ? -1 : contact.bi, -contact.normalSpeedBefore, 1.0F / a.inverseMass, point);
     }
 
     /** Whether {@code body} is inside no other body but {@code but}: only then may it stop where it is. */
@@ -1600,6 +1666,9 @@ public final class PlacedPhysics {
             if (contact.ai == HAND || contact.bi == HAND) {
                 handTouched = true;
             }
+        }
+        if (-contact.normalSpeedBefore >= host.impactMinSpeed()) {
+            knock(contact, onA, onB);
         }
         if (contact.normal.y > 0.5F) {
             landing(a, contact.ai, -contact.normalSpeedBefore, b, contact.bi);
@@ -1895,6 +1964,8 @@ public final class PlacedPhysics {
         /** Put down or let go of: it sounds when it touches what it lands on; put down from the hand, however gently. */
         boolean armed;
         boolean fromHand;
+        /** When it last told of a knock, seconds of the physics' clock. */
+        float lastImpact = -1.0F;
         private float armedFor;
         /** Pushed by the hand in this step. */
         boolean handPushed;

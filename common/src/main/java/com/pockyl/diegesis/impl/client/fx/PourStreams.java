@@ -169,6 +169,8 @@ public final class PourStreams {
         private float silence;
         private float dropClock;
         private boolean cut;
+        /** Whether its reaching where it lands was told ({@code SceneEvent.StreamLanded}). */
+        private boolean told;
         private int color;
         private LiquidLook look;
 
@@ -228,9 +230,25 @@ public final class PourStreams {
                 tail = Math.min(1.0F, tail + speed);
             }
             if (head >= 1.0F && tail < 1.0F) {
+                if (!told) {
+                    told = true;
+                    tellLanded(station);
+                }
                 land(dt, station, options);
             }
             return cut && tail >= 1.0F;
+        }
+
+        /** The stream reached where it lands: the scene's reactions and the behaviour hear it, while the local player works here. */
+        private void tellLanded(ClientStation station) {
+            if (!station.isFocused()) {
+                return;
+            }
+            String sourceId = source == null ? null : source.id();
+            String intoId = into == null ? null : into.id();
+            Vector3f point = new Vector3f(to);
+            station.onEvent(new com.pockyl.diegesis.api.event.SceneEvent.StreamLanded(sourceId, intoId, point, color),
+                    com.pockyl.diegesis.api.scene.fx.Reaction.On.STREAM_LANDED, sourceId, null, intoId, null, 0.0F, point);
         }
 
         /** The liquid's surface gives way under the stream, and it splashes a little. */
