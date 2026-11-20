@@ -41,6 +41,7 @@ import com.pockyl.diegesis.api.scene.LightDefinition;
 import com.pockyl.diegesis.api.scene.NodeDefinition;
 import com.pockyl.diegesis.api.scene.PlaceSurface;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
+import com.pockyl.diegesis.api.scene.PlacingPhysics;
 import com.pockyl.diegesis.api.scene.PourOptions;
 import com.pockyl.diegesis.api.scene.SlotBinding;
 import com.pockyl.diegesis.api.scene.TankBinding;
@@ -130,6 +131,8 @@ public final class SceneRenderer {
     private static final Identifier HIGHLIGHT_SPRITE = Identifier.fromNamespaceAndPath("diegesis", "block/white");
     /** Shadow lean per pixel of height: light from above, a little from the front left, like the GUI's light. */
     private static final float SHADOW_SHEAR_X = -0.22F;
+    /** How much of its darkness the landing mark under the stack in the hand loses at the full hover height. */
+    private static final float LANDING_FADE = 0.45F;
     private static final float SHADOW_SHEAR_Z = 0.3F;
     /** Where the scene's light comes from, for highlights on liquids: the opposite of the shadows' lean. */
     private static final Vector3fc LIGHT_DIRECTION = new Vector3f(-SHADOW_SHEAR_X, 1.0F, -SHADOW_SHEAR_Z).normalize();
@@ -229,7 +232,9 @@ public final class SceneRenderer {
         sceneSource = scene;
         for (ClientStation station : stations) {
             station.frame(dt);
-            if (!isDrawn(station, cameraPos)) {
+            // A neighbour in the camera's way at another station is left out with its block (ClearBlocks): its scene would hang
+            // in the air before the camera, where the block it stands in for is gone.
+            if (!isDrawn(station, cameraPos) || ClearBlocks.hides(station.pos())) {
                 continue;
             }
             // Each station draws on its own copy of the pose stack: a failure halfway can never leave the level's stack
@@ -488,6 +493,9 @@ public final class SceneRenderer {
                 }
                 renderSlotItem(stack, slot.display(), slot.shownItemSize(), slot.slot().index(), station.age(), poseStack, buffers, light,
                         level);
+                if (stack.isEmpty() && local && station.isInUse()) {
+                    renderGhost(node, slot, station.age(), poseStack, buffers, light, level);
+                }
                 boolean counted = slot.counts() == SlotBinding.Counts.ALWAYS || slot.counts() == SlotBinding.Counts.HOVER && local && node.isHovered();
                 if (slot.display() != SlotBinding.ItemDisplay.HIDDEN && counted) {
                     renderCount(poseStack, buffers, stack, slot.size(), slot.countFacing());
@@ -640,7 +648,21 @@ public final class SceneRenderer {
         multiply(poseStack, matrix);
         shape.draw(stack, poseStack, ghost, light, level, 0);
         poseStack.popPose();
-        if (options.shadows() && shape.castsShadow() && pose.on() < 0) {
+        ItemPose landing = carried.landing();
+        if (options.shadows() && shape.castsShadow() && landing != null) {
+            // The mark: the shape as it lands, under the grip, not under the swinging body; on the shelf or on the top of what
+            // it will stand on. Darker the nearer it is to landing.
+            float half = shape.extents(landing.rotation(), landing.scale() * options.itemSize()).y;
+            float hover = options.physics().map(PlacingPhysics::hover).orElse(0.0F);
+            float gap = Math.max(0.0F, landing.lift() - half);
+            float strength = hover <= 0.0F ? 1.0F : 1.0F - LANDING_FADE * Math.min(1.0F, gap / hover);
+            Matrix4f landed = new Matrix4f().translation(landing.x(), landing.y() + half, landing.z())
+                    .rotate(new org.joml.Quaternionf(landing.rotation())).scale(shape.modelScale(landing.scale() * options.itemSize()));
+            projectShadow(poseStack, landing.y(), 0.0F, strength, () -> {
+                multiply(poseStack, landed);
+                shape.draw(stack, poseStack, shadows, light, level, 0);
+            });
+        } else if (options.shadows() && shape.castsShadow() && pose.on() < 0) {
             projectShadow(poseStack, pose.y(), 0.0F, () -> {
                 multiply(poseStack, matrix);
                 shape.draw(stack, poseStack, shadows, light, level, 0);
@@ -655,15 +677,43 @@ public final class SceneRenderer {
      * The world block a model lit as a block stands in: the one holding the point it stands on (its anchor, a hair above), so that
      * a multiblock's scene drawn a model a block takes each its own block's light and corner shadows, and a lid set beside the
      * station the light where it stands. A model standing in the station's block, as most do, is lit by that block.
+     *
+     * <p>An anchor often lies on a side of a block: a furnace door's hinge on the furnace's front, a cupboard door's on the edge
+     * beside a wall. Rounded with the camera's position, such a point fell now in one block, now in the next, and where one was
+     * solid (no light inside) the model went black and back as the camera moved. Every block within a hair of the point is
+     * taken instead, the same way each frame: the station's own block if it holds light, else the first that does.
      */
     private static BlockPos standsIn(PoseStack poseStack, Vector3fc anchor) {
-        if (drawnCamera == null) {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (drawnCamera == null || level == null) {
             return drawnPos;
         }
         Vector3f point = new Matrix4f(TO_WORLD).mul(poseStack.last().pose())
                 .transformPosition(new Vector3f(anchor.x() / 16.0F, anchor.y() / 16.0F + 0.01F, anchor.z() / 16.0F));
-        return BlockPos.containing(drawnCamera.x + point.x, drawnCamera.y + point.y, drawnCamera.z + point.z);
+        double x = drawnCamera.x + point.x;
+        double y = drawnCamera.y + point.y;
+        double z = drawnCamera.z + point.z;
+        BlockPos chosen = null;
+        BlockPos firstSolid = null;
+        for (int bx = Mth.floor(x - ON_SIDE); bx <= Mth.floor(x + ON_SIDE); bx++) {
+            for (int by = Mth.floor(y - ON_SIDE); by <= Mth.floor(y + ON_SIDE); by++) {
+                for (int bz = Mth.floor(z - ON_SIDE); bz <= Mth.floor(z + ON_SIDE); bz++) {
+                    BlockPos pos = new BlockPos(bx, by, bz);
+                    if (level.getBlockState(pos).isSolidRender()) {
+                        if (firstSolid == null || pos.equals(drawnPos)) {
+                            firstSolid = pos;
+                        }
+                    } else if (chosen == null || pos.equals(drawnPos)) {
+                        chosen = pos;
+                    }
+                }
+            }
+        }
+        return chosen != null ? chosen : firstSolid;
     }
+
+    /** How near (blocks) a side of a block a point counts as on it, for {@link #standsIn}: far past any rounding, too little to see. */
+    private static final double ON_SIDE = 0.005;
 
     /** The see-through type a preview draws {@code type} as, on the same atlas; null for a type the preview leaves as it is. */
     private static RenderType ghostType(RenderType type) {
@@ -728,7 +778,7 @@ public final class SceneRenderer {
                 lit = new SceneLitConsumer(lit, TO_STATION, NORMAL_TO_STATION, drawnLights, drawnSurfaces);
             }
             BlockLit.draw(model, state != null ? state : level.getBlockState(drawnPos), standsIn(poseStack, anchor), poseStack,
-                    tint != Visual.WHITE ? new TintedConsumer(lit, tint) : lit, TO_WORLD);
+                    tint != Visual.WHITE ? new TintedConsumer(lit, tint) : lit, TO_WORLD, drawnCamera);
             poseStack.popPose();
             return;
         }
@@ -995,6 +1045,12 @@ public final class SceneRenderer {
     /** An item in a slot: lying, standing or floating, with a small per-slot turn so a full grid looks placed by hand. */
     private static void renderSlotItem(ItemStack stack, SlotBinding.ItemDisplay display, float size, int index, float age,
             PoseStack poseStack, SceneBuffers buffers, int light, ClientLevel level) {
+        renderSlotItem(stack, display, size, index, age, poseStack, buffers, light, level, true);
+    }
+
+    /** {@code solid}: through {@link #solidItems}, as every real item; a see-through ghost keeps the buffers it is given. */
+    private static void renderSlotItem(ItemStack stack, SlotBinding.ItemDisplay display, float size, int index, float age,
+            PoseStack poseStack, SceneBuffers buffers, int light, ClientLevel level, boolean solid) {
         if (stack.isEmpty()) {
             return;
         }
@@ -1028,8 +1084,29 @@ public final class SceneRenderer {
         }
         poseStack.scale(size, size, size);
         SceneDraw.item(stack, ItemDisplayContext.FIXED, light, OverlayTexture.NO_OVERLAY, poseStack,
-                solidItems(buffers), level, index);
+                solid ? solidItems(buffers) : buffers, level, index);
         poseStack.popPose();
+    }
+
+    /**
+     * What goes into an empty slot, see-through and still: lying (or standing) as a real item would, without a hidden slot's own
+     * look, so the player sees where each thing is put.
+     */
+    private static void renderGhost(NodeInstance node, SlotBinding slot, float age, PoseStack poseStack, SceneBuffers buffers,
+            int light, ClientLevel level) {
+        if (slot.ghostAlpha() <= 0.0F) {
+            return;
+        }
+        ItemStack ghost = SlotGhosts.shown(node, slot, age);
+        if (ghost.isEmpty()) {
+            return;
+        }
+        SlotBinding.ItemDisplay display = slot.display() == SlotBinding.ItemDisplay.UPRIGHT ? SlotBinding.ItemDisplay.UPRIGHT
+                : SlotBinding.ItemDisplay.FLAT;
+        int argb = Math.round(255.0F * slot.ghostAlpha()) << 24 | 0xFFFFFF;
+        // Faded, but with depth as a real item: in the see-through pass (no depth) a beacon's beam drawn later went over it.
+        renderSlotItem(ghost, display, slot.shownItemSize(), slot.slot().index(), age, poseStack,
+                com.pockyl.diegesis.api.client.DiegesisClient.tinted(solidItems(buffers), argb), light, level, false);
     }
 
     /** A stack on the cursor (or another player's), leaning as it moves, with its silhouette as a shadow below. */
@@ -1065,10 +1142,15 @@ public final class SceneRenderer {
      * plane lands h * shear to the side. {@code height} is how high the thing is held; the shadow fades with it.
      */
     private static void projectShadow(PoseStack poseStack, float planeY, float height, Runnable draw) {
+        projectShadow(poseStack, planeY, height, 1.0F, draw);
+    }
+
+    /** As {@link #projectShadow(PoseStack, float, float, Runnable)}, at {@code strength} (0 to 1) of the scene's opacity. */
+    private static void projectShadow(PoseStack poseStack, float planeY, float height, float strength, Runnable draw) {
         if (!ui.shadows()) {
             return;
         }
-        float alpha = Math.max(0.0F, ui.shadowOpacity() * (1.0F - Math.max(height, 0.0F) * 0.05F));
+        float alpha = Math.max(0.0F, strength * ui.shadowOpacity() * (1.0F - Math.max(height, 0.0F) * 0.05F));
         if (alpha < 0.02F) {
             return;
         }

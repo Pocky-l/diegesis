@@ -23,9 +23,18 @@ import java.util.Optional;
  *                    block's front ({@code front}), for an item standing in a wall's hollow that the camera looks at straight
  * @param idleHighlight how strongly the square shows while the cursor is elsewhere (0 to 1 of the hovered one), so the places
  *                      to put things are seen at a glance; 0, the default, shows it only under the cursor
+ * @param ghost what goes here, shown see-through in the empty slot to the player at the station, as vanilla's screens draw an
+ *              outline in an empty armour or template slot: item ids, or {@code #}tags; several take turns. Empty, the default:
+ *              nothing. A behaviour may set its own with {@code NodeView.setGhostItems}
+ * @param ghostAlpha how opaque the ghost is, 0 to 1
+ * @param ghostPeriod seconds each of several ghosts is shown before the next
  */
 public record SlotBinding(SlotRef slot, ItemDisplay display, float size, Optional<Float> itemSize, Counts counts, boolean highlight,
-        CountFacing countFacing, float idleHighlight) {
+        CountFacing countFacing, float idleHighlight, java.util.List<String> ghost, float ghostAlpha, float ghostPeriod) {
+    /** A ghost's opacity and turn by default: faint enough never to be taken for a real item; vanilla's 1.5 s a turn. */
+    public static final float DEFAULT_GHOST_ALPHA = 0.4F;
+    public static final float DEFAULT_GHOST_PERIOD = 1.5F;
+
     public static final Codec<SlotBinding> CODEC = StrictCodecs.record(instance -> instance.group(
             SlotRef.CODEC.fieldOf("slot").forGetter(SlotBinding::slot),
             StrictCodecs.optional(ItemDisplay.CODEC, "display", ItemDisplay.FLAT).forGetter(SlotBinding::display),
@@ -34,8 +43,18 @@ public record SlotBinding(SlotRef slot, ItemDisplay display, float size, Optiona
             StrictCodecs.optional(Counts.CODEC, "counts", Counts.ALWAYS).forGetter(SlotBinding::counts),
             StrictCodecs.optional(Codec.BOOL, "highlight", true).forGetter(SlotBinding::highlight),
             StrictCodecs.optional(CountFacing.CODEC, "count_facing", CountFacing.UP).forGetter(SlotBinding::countFacing),
-            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "idle_highlight", 0.0F).forGetter(SlotBinding::idleHighlight)
+            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "idle_highlight", 0.0F).forGetter(SlotBinding::idleHighlight),
+            StrictCodecs.optional(Codec.STRING.listOf(), "ghost", java.util.List.of()).forGetter(SlotBinding::ghost),
+            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "ghost_alpha", DEFAULT_GHOST_ALPHA).forGetter(SlotBinding::ghostAlpha),
+            StrictCodecs.optional(Codec.floatRange(0.1F, 60.0F), "ghost_period", DEFAULT_GHOST_PERIOD).forGetter(SlotBinding::ghostPeriod)
     ).apply(instance, SlotBinding::new));
+
+    /** A slot without a ghost. */
+    public SlotBinding(SlotRef slot, ItemDisplay display, float size, Optional<Float> itemSize, Counts counts, boolean highlight,
+            CountFacing countFacing, float idleHighlight) {
+        this(slot, display, size, itemSize, counts, highlight, countFacing, idleHighlight, java.util.List.of(), DEFAULT_GHOST_ALPHA,
+                DEFAULT_GHOST_PERIOD);
+    }
 
     /** A slot whose square shows only under the cursor. */
     public SlotBinding(SlotRef slot, ItemDisplay display, float size, Optional<Float> itemSize, Counts counts, boolean highlight,

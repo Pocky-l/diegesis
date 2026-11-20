@@ -1,10 +1,12 @@
 package com.pockyl.diegesis.neoforge;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.commands.Commands;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
@@ -18,6 +20,8 @@ import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.TriState;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.station.StationType;
@@ -63,6 +67,18 @@ public final class NeoForgeClient {
                     return 1;
                 }))));
         bus.addListener(ClientTickEvent.Post.class, event -> DiegesisClientRuntime.tick());
+        // A station opens from the last listener of the block use, so a mod that takes the click comes first.
+        bus.addListener(EventPriority.LOWEST, PlayerInteractEvent.RightClickBlock.class, event -> {
+            if (!(event.getEntity() instanceof LocalPlayer player) || !event.getLevel().isClientSide()
+                    || event.getUseBlock() == TriState.FALSE) {
+                return;
+            }
+            InteractionResult result = DiegesisClientRuntime.onUseBlock(player, event.getHand(), event.getHitVec());
+            if (result != null) {
+                event.setCancellationResult(result);
+                event.setCanceled(true);
+            }
+        });
         // While the player works at a station its interface replaces the HUD: every layer slides off to its nearest edge, then is
         // not drawn (the chat is hidden by a mixin on both loaders). Last of all listeners, so a layer another mod cancels is never
         // begun, and every begun one ends in its Post.

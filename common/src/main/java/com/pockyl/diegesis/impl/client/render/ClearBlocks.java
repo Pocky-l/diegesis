@@ -188,6 +188,19 @@ public final class ClearBlocks {
                 found.add(entry.getLongKey());
             }
         });
+        // What stands on a block left out and still crosses the view goes with it (a pot on a stove in the way): left, it would hang
+        // in the air before the camera. Up a stack, as far as it crosses the view.
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (LongIterator it = cut.keySet().iterator(); it.hasNext(); ) {
+                long packed = it.nextLong();
+                if (!found.contains(packed) && found.contains(BlockPos.offset(packed, 0, -1, 0))) {
+                    found.add(packed);
+                    grew = true;
+                }
+            }
+        }
     }
 
     /** Every block whose visual shape the line from {@code from} to {@code to} passes through. */

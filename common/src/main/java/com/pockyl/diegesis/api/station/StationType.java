@@ -278,6 +278,13 @@ public final class StationType {
         BLOCK,
         /** Towards the player who opens the station. */
         PLAYER,
+        /**
+         * Towards the player who opens the station at their own angle round the block, not only the four sides: the scene's front
+         * faces the player exactly, so the camera comes from where they stand. For a block that looks alike from every side (an
+         * enchanting table). {@link #resolve} gives the nearest side; the client's {@code StationView.turn()} says how far past
+         * it the scene is turned, so that a node standing in for the block itself can be turned back to the world's sides.
+         */
+        PLAYER_FREE,
         /** Never turned: the scene as authored, front to the north. */
         FIXED,
         /**
@@ -292,7 +299,7 @@ public final class StationType {
             return switch (this) {
                 case AUTO -> fromBlock != null ? fromBlock : towardsPlayer;
                 case BLOCK -> fromBlock != null ? fromBlock : Direction.NORTH;
-                case PLAYER -> towardsPlayer;
+                case PLAYER, PLAYER_FREE -> towardsPlayer;
                 case FIXED -> Direction.NORTH;
                 case BLOCK_OPPOSITE -> fromBlock != null ? fromBlock.getOpposite() : Direction.NORTH;
             };

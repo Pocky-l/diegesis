@@ -91,7 +91,81 @@ public final class SceneInstance {
             roots.add(instance);
             index(instance);
         }
-        options.physics().ifPresent(value -> physics = new PlacedPhysics(this, options, value, List.copyOf(placed)));
+        options.physics().ifPresent(value -> physics = new PlacedPhysics(new PhysicsHost(List.copyOf(placed)), options, value, placed.size()));
+    }
+
+    /** The scene as its physics sees it: the placed items by slot, the client's state they are shown from, the station. */
+    private final class PhysicsHost implements PlacedPhysics.Host {
+        private final List<NodeInstance> items;
+
+        PhysicsHost(List<NodeInstance> items) {
+            this.items = items;
+        }
+
+        private PlacedItem item(int index) {
+            return items.get(index).placed();
+        }
+
+        @Override
+        public net.minecraft.world.item.ItemStack stack(int index) {
+            return item(index).stack();
+        }
+
+        @Override
+        public PlacedPhysics.Solid solid(int index) {
+            PlacedItem item = item(index);
+            return item.pose() == null || item.shape() == null ? null : item.shape().solid();
+        }
+
+        @Override
+        public com.pockyl.diegesis.api.state.ItemPose pose(int index) {
+            return item(index).pose();
+        }
+
+        @Override
+        public void setPose(int index, com.pockyl.diegesis.api.state.ItemPose pose) {
+            station.state().setPose(item(index).slot(), pose);
+            item(index).sync(station.state());
+        }
+
+        @Override
+        public com.pockyl.diegesis.api.state.SlotRef slot(int index) {
+            return item(index).slot();
+        }
+
+        @Override
+        public com.pockyl.diegesis.api.scene.PlaceSurface surfaceOf(com.pockyl.diegesis.api.state.ItemPose pose) {
+            return SceneInstance.this.surfaceOf(placingOptions, pose);
+        }
+
+        @Override
+        public boolean surfaceMoved(int index) {
+            return surfaceMove(index) != null;
+        }
+
+        @Override
+        public boolean focused() {
+            return station.isFocused();
+        }
+
+        @Override
+        public void perform(com.pockyl.diegesis.impl.action.StationAction action) {
+            station.perform(action);
+        }
+
+        @Override
+        public void hideWhileTaken(int index, long millis) {
+            item(index).hideWhileTaken(millis);
+        }
+
+        @Override
+        public void landed(int index, float speed, float mass, boolean flat) {
+            com.pockyl.diegesis.api.state.ItemPose pose = item(index).pose();
+            if (pose != null) {
+                com.pockyl.diegesis.impl.client.focus.UiSounds.landed(station.toWorld(pose.x(), pose.y(), pose.z()), item(index).stack(), speed,
+                        mass, flat);
+            }
+        }
     }
 
     /**
@@ -114,8 +188,7 @@ public final class SceneInstance {
         if (open.isEmpty()) {
             open = options.surfaces();
         }
-        float least = options.physics().filter(com.pockyl.diegesis.api.scene.PlacingPhysics::uprightFlat)
-                .map(value -> value.flatDepth() * 0.5F).orElse(0.0F);
+        float least = options.physics().map(PlacedPhysics::flatHalf).orElse(0.0F);
         List<float[]> taken = new ArrayList<>();
         for (NodeInstance node : placed) {
             PlacedItem other = node.placed();
@@ -129,7 +202,25 @@ public final class SceneInstance {
         if (!Float.isNaN(station.cameraMirror())) {
             cameraX = 2.0F * station.cameraMirror() - cameraX;
         }
-        return Placing.freeSpot(options, shape, open, taken, own, cameraX);
+        List<Placing.PileTop> piles = new ArrayList<>();
+        if (except != null && shape.isFlat()) {
+            // Where flat things lie, the same thing goes on a pile of it: the top of each such pile, nothing on it yet.
+            for (NodeInstance node : placed) {
+                PlacedItem other = node.placed();
+                com.pockyl.diegesis.api.state.ItemPose pose = other.pose();
+                if (other == except || pose == null || other.shape() == null || !other.shape().isFlat()
+                        || !net.minecraft.world.item.ItemStack.isSameItemSameComponents(other.stack(), except.stack())) {
+                    continue;
+                }
+                com.pockyl.diegesis.api.scene.PlaceSurface surface = surfaceOf(options, pose);
+                int index = other.slot().index();
+                boolean covered = placed.stream().anyMatch(n -> n.placed() != except && n.placed().pose() != null && n.placed().pose().on() == index);
+                if (surface != null && surface.flatLies() && open.contains(surface) && !covered) {
+                    piles.add(new Placing.PileTop(index, pose));
+                }
+            }
+        }
+        return Placing.freeSpot(options, shape, open, taken, own, cameraX, piles);
     }
 
     /** Whether the placing has room for {@code stack} somewhere on its surfaces shown now (see {@code StationView.hasRoomFor}). */
@@ -301,7 +392,7 @@ public final class SceneInstance {
             node.setLight(there && node.placed().options().itemLight() ? node.placed().shape().light() : 0);
         }
         if (physics != null) {
-            physics.update(state, dt);
+            physics.update(dt);
         }
         for (NodeInstance root : roots) {
             root.update(dt);
@@ -319,9 +410,20 @@ public final class SceneInstance {
         Matrix4f inverse = new Matrix4f();
         Vector3f localOrigin = new Vector3f();
         Vector3f localDirection = new Vector3f();
+        List<NodeInstance> items = new ArrayList<>();
+        List<Placing.Pickable> boxes = new ArrayList<>();
         for (NodeInstance node : byId.values()) {
             Box box = node.collider();
             if (box == null || !node.isVisible() || !filter.test(node) || !placingReachable && node.placed() != null) {
+                continue;
+            }
+            if (node.placed() != null) {
+                // Placed items are found by their own hit boxes, all at once: the exact ones first, then near misses.
+                Placing.Pickable pickable = node.placed().pickable(node.placed().options().handling().pickMin());
+                if (pickable != null) {
+                    items.add(node);
+                    boxes.add(pickable);
+                }
                 continue;
             }
             node.pickMatrix().invert(inverse);
@@ -336,6 +438,11 @@ public final class SceneInstance {
                 Vector3f point = new Vector3f(direction).mul(t).add(origin);
                 best = new Hit(node, t, point);
             }
+        }
+        Placing.Picked item = boxes.isEmpty() ? null
+                : Placing.pick(boxes, origin, direction, best == null ? Float.MAX_VALUE : best.distance());
+        if (item != null) {
+            best = new Hit(items.get(item.index()), item.distance(), new Vector3f(direction).mul(item.distance()).add(origin));
         }
         return best;
     }

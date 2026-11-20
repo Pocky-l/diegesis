@@ -15,8 +15,9 @@ import java.util.Map;
  * ({@link HudOptions}). The loaders draw each part of the HUD between {@link #begin} and {@link #end}: a NeoForge layer, a part of
  * the vanilla HUD on Fabric, all that mods draw through the loader's HUD hook. While a part is drawn, what it draws through
  * {@link GuiGraphicsExtractor} is measured ({@link #include}), so each part goes to the edge of the screen nearest to it, as far as it
- * takes to be off the screen, wherever its mod put it. What covers most of the screen (a vignette, a frost border) stays where
- * it is until the HUD is hidden.
+ * takes to be off the screen, wherever its mod put it. Parts are measured while the HUD is in place too, so that what covers
+ * most of the screen (a vignette, a frost border) is known before a station opens: it stays where it is, and stays drawn once
+ * the HUD is gone while the scene keeps it ({@link HudOptions#keepVignette()}).
  */
 public final class HudSlide {
     /** Where a part goes. */
@@ -120,16 +121,18 @@ public final class HudSlide {
         if (depth++ > 0) {
             return;
         }
-        moved = moving();
-        if (!moved) {
-            return;
-        }
         current = key;
         measured = false;
         minX = Float.POSITIVE_INFINITY;
         minY = Float.POSITIVE_INFINITY;
         maxX = Float.NEGATIVE_INFINITY;
         maxY = Float.NEGATIVE_INFINITY;
+        moved = moving();
+        if (!moved) {
+            shiftX = 0.0F;
+            shiftY = 0.0F;
+            return;
+        }
         offset(key, graphics.guiWidth(), graphics.guiHeight());
         graphics.pose().pushMatrix();
         graphics.pose().translate(shiftX, shiftY);
@@ -140,14 +143,23 @@ public final class HudSlide {
         if (depth == 0 || --depth > 0) {
             return;
         }
-        if (!moved) {
-            return;
+        if (moved) {
+            graphics.pose().popMatrix();
         }
-        graphics.pose().popMatrix();
         if (measured) {
             BOXES.put(current, new float[] {minX, minY, maxX, maxY});
         }
         current = null;
+    }
+
+    /** Whether part {@code key} covered most of the screen when it was drawn last: a vignette, not a part of the HUD. */
+    public static boolean coversScreen(String key, int width, int height) {
+        float[] box = BOXES.get(key);
+        return box != null && wholeScreen(box, width, height);
+    }
+
+    private static boolean wholeScreen(float[] box, int width, int height) {
+        return box[2] - box[0] > width * WHOLE_SCREEN && box[3] - box[1] > height * WHOLE_SCREEN;
     }
 
     /** Something is drawn over {@code x0, y0} to {@code x1, y1} through {@code pose}: it belongs to the part being drawn. */
@@ -210,7 +222,7 @@ public final class HudSlide {
         if (HOTBAR.equals(key)) {
             return Edge.DOWN;
         }
-        if (box[2] - box[0] > width * WHOLE_SCREEN && box[3] - box[1] > height * WHOLE_SCREEN) {
+        if (wholeScreen(box, width, height)) {
             return Edge.NONE;
         }
         float left = box[0];

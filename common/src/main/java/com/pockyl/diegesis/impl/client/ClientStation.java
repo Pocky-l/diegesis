@@ -70,6 +70,8 @@ public final class ClientStation implements StationView, StationContext {
     private final ClientLevel level;
     private final BlockPos pos;
     private Direction facing;
+    /** Degrees past the facing the scene is turned ({@code Orientation.PLAYER_FREE}). */
+    private float turn;
     private final StationState state;
     private final org.joml.Vector3f cameraMove = new org.joml.Vector3f();
     /** The plane the camera is mirrored across ({@code mirrorCamera}), or NaN. */
@@ -194,7 +196,28 @@ public final class ClientStation implements StationView, StationContext {
     void setFacing(Direction value) {
         if (value != facing) {
             facing = value;
+            turn = 0.0F;
         }
+    }
+
+    @Override
+    public float turn() {
+        return turn;
+    }
+
+    /** Turns the scene {@code degrees} past the facing (-45 to 45). */
+    void setTurn(float degrees) {
+        turn = Math.max(-45.0F, Math.min(45.0F, degrees));
+    }
+
+    /** The turn a facing gives the scene, degrees, north to east positive. */
+    static float yaw(Direction facing) {
+        return switch (facing) {
+            case EAST -> 90.0F;
+            case SOUTH -> 180.0F;
+            case WEST -> 270.0F;
+            default -> 0.0F;
+        };
     }
 
     @Override
@@ -618,15 +641,10 @@ public final class ClientStation implements StationView, StationContext {
 
     /**
      * Station space (pixels, front to the north) to block-relative world space: turned about the block centre to the
-     * facing, like a block model rotated in a blockstate file.
+     * facing, like a block model rotated in a blockstate file, and on by the free turn.
      */
     public Matrix4f stationToWorld(Matrix4f dest) {
-        float yaw = switch (facing) {
-            case EAST -> 90.0F;
-            case SOUTH -> 180.0F;
-            case WEST -> 270.0F;
-            default -> 0.0F;
-        };
+        float yaw = yaw(facing) + turn;
         return dest.identity().translate(0.5F, 0.0F, 0.5F).rotateY((float) Math.toRadians(-yaw)).translate(-0.5F, 0.0F, -0.5F)
                 .scale(1.0F / 16.0F);
     }

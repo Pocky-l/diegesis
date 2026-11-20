@@ -163,8 +163,10 @@ public final class DiegesisClient {
     /**
      * Buffers for a {@link NodePainter} that multiply an ARGB colour into what is drawn through them; an alpha below 255 fades it. Items
      * and models cannot be tinted otherwise. Block items (a carrot, a mushroom) ask for the block sheet's solid or cutout type, which
-     * ignores alpha: through these buffers they get the see-through item type, so they fade like any other icon. Other models must
-     * be drawn with a see-through render type to fade.
+     * ignores alpha: through these buffers they get the see-through item type, so they fade like any other icon. Items drawn by
+     * their own renderer as entity models (a banner, a shield, a chest) ask for an entity type that ignores alpha too
+     * ({@code entity_solid}, {@code entity_cutout}...): they get the see-through item type of the same texture. Other models must be
+     * drawn with a see-through render type to fade.
      */
     public static com.pockyl.diegesis.api.client.SceneBuffers tinted(com.pockyl.diegesis.api.client.SceneBuffers buffers, int argb) {
         boolean fading = argb >>> 24 < 255;
@@ -198,7 +200,31 @@ public final class DiegesisClient {
         if (type == net.minecraft.client.renderer.Sheets.cutoutItemGlintSheet()) {
             return net.minecraft.client.renderer.Sheets.translucentItemGlintSheet();
         }
-        return type;
+        return OPAQUE_ENTITY.computeIfAbsent(type, DiegesisClient::seeThroughEntity);
+    }
+
+    /** Entity types that ignore alpha, by name, as a render type prints itself: "RenderType[name:RenderSetup[...]]". */
+    private static final java.util.Set<String> OPAQUE_ENTITY_NAMES = java.util.Set.of("entity_solid", "entity_solid_z_offset_forward",
+            "entity_cutout", "entity_cutout_cull", "entity_cutout_z_offset");
+    private static final java.util.regex.Pattern ENTITY_TEXTURE = java.util.regex.Pattern.compile(
+            "Sampler0=TextureBinding\[location=([a-z0-9_.-]+:[a-z0-9_/.-]+)");
+    private static final java.util.Map<net.minecraft.client.renderer.rendertype.RenderType, net.minecraft.client.renderer.rendertype.RenderType>
+            OPAQUE_ENTITY = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * The see-through twin of an opaque entity type (a banner's cloth, a shield, a chest drawn as an item): the see-through item
+     * type with the same texture; any other type stays as it is.
+     */
+    private static net.minecraft.client.renderer.rendertype.RenderType seeThroughEntity(net.minecraft.client.renderer.rendertype.RenderType type) {
+        String printed = type.toString();
+        int start = printed.indexOf('[');
+        int end = printed.indexOf(':', start + 1);
+        if (start < 0 || end < 0 || !OPAQUE_ENTITY_NAMES.contains(printed.substring(start + 1, end))) {
+            return type;
+        }
+        java.util.regex.Matcher texture = ENTITY_TEXTURE.matcher(printed);
+        return texture.find() ? net.minecraft.client.renderer.rendertype.RenderTypes.itemTranslucent(
+                net.minecraft.resources.Identifier.parse(texture.group(1))) : type;
     }
 
     /** A station shown on this client at {@code pos}. */

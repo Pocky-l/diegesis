@@ -107,6 +107,14 @@ public interface NodeView {
     default void setTooltipItem(net.minecraft.world.item.ItemStack stack) {
     }
 
+    /**
+     * What the node's slot shows see-through while it is empty, instead of the scene file's {@code ghost}: the things that go here
+     * now, worked out by the behaviour (a water bottle, the payment the block takes). Several take turns; an empty list shows
+     * nothing; {@code null} goes back to the scene file's.
+     */
+    default void setGhostItems(java.util.List<net.minecraft.world.item.ItemStack> stacks) {
+    }
+
     /** Multiplies an ARGB colour into the node's visual (alpha below 255 fades it). */
     void setTint(int argb);
 

@@ -448,6 +448,36 @@ public final class ModGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void aSqueezedThingRemembersItsSize(GameTestHelper helper) {
+        TestContext station = new TestContext(helper.getLevel());
+        Player player = helper.makeMockPlayer(GameType.CREATIVE);
+        player.getInventory().setItem(0, new ItemStack(Items.BOOK, 2));
+        check(helper, click(station, player, inv(0), 0), "take the books");
+        SlotRef first = SlotRef.of(SHELF, 0);
+        SlotRef second = SlotRef.of(SHELF, 1);
+        ItemPose low = new ItemPose(5.0F, 12.0F, 8.0F, 2.0F, new org.joml.Quaternionf(), 1.0F, -1);
+        // Given size 1.4, it stands at 1.1 on the first one to fit under the shelf above.
+        ItemPose squeezed = new ItemPose(5.0F, low.top(), 8.0F, 1.5F, new org.joml.Quaternionf(), 1.1F, 0, 1.4F);
+        check(helper, place(station, player, first, low) && place(station, player, second, squeezed), "put them down");
+        check(helper, station.state.getPose(second).wanted() == 1.4F && station.state.getPose(second).scale() == 1.1F, "it remembers its size");
+        check(helper, low.wanted() == low.scale(), "one put at its size wants that");
+        StationState loaded = new StationState(SCHEMA);
+        loaded.load(station.state.save(registries(helper)), registries(helper));
+        check(helper, loaded.getPose(second).wanted() == 1.4F, "through a save");
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
+        station.state.writeChanges(buf, true);
+        StationState mirror = new StationState(SCHEMA);
+        mirror.readChanges(buf);
+        check(helper, mirror.getPose(second).wanted() == 1.4F, "and to the clients");
+        // The one under it taken away: it comes down and still remembers.
+        check(helper, click(station, player, new Target.Station(first), 0), "take the lower one");
+        check(helper, station.state.getPose(second).wanted() == 1.4F && station.state.getPose(second).on() == -1, "come down, it remembers");
+        CompoundTag old = low.save();
+        check(helper, ItemPose.load(old).wanted() == 1.0F, "a pose saved before it knew a wanted size wants its own");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void strokesAreForNodesWithoutARole(GameTestHelper helper) {
         check(helper, NodeDefinition.builder("zone").strokes().build().strokes(), "a role-less node takes strokes");
         boolean refused = false;

@@ -28,6 +28,16 @@ public interface StationView {
     /** The direction the station's front faces for this use; the scene is turned to it. */
     Direction facing();
 
+    /**
+     * How far past {@link #facing()} the scene is turned for this use, degrees, within -45 to 45: non-zero only for
+     * {@code Orientation.PLAYER_FREE}, whose scene faces the player at their own angle. Positive turns the scene the way
+     * north turns to east. A node that stands in for the block itself is kept square to the world by
+     * {@code node.rotateTo(0, turn(), 0, 0)}.
+     */
+    default float turn() {
+        return 0.0F;
+    }
+
     /** This client's copy of the state (the server's for server stations, kept in sync; read it, do not change it). */
     StationState state();
 

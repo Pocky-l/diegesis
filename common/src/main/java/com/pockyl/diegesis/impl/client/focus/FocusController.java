@@ -326,6 +326,19 @@ public final class FocusController {
         return options().hideHud() && hud().slide();
     }
 
+    /** Whether the station's scene keeps what covers the whole screen (the vignette) while the HUD is gone. */
+    public boolean keepsVignette() {
+        return hud().keepVignette();
+    }
+
+    /**
+     * Whether the game's camera overlays (the vignette, frost, a pumpkin's view) are drawn by this mod now: the station hid the
+     * HUD, which takes them with it on this version, the scene keeps them, and the player had not hidden the HUD with F1.
+     */
+    public boolean drawsCameraOverlays() {
+        return isActive() && !savedHideGui && options().hideHud() && keepsVignette() && Minecraft.getInstance().gui.hud.isHidden();
+    }
+
     private HudOptions hud() {
         return station == null || station.scene() == null ? HudOptions.DEFAULT : station.scene().definition().hud();
     }

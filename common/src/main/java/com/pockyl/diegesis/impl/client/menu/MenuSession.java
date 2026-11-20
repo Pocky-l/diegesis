@@ -53,6 +53,11 @@ public final class MenuSession implements MenuAccess {
 
     private Expect expect;
     private final Deque<Stale> stale = new ArrayDeque<>();
+    /**
+     * The container of a stale answer left open on the server because a newer use was already on its way (-1: none): that use's
+     * menu replaces it there; if none comes, it is closed then.
+     */
+    private int staleOpen = -1;
     private PendingUse pendingUse;
     private ClientStation station;
     private MenuBinding binding;
@@ -128,7 +133,15 @@ public final class MenuSession implements MenuAccess {
         if (old != null && old.binding().accepts(type)) {
             // The answer to a use whose station is already left.
             stale.removeFirst();
+            if (expect != null) {
+                // A newer use is already on its way, and the server's close takes whatever menu is open: a close sent now
+                // would reach the server after that use and shut its menu (the player saw the station open with nothing
+                // working on the server: an enchanting table without offers). That use's menu replaces this one there.
+                staleOpen = containerId;
+                return true;
+            }
             player.connection.send(new ServerboundContainerClosePacket(containerId));
+            staleOpen = -1;
             sendPendingUse();
             return true;
         }
@@ -141,6 +154,8 @@ public final class MenuSession implements MenuAccess {
             return false;
         }
         expect = null;
+        // Whatever menu this is, it has replaced a stale one left open on the server.
+        staleOpen = -1;
         if (!wanted.binding().accepts(type)) {
             // A plugin's screen, another mod's menu: never guessed at; its own screen opens.
             refuse(wanted.station(), MenuRefusal.OTHER_MENU);
@@ -229,6 +244,14 @@ public final class MenuSession implements MenuAccess {
             Expect late = expect;
             expect = null;
             refuse(late.station(), MenuRefusal.TIMEOUT);
+        }
+        if (expect == null && staleOpen >= 0) {
+            // No newer menu came to replace a stale one left open: it is closed now, as it would have been.
+            LocalPlayer player = Minecraft.getInstance().player;
+            if (player != null && menu == null) {
+                player.connection.send(new ServerboundContainerClosePacket(staleOpen));
+            }
+            staleOpen = -1;
         }
         sendPendingUse();
         if (menu == null) {

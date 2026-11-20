@@ -62,6 +62,7 @@ public final class NodeInstance implements NodeView {
     private Visual visualOverride;
     private Component tooltipOverride;
     private net.minecraft.world.item.ItemStack tooltipItem = net.minecraft.world.item.ItemStack.EMPTY;
+    private java.util.List<net.minecraft.world.item.ItemStack> ghostItems;
     /** Degrees per second of a code spin, and the angle it reached. */
     private final Vector3f spinSpeed = new Vector3f();
     private final Vector3f spinAngle = new Vector3f();
@@ -278,6 +279,16 @@ public final class NodeInstance implements NodeView {
     @Override
     public void setTooltipItem(net.minecraft.world.item.ItemStack stack) {
         tooltipItem = stack == null ? net.minecraft.world.item.ItemStack.EMPTY : stack;
+    }
+
+    @Override
+    public void setGhostItems(java.util.List<net.minecraft.world.item.ItemStack> stacks) {
+        ghostItems = stacks == null ? null : java.util.List.copyOf(stacks);
+    }
+
+    /** The ghosts set by code, or null: the scene file's. */
+    public java.util.List<net.minecraft.world.item.ItemStack> ghostItems() {
+        return ghostItems;
     }
 
     /** The item whose tooltip shows over the node, set by code; empty: none. */
