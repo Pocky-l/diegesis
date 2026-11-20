@@ -27,8 +27,9 @@ import com.pockyl.diegesis.impl.codec.StrictCodecs;
  * @param gravity     how fast things fall, pixels per second squared
  * @param friction    0..1, how hard a thing grips what it stands on or touches, as a share of its weight: pushed less than that
  *                    it stays put, pushed harder it slides and slows down by a little less
- * @param uprightFlat flat items (an icon: bread, a carrot) keep standing as they were turned and rock back when bumped (up
- *                    to {@code rock}); false: they are thin rigid cards that fall over
+ * @param uprightFlat flat items (an icon: bread, a carrot) standing straight (within 10 degrees) keep standing and rock back
+ *                    when bumped (up to {@code rock}); at a lean or lying they are thin rigid plates; false: thin rigid cards
+ *                    that fall over also standing straight
  * @param rock        degrees a flat item rocks at most when bumped; 0 keeps it rigidly upright
  * @param flatDepth   pixels of depth a flat item collides with at least; 0: as thin as it is drawn, so it lies on what is under
  *                    it and stands against its neighbours with nothing between
@@ -52,12 +53,47 @@ import com.pockyl.diegesis.impl.codec.StrictCodecs;
  * @param maxSpeed    pixels per second a thing moves at most: a push never flings it far
  * @param bounce      0..0.5, how much of the speed a thing hits something with it bounces back with; 0: it stops dead where it
  *                    lands or hits, as kitchen things do
+ * @param flatPoses   how a flat thing (an icon) may be turned: {@code free}, to any angle, resting as it falls (standing
+ *                    straight, lying, or leaning on what is beside it); {@code two}, standing up or lying down only, a tilt
+ *                    of the wheel or a turn by hand going over to the other or settling on the nearer
+ * @param flush       pixels: put down this close to a neighbour or a wall, a thing lands touching it, with no sliver of a gap
+ *                    (never more than this along each way, never into anything); 0: where it was let go
+ * @param landingSound a thing put down sounds when it touches what it lands on, as what it is (a block of its material, a
+ *                    flat thing a light tick, a heavy thing lower); false: at the click, the same for everything
+ * @param pileRides   a pile is one thing: what stands on an item goes along with it, standing as it stood, when that item is
+ *                    dragged, turned or pushed, and falls only when it tips over or a dragged thing hits the pile itself;
+ *                    false: what stands on it holds on by friction alone
  */
 public record PlacingPhysics(float gravity, float friction, boolean uprightFlat, float rock, float flatDepth, float hover, float carryLag,
         float reach, float climb, boolean swing, float swingAngle, float swingCalm, float hopTime, float toss, boolean handPushes,
-        float handForce, float turnPower, FallOff fallOff, float maxSpeed, float bounce) {
+        float handForce, float turnPower, FallOff fallOff, float maxSpeed, float bounce, boolean pileRides, FlatPoses flatPoses,
+        float flush, boolean landingSound) {
     public static final PlacingPhysics DEFAULT = new PlacingPhysics(200.0F, 0.6F, true, 25.0F, 0.0F, 1.5F, 0.035F, 4.0F, 48.0F, true,
-            12.0F, 0.15F, 0.1F, 0.0F, false, 40000.0F, 1.5F, FallOff.ANY, 80.0F, 0.0F);
+            12.0F, 0.15F, 0.1F, 0.0F, false, 40000.0F, 1.5F, FallOff.ANY, 80.0F, 0.0F, true, FlatPoses.FREE, 0.3F, true);
+
+    /** The physics as it was before {@code pile_rides}, with piles riding. */
+    public PlacingPhysics(float gravity, float friction, boolean uprightFlat, float rock, float flatDepth, float hover, float carryLag,
+            float reach, float climb, boolean swing, float swingAngle, float swingCalm, float hopTime, float toss, boolean handPushes,
+            float handForce, float turnPower, FallOff fallOff, float maxSpeed, float bounce) {
+        this(gravity, friction, uprightFlat, rock, flatDepth, hover, carryLag, reach, climb, swing, swingAngle, swingCalm, hopTime, toss,
+                handPushes, handForce, turnPower, fallOff, maxSpeed, bounce, DEFAULT.pileRides(), DEFAULT.flatPoses(),
+                DEFAULT.flush(), DEFAULT.landingSound());
+    }
+
+    /** How a flat thing may stand. */
+    public enum FlatPoses implements StringRepresentable {
+        /** Standing up or lying down, nothing between. */
+        TWO,
+        /** At any lean it is given. */
+        FREE;
+
+        public static final Codec<FlatPoses> CODEC = StringRepresentable.fromEnum(FlatPoses::values);
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
 
     /** What may go over an open edge of a surface. */
     public enum FallOff implements StringRepresentable {
@@ -103,9 +139,14 @@ public record PlacingPhysics(float gravity, float friction, boolean uprightFlat,
             StrictCodecs.optional(Codec.floatRange(1.0F, 3.0F), "turn_power", DEFAULT.turnPower()).forGetter(PlacingPhysics::turnPower),
             StrictCodecs.optional(FallOff.CODEC, "fall_off", DEFAULT.fallOff()).forGetter(PlacingPhysics::fallOff),
             StrictCodecs.optional(Codec.floatRange(10.0F, 400.0F), "max_speed", DEFAULT.maxSpeed()).forGetter(PlacingPhysics::maxSpeed),
-            StrictCodecs.optional(Codec.floatRange(0.0F, 0.5F), "bounce", DEFAULT.bounce()).forGetter(PlacingPhysics::bounce)
-    ).apply(instance, (gravity, friction, uprightFlat, rock, flatDepth, hand, turnPower, fallOff, maxSpeed, bounce) -> new PlacingPhysics(
-            gravity, friction, uprightFlat, rock, flatDepth, hand.hover(), hand.carryLag(), hand.reach(), hand.climb(), hand.swing(),
-            hand.swingAngle(), hand.swingCalm(), hand.hopTime(), hand.toss(), hand.handPushes(), hand.handForce(), turnPower, fallOff,
-            maxSpeed, bounce)));
+            StrictCodecs.optional(Codec.floatRange(0.0F, 0.5F), "bounce", DEFAULT.bounce()).forGetter(PlacingPhysics::bounce),
+            StrictCodecs.optional(Codec.BOOL, "pile_rides", DEFAULT.pileRides()).forGetter(PlacingPhysics::pileRides),
+            StrictCodecs.optional(FlatPoses.CODEC, "flat_poses", DEFAULT.flatPoses()).forGetter(PlacingPhysics::flatPoses),
+            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "flush", DEFAULT.flush()).forGetter(PlacingPhysics::flush),
+            StrictCodecs.optional(Codec.BOOL, "landing_sound", DEFAULT.landingSound()).forGetter(PlacingPhysics::landingSound)
+    ).apply(instance, (gravity, friction, uprightFlat, rock, flatDepth, hand, turnPower, fallOff, maxSpeed, bounce, pileRides, flatPoses,
+            flush, landingSound) ->
+            new PlacingPhysics(gravity, friction, uprightFlat, rock, flatDepth, hand.hover(), hand.carryLag(), hand.reach(), hand.climb(),
+                    hand.swing(), hand.swingAngle(), hand.swingCalm(), hand.hopTime(), hand.toss(), hand.handPushes(), hand.handForce(),
+                    turnPower, fallOff, maxSpeed, bounce, pileRides, flatPoses, flush, landingSound)));
 }

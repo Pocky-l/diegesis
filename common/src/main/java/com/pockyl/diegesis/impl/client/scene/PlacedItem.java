@@ -2,6 +2,7 @@ package com.pockyl.diegesis.impl.client.scene;
 
 import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -88,6 +89,16 @@ public final class PlacedItem {
         return options;
     }
 
+    /** Seconds a refusing nod takes, and the degrees it tips. */
+    private static final float NOD_TIME = 0.15F;
+    private static final float NOD_ANGLE = 2.0F;
+    private float nodLeft;
+
+    /** A short nod: what the hand would put on it does not fit there. Seen only here; nothing moves. */
+    public void nod() {
+        nodLeft = NOD_TIME;
+    }
+
     /** Out of sight at once: it left the station (fell out) and the server is taking it into the player's inventory. */
     public void hideWhileTaken(long millis) {
         hiddenUntil = Util.getMillis() + millis;
@@ -95,6 +106,27 @@ public final class PlacedItem {
 
     Box collider() {
         return collider;
+    }
+
+    /**
+     * The item as the cursor finds it: its hit box where its pose is (never where hovering or easing draws it), with each side
+     * at least {@code least} pixels; null while it is empty or out of sight.
+     */
+    Placing.Pickable pickable(float least) {
+        ItemPose at = pose();
+        if (at == null || shape == null || hidden || Util.getMillis() < hiddenUntil) {
+            return null;
+        }
+        Vector3f half = new Vector3f(shape.hitHalf()).mul(shape.modelScale(at.scale() * options.itemSize()));
+        Vector3f padded = new Vector3f(half).max(new Vector3f(least * 0.5F));
+        Matrix4f frame = new Matrix4f().translation(at.x(), at.y() + at.lift(), at.z()).rotate(at.rotation()).rotate(shape.hitTurn());
+        Matrix4f move = moveOf(at);
+        Matrix4f toSurface = null;
+        if (move != null) {
+            new Matrix4f(move).mul(frame, frame);
+            toSurface = new Matrix4f(move).invert();
+        }
+        return new Placing.Pickable(frame.invert(), half, padded, toSurface, at.y());
     }
 
     /** Takes the slot's item and pose over; returns whether an item stands there. */
@@ -164,7 +196,10 @@ public final class PlacedItem {
         dropLeft = Math.max(0.0F, dropLeft - dt);
         float fall = dropLeft / DROP_TIME;
         float scale = shape.modelScale(size * options.itemSize());
-        matrix.translation(position.x, position.y + DROP * fall * fall + options.hoverLift() * hover, position.z).rotate(rotation).scale(scale);
+        nodLeft = Math.max(0.0F, nodLeft - dt);
+        float nod = (float) Math.toRadians(NOD_ANGLE) * Mth.sin(Mth.PI * (1.0F - nodLeft / NOD_TIME)) * (nodLeft > 0.0F ? 1.0F : 0.0F);
+        matrix.translation(position.x, position.y + DROP * fall * fall + options.hoverLift() * hover, position.z).rotateX(nod).rotate(rotation)
+                .scale(scale);
         // The hit box stays where the pose is: it never slips from under the cursor by what hovering does.
         pickMatrix.translation(pose.x(), pose.y() + pose.lift(), pose.z()).rotate(pose.rotation()).scale(shape.modelScale(pose.scale() * options.itemSize()));
         Matrix4f move = moveOf(pose);

@@ -82,6 +82,37 @@ final class Placer {
     private final Vector3f nudge = new Vector3f();
     private ItemStack putDown;
     private long putDownUntil;
+    /** The item that last nodded that the stack in the hand does not fit on it, until the hand aims elsewhere; -1 for none. */
+    private int refused = -1;
+    private boolean refusing;
+
+    /** The top of a pile the stack in the hand does not fit on nods, once for each time the hand aims at it. */
+    private void refuse(ClientStation station, int slot) {
+        if (slot >= 0 && slot != refused && slot < station.scene().placedNodes().size()) {
+            station.scene().placedNodes().get(slot).placed().nod();
+        }
+        refused = slot;
+        refusing = true;
+    }
+
+    /** The shape of the stack in the hand, as last seen over a place. */
+    private PlacedShape heldShape;
+    /** The surface the hand's turn was last fitted to: a flat thing lies or stands as each surface has it ({@code flat_rest}). */
+    private PlaceSurface restSurface;
+    /**
+     * The item just taken from where it stood: that pose and surface, where the cursor was then (GUI pixels), and how far from
+     * the cursor's aim on that surface it stood. Until the cursor has moved off, it is put back exactly there; then it glides
+     * under the cursor over {@code grip_blend}. Null once it is under the cursor.
+     */
+    private ItemPose takenFrom;
+    private PlaceSurface takenSurface;
+    private double takenX;
+    private double takenY;
+    private final Vector3f gripOffset = new Vector3f();
+    /** Nothing stood on the item just taken: its place stays free, so it can be put back exactly there. */
+    private boolean mayPutBack;
+    private double mouseX;
+    private double mouseY;
 
     /** The scene's placing, or null. */
     static PlacingOptions options(ClientStation station) {
@@ -94,6 +125,7 @@ final class Placer {
     }
 
     void reset() {
+        restSurface = null;
         turn.identity();
         scale = 1.0F;
         held = null;
@@ -103,6 +135,7 @@ final class Placer {
         gliding = false;
         putDown = null;
         hopLeft = -1.0F;
+        takenFrom = null;
     }
 
     /** While the stack in the hand hops over to another surface: where it is, in station space; null otherwise. */
@@ -110,11 +143,75 @@ final class Placer {
         return gliding && hopLeft >= 0.0F ? hopAt : null;
     }
 
-    /** The item taken from {@code pose} stays as it was turned while it is in the hand. */
-    void adopt(ItemStack stack, ItemPose pose) {
+    /**
+     * The item taken from {@code pose} stays as it was turned while it is in the hand, and it lifts where it stood: the cursor
+     * ({@code ray}, at {@code x, y} GUI pixels) took it somewhere on it, not by its middle.
+     */
+    void adopt(ClientStation station, ItemStack stack, int slot, ItemPose pose, FocusInput.StationRay ray, double x, double y) {
         turn.set(pose.rotation());
-        scale = pose.scale();
+        // Squeezed to fit on a pile, it comes back to the size it was given.
+        scale = pose.wanted();
         held = stack.getItem();
+        takenFrom = null;
+        PlacingOptions options = options(station);
+        PlaceSurface surface = options == null || station.scene() == null ? null : station.scene().surfaceOf(options, pose);
+        restSurface = surface;
+        Placing.Aim aim = surface == null ? null : Placing.aimOn(options, surface, ray.origin(), ray.direction(), station.scene());
+        if (aim != null) {
+            takenFrom = pose;
+            takenSurface = surface;
+            takenX = x;
+            takenY = y;
+            gripOffset.set(pose.x() - aim.x(), 0.0F, pose.z() - aim.z());
+            // What stood on it comes down into its place as it is taken: then it goes back on top of them instead.
+            mayPutBack = station.scene().placedNodes().stream().map(node -> node.placed().pose())
+                    .noneMatch(other -> other != null && other.on() == slot);
+        }
+    }
+
+    /** How much of the way from the cursor's aim to where the item just taken stood is still kept (see {@link #takenFrom}). */
+    private float grip(PlacingOptions options) {
+        if (takenFrom == null) {
+            return 0.0F;
+        }
+        float share = Placing.gripShare(Math.hypot(mouseX - takenX, mouseY - takenY), options.handling().gripBlend());
+        if (share <= 0.0F) {
+            takenFrom = null;
+        }
+        return share;
+    }
+
+    /** The cursor's aim on a surface, moved by what is still kept of the grip of an item just taken from there. */
+    private float[] gripped(PlacingOptions options, PlaceSurface surface, float x, float z) {
+        float share = surface == takenSurface ? grip(options) : 0.0F;
+        return new float[] {x + gripOffset.x * share, z + gripOffset.z * share};
+    }
+
+    /**
+     * The item just taken while the cursor has not moved off: where it stood, turned and sized as the hand has it now; with
+     * physics lifted by {@code hover} over that spot, and let go of exactly there.
+     */
+    private ItemPose putBack(ClientStation station, PlacingOptions options, PlacedShape shape) {
+        ItemPose at = takenFrom;
+        if (!new Quaternionf(at.rotation()).equals(turn, 1.0e-5F) || Math.abs(at.wanted() - scale) > 1.0e-5F) {
+            at = Placing.standing(options, shape, takenSurface, at.x(), at.y(), at.z(), turn, scale, at.on());
+        }
+        PlacedPhysics physics = station.scene().physics();
+        if (physics == null || options.physics().isEmpty()) {
+            return at;
+        }
+        physics.carry(ItemStack.EMPTY, null, null, null);
+        handSurface = null;
+        hopLeft = -1.0F;
+        glide.snap(new Vector3f(at.x(), 0.0F, at.z()));
+        letGo = at;
+        gliding = true;
+        return new ItemPose(at.x(), at.y(), at.z(), at.lift() + options.physics().get().hover(), at.rotation(), at.scale(), at.on(), at.wanted());
+    }
+
+    /** With physics: where the stack in the hand lands if let go of now, under the grip; null without or over no place. */
+    ItemPose landing() {
+        return gliding && preview != null ? letGo : null;
     }
 
     /** With physics the stack in the hand glides and rises by itself: it is drawn right where this pose says, not eased again. */
@@ -127,9 +224,17 @@ final class Placer {
      * @param frozen the hand is turning the stack: it stays where it was
      * @param dt     seconds since the last frame
      */
-    void update(ClientStation station, FocusInput.StationRay ray, ItemStack carried, boolean overWorld, boolean frozen, float dt) {
+    void update(ClientStation station, FocusInput.StationRay ray, double x, double y, ItemStack carried, boolean overWorld, boolean frozen,
+            float dt) {
+        mouseX = x;
+        mouseY = y;
         gliding = false;
+        refusing = false;
         preview = aim(station, ray, carried, overWorld, frozen, dt);
+        if (!refusing) {
+            // Aimed elsewhere: the pile nods again when the hand comes back to it.
+            refused = -1;
+        }
         PlacedPhysics physics = station.scene() == null ? null : station.scene().physics();
         if (!gliding) {
             handSurface = null;
@@ -154,6 +259,8 @@ final class Placer {
             turn.identity();
             scale = 1.0F;
             held = carried.getItem();
+            takenFrom = null;
+            restSurface = null;
         }
         if (freeSlot(station, options, carried) == null) {
             return null;
@@ -162,6 +269,11 @@ final class Placer {
             aimedRay = ray;
         }
         PlacedShape shape = PlacedShape.of(carried, Minecraft.getInstance().level, options.blockModels(), options.framePose());
+        heldShape = shape;
+        if (takenFrom != null && mayPutBack && Math.hypot(mouseX - takenX, mouseY - takenY) < Placing.GRIP_STILL) {
+            // Taken and not moved off yet: put again, it stands exactly where it stood.
+            return putBack(station, options, shape);
+        }
         PlacedPhysics physics = station.scene().physics();
         if (physics != null && options.physics().isPresent()) {
             return inHand(station, options, options.physics().get(), physics, shape, carried, dt);
@@ -170,7 +282,9 @@ final class Placer {
         if (pose == null) {
             Placing.Aim aim = Placing.aim(options, aimedRay.origin(), aimedRay.direction(), station.scene());
             if (aim != null) {
-                pose = Placing.standing(options, shape, aim.surface(), aim.x(), aim.surface().height(), aim.z(), turn, scale, -1);
+                rebase(aim.surface(), shape);
+                float[] at = gripped(options, aim.surface(), aim.x(), aim.z());
+                pose = Placing.standing(options, shape, aim.surface(), at[0], aim.surface().height(), at[1], turn, scale, -1);
             }
         }
         return pose;
@@ -190,16 +304,24 @@ final class Placer {
         float z = 0.0F;
         ItemPose below = null;
         int belowSlot = -1;
-        if (options.stacking()) {
-            SceneInstance.Hit hit = station.scene().pick(aimedRay.origin(), aimedRay.direction(), node -> node.placed() != null);
-            ItemPose under = hit == null ? null : hit.node().placed().pose();
-            if (under != null && Placing.isOnTop(under, hit.point().y)) {
-                surface = station.scene().surfaceOf(options, under);
-                x = under.x();
-                z = under.z();
-                if (surface != null) {
-                    below = under;
-                    belowSlot = hit.node().placed().slot().index();
+        int top = options.stacking() ? support(station, options, shape) : -1;
+        Quaternionf handTurn = null;
+        if (top >= 0) {
+            ItemPose under = station.scene().placedNodes().get(top).placed().pose();
+            surface = station.scene().surfaceOf(options, under);
+            if (surface != null) {
+                rebase(surface, shape);
+            }
+            x = stackSpot[0];
+            z = stackSpot[1];
+            if (surface != null) {
+                below = under;
+                belowSlot = top;
+                // A flat thing laid on a flat thing turned nearly as it is takes its turn: a pile of sheets lies square.
+                Quaternionf square = aligned(options, shape, station.scene().placedNodes().get(top).placed());
+                if (square != null) {
+                    handTurn = new Quaternionf(turn);
+                    turn.set(square);
                 }
             }
         }
@@ -209,15 +331,24 @@ final class Placer {
                 return null;
             }
             surface = aim.surface();
-            x = aim.x();
-            z = aim.z();
+            rebase(surface, shape);
+            // Just taken, it glides from where it stood to under the cursor as the cursor moves off.
+            float[] at = gripped(options, surface, aim.x(), aim.z());
+            x = at[0];
+            z = at[1];
         }
         // Aimed at the top of an item, it goes on it, made as small as it must be to fit there (as the preview shows); too
         // small for the scene's sizes, it stays beside the item instead.
-        ItemPose wanted = below == null ? null : Placing.standing(options, shape, surface, x, below.top(), z, turn, scale, -1);
-        if (wanted != null && wanted.scale() < options.scaleRange()[0] - 1.0e-4F) {
+        ItemPose wanted = below == null ? null : exactly(Placing.standing(options, shape, surface, x, below.top(), z, turn, scale, -1), x, z);
+        if (wanted != null && wanted.scale() < Placing.stackFloor(options, scale) - 1.0e-4F) {
+            // No room on top at a size near its own: it goes beside, and the top of the pile nods that it is full.
+            refuse(station, belowSlot);
             wanted = null;
             below = null;
+            if (handTurn != null) {
+                turn.set(handTurn);
+                handTurn = null;
+            }
         }
         boolean stacked = wanted != null;
         if (wanted == null) {
@@ -234,7 +365,7 @@ final class Placer {
                     target.z + extents.z);
             float low = under.top() + feel.hover() <= ceiling ? under.top() : surface.height();
             // A flat icon is as deep as it will be once put down, so it does not land a hair inside its neighbour.
-            float least = feel.uprightFlat() && shape.isFlat() ? feel.flatDepth() * 0.5F : 0.0F;
+            float least = Placing.leastHalf(options, shape);
             target.set(physics.clearSpot(surface, target, Math.max(extents.x, least), Math.max(extents.z, least), low,
                     low + extents.y * 2.0F));
         }
@@ -299,8 +430,12 @@ final class Placer {
             nudge.zero();
         }
         middle.add(nudge.x, 0.0F, nudge.z);
-        ItemPose pose = new ItemPose(middle.x, y, middle.z, Math.max(0.0F, middle.y - y), rotation, wanted.scale(), on);
+        ItemPose pose = new ItemPose(middle.x, y, middle.z, Math.max(0.0F, middle.y - y), rotation, wanted.scale(), on, scale);
         letGo = released(options, feel, shape, at, bottom, y, wanted.scale(), on);
+        if (handTurn != null) {
+            // The hand keeps its own turn: moved off the pile again, the thing is turned as before.
+            turn.set(handTurn);
+        }
         // Where it is drawn, in station space: the start of the next hop, and the hop's way now.
         Vector3f here = new Vector3f(middle);
         org.joml.Matrix4f move = station.scene().surfaceMove(index);
@@ -321,7 +456,7 @@ final class Placer {
         } else {
             drawn.set(here);
             // Solid only with hand_pushes; otherwise it passes things by and touches none.
-            physics.carry(pushes ? carried : ItemStack.EMPTY, shape, pose, surface);
+            physics.carry(pushes ? carried : ItemStack.EMPTY, shape.solid(), pose, surface);
         }
         gliding = true;
         return pose;
@@ -345,8 +480,8 @@ final class Placer {
             }
         }
         Quaternionf rotation = tilt.mul(turn).normalize();
-        float half = shape.extents(rotation, options.itemSize() * size).y;
-        return new ItemPose(grip.x(), y, grip.z(), Math.max(0.0F, bottom - y + half), rotation, size, on);
+        float half = Math.max(shape.extents(rotation, options.itemSize() * size).y, Placing.leastHalf(options, shape));
+        return new ItemPose(grip.x(), y, grip.z(), Math.max(0.0F, bottom - y + half), rotation, size, on, scale);
     }
 
     /**
@@ -406,21 +541,129 @@ final class Placer {
         middle.z = lowZ > highZ ? (surface.from().y() + surface.to().y()) / 2.0F : Mth.clamp(middle.z, lowZ, highZ);
     }
 
+    /**
+     * The item the stack in the hand goes on, by the cursor: the top of the pile it points at anywhere, or a single thing it points
+     * at the top of ({@code Placing.isOnTop}); -1 for the surface.
+     */
+    private int support(ClientStation station, PlacingOptions options, PlacedShape shape) {
+        SceneInstance.Hit hit = station.scene().pick(aimedRay.origin(), aimedRay.direction(), node -> node.placed() != null);
+        ItemPose pointed = hit == null ? null : hit.node().placed().pose();
+        if (pointed == null) {
+            return -1;
+        }
+        java.util.List<NodeInstance> nodes = station.scene().placedNodes();
+        int start = hit.node().placed().slot().index();
+        Vector3f extents = shape.extents(turn, options.itemSize() * scale);
+        java.util.function.IntFunction<float[]> boxes = i -> {
+            PlacedItem item = nodes.get(i).placed();
+            return item.pose() == null || item.shape() == null ? null : Placing.boxOf(options, item.shape(), item.pose(), 0.0F);
+        };
+        java.util.function.IntFunction<float[]> spot = i -> aimOnTop(station, options, nodes.get(i).placed().pose(), boxes.apply(i), extents);
+        int top = Placing.topOfPile(start, nodes.size(), i -> nodes.get(i).placed().pose(), boxes, spot, extents.x, extents.z);
+        // A pile is one thing: pointed at anywhere, the stack goes on its top.
+        boolean pile = top != start || pointed.on() >= 0;
+        if (!pile && !Placing.isOnTop(options, pointed, hit.point().y)) {
+            return -1;
+        }
+        stackSpot = spot.apply(top);
+        return top;
+    }
+
+    /** Where on the top of the support found last the stack in the hand goes (x, z, as the surface is written). */
+    private float[] stackSpot = new float[2];
+
+    /**
+     * Where the cursor puts the middle of a thing of half size {@code extents} on the top of the item standing at {@code support}
+     * (its box {@code box}): the ray cut with the level of that top, as its surface is written, kept over the top and drawn to
+     * its middle near it ({@code Placing.onTopOf}).
+     */
+    private float[] aimOnTop(ClientStation station, PlacingOptions options, ItemPose support, float[] box, Vector3f extents) {
+        Vector3f origin = new Vector3f(aimedRay.origin());
+        Vector3f direction = new Vector3f(aimedRay.direction());
+        org.joml.Matrix4f move = station.scene().surfaceMoveOf(options, support);
+        if (move != null) {
+            org.joml.Matrix4f back = new org.joml.Matrix4f(move).invert();
+            back.transformPosition(origin);
+            back.transformDirection(direction);
+        }
+        float x = support.x();
+        float z = support.z();
+        float t = Math.abs(direction.y) < 1.0e-6F ? -1.0F : (support.top() - origin.y) / direction.y;
+        if (t > 0.0F) {
+            x = origin.x + direction.x * t;
+            z = origin.z + direction.z * t;
+        }
+        PlacingOptions.Handling handling = options.handling();
+        return Placing.onTopOf(x, z, box, extents.x, extents.z, handling.stackSnap(), handling.stackEdge());
+    }
+
+    /** The pose standing exactly at {@code x, z}: on another item a thing is not moved onto the scene's snapping grid. */
+    private static ItemPose exactly(ItemPose pose, float x, float z) {
+        return new ItemPose(x, pose.y(), z, pose.lift(), pose.rotation(), pose.scale(), pose.on(), pose.wanted());
+    }
+
+    /** Degrees within which a thing counts as lying flat. */
+    private static final float LEVEL = 10.0F;
+
+    /**
+     * The hand's turn squared to the flat thing {@code below} when both lie flat and their turns about the vertical differ by
+     * less than {@code stack_align} (or that much from a quarter turn); null otherwise.
+     */
+    private Quaternionf aligned(PlacingOptions options, PlacedShape shape, PlacedItem below) {
+        float most = options.handling().stackAlign();
+        ItemPose under = below.pose();
+        if (most <= 0.0F || under == null || below.shape() == null || !shape.isFlat() || !below.shape().isFlat()
+                || !lying(shape, turn, LEVEL) || !lying(below.shape(), under.rotation(), LEVEL)) {
+            return null;
+        }
+        float difference = yaw(below.shape(), under.rotation()) - yaw(shape, turn);
+        float quarter = Mth.HALF_PI;
+        float off = difference - quarter * Math.round(difference / quarter);
+        if (Math.abs(off) > Math.toRadians(most)) {
+            return null;
+        }
+        return new Quaternionf().rotateY(-off).mul(turn).normalize();
+    }
+
+    /** Whether a flat shape turned {@code rotation} lies with its thin side up, within {@code degrees}. */
+    private static boolean lying(PlacedShape shape, Quaternionfc rotation, float degrees) {
+        Vector3f thin = new Quaternionf(rotation).transform(axis(shape, true));
+        return Math.abs(thin.y) >= Math.cos(Math.toRadians(degrees));
+    }
+
+    /** Radians about the vertical of a lying flat shape's broad side. */
+    private static float yaw(PlacedShape shape, Quaternionfc rotation) {
+        Vector3f broad = new Quaternionf(rotation).transform(axis(shape, false));
+        return (float) Math.atan2(broad.z, broad.x);
+    }
+
+    /** A side of a flat shape in the model: the thin one, or the first of the two broad ones. */
+    private static Vector3f axis(PlacedShape shape, boolean thin) {
+        Vector3fc half = shape.half();
+        int thinnest = half.x() <= half.y() && half.x() <= half.z() ? 0 : half.y() <= half.z() ? 1 : 2;
+        int side = thin ? thinnest : thinnest == 0 ? 1 : 0;
+        return new Vector3f(side == 0 ? 1.0F : 0.0F, side == 1 ? 1.0F : 0.0F, side == 2 ? 1.0F : 0.0F);
+    }
+
     private ItemPose onAnItem(ClientStation station, PlacingOptions options, PlacedShape shape, FocusInput.StationRay ray) {
-        SceneInstance.Hit hit = station.scene().pick(ray.origin(), ray.direction(), node -> node.placed() != null);
-        ItemPose below = hit == null ? null : hit.node().placed().pose();
-        if (below == null || !Placing.isOnTop(below, hit.point().y)) {
+        int top = support(station, options, shape);
+        ItemPose below = top < 0 ? null : station.scene().placedNodes().get(top).placed().pose();
+        if (below == null) {
             return null;
         }
         PlaceSurface surface = station.scene().surfaceOf(options, below);
         if (surface == null) {
             return null;
         }
+        rebase(surface, shape);
         float room = surface.height() + surface.clearance() - below.top();
-        if (Placing.fittingScale(options, shape, turn, scale, room) < options.scaleRange()[0]) {
+        if (Placing.fittingScale(options, shape, turn, scale, room) < Placing.stackFloor(options, scale) - 1.0e-4F) {
+            refuse(station, top);
             return null;
         }
-        return Placing.standing(options, shape, surface, below.x(), below.top(), below.z(), turn, scale, hit.node().placed().slot().index());
+        Quaternionf square = aligned(options, shape, station.scene().placedNodes().get(top).placed());
+        return exactly(Placing.standing(options, shape, surface, stackSpot[0], below.top(), stackSpot[1], square != null ? square : turn, scale,
+                top), stackSpot[0], stackSpot[1]);
     }
 
     /** The first slot of the group that is free and takes {@code stack}, or null. */
@@ -439,6 +682,11 @@ final class Placer {
 
     /** Puts the stack down where the preview shows it; false when there is no place. */
     boolean place(ClientStation station, ItemStack carried) {
+        return place(station, carried, 0);
+    }
+
+    /** Puts at most {@code count} of the stack in the hand down where the preview stands (0: as much as a slot takes). */
+    boolean place(ClientStation station, ItemStack carried, int count) {
         SlotRef slot = preview == null ? null : freeSlot(station, options(station), carried);
         ItemPose pose = gliding && letGo != null ? letGo : preview;
         PlacedPhysics physics = station.scene().physics();
@@ -447,7 +695,7 @@ final class Placer {
             Vector3fc speed = glide.velocity();
             physics.toss(slot.index(), speed.x(), speed.z());
         }
-        if (slot == null || !station.perform(new StationAction.Place(slot, pose))) {
+        if (slot == null || !station.perform(new StationAction.Place(slot, pose, count))) {
             return false;
         }
         // Let go of: from here it falls by itself, and the hand is out of its way.
@@ -462,8 +710,14 @@ final class Placer {
         return true;
     }
 
-    /** One notch of the wheel: turns about the vertical, with {@code tilt} about the view's sideways axis; with {@code size}, grows. */
-    private Quaternionf notched(PlacingOptions options, Quaternionfc rotation, double amount, boolean tilt, Vector3fc right) {
+    /**
+     * One notch of the wheel: turns about the vertical, with {@code tilt} about the view's sideways axis; with {@code size}, grows.
+     * A flat thing with {@code flat_poses: two} tilts from standing straight to lying and back.
+     */
+    private Quaternionf notched(PlacingOptions options, PlacedShape shape, Quaternionfc rotation, double amount, boolean tilt, Vector3fc right) {
+        if (tilt && twoPoses(options, shape)) {
+            return flipped(shape, rotation);
+        }
         float angle = (float) Math.toRadians(options.turnStep()) * (float) Math.signum(amount);
         Quaternionf step = tilt ? new Quaternionf().rotateAxis(angle, right.x(), right.y(), right.z()) : new Quaternionf().rotateY(angle);
         return step.mul(rotation).normalize();
@@ -479,8 +733,73 @@ final class Placer {
         if (size) {
             scale = grown(options, scale, amount);
         } else {
-            turn.set(notched(options, turn, amount, tilt, right));
+            turn.set(notched(options, heldShape, turn, amount, tilt, right));
         }
+    }
+
+    /**
+     * A turn by hand of the stack in the hand ended: a flat thing settles standing or lying, whichever is nearer, and a turn about
+     * the vertical near a detent settles onto it.
+     */
+    void settleCarried(PlacingOptions options) {
+        if (twoPoses(options, heldShape)) {
+            turn.set(settled(heldShape, turn));
+        }
+        turn.set(detented(options, turn));
+    }
+
+    /** The turn about the vertical settled on the nearest detent when near one ({@code turn_detents}, {@code turn_detent}). */
+    private static Quaternionf detented(PlacingOptions options, Quaternionfc rotation) {
+        return Placing.detent(rotation, options.handling().turnDetents(), options.handling().turnDetent());
+    }
+
+    /**
+     * Fits the hand's turn to the surface it is over: a flat thing in the pose its last surface gave it (lying where flat things
+     * lie, standing elsewhere) takes the pose of this one, turned about the vertical as it was. One the player stood up or laid
+     * down against its surface's way keeps that.
+     */
+    private void rebase(PlaceSurface surface, PlacedShape shape) {
+        if (surface == restSurface || shape == null || !shape.isFlat()) {
+            restSurface = surface;
+            return;
+        }
+        boolean lay = surface.flatLies();
+        boolean laid = restSurface != null && restSurface.flatLies();
+        if (lay != laid && lying(shape, turn, 45.0F) == laid) {
+            turn.set(flatPose(yawOf(turn), lay));
+        }
+        restSurface = surface;
+    }
+
+    /** Whether a flat shape stands or lies, nothing between ({@code flat_poses: two}). */
+    private static boolean twoPoses(PlacingOptions options, PlacedShape shape) {
+        return shape != null && shape.isFlat()
+                && options.physics().map(physics -> physics.flatPoses() == PlacingPhysics.FlatPoses.TWO).orElse(false);
+    }
+
+    /** Its turn about the vertical: where its first side points, seen from above. */
+    private static float yawOf(Quaternionfc rotation) {
+        Vector3f side = new Quaternionf(rotation).transform(new Vector3f(1.0F, 0.0F, 0.0F));
+        return (float) Math.atan2(-side.z, side.x);
+    }
+
+    /**
+     * A flat thing standing straight turned {@code yaw}, or lying on its back with its top towards the far side: read from the
+     * front as it stands, from above as it lies.
+     */
+    private static Quaternionf flatPose(float yaw, boolean lying) {
+        Quaternionf pose = new Quaternionf().rotateY(yaw);
+        return lying ? pose.rotateX(Mth.HALF_PI) : pose;
+    }
+
+    /** The other of a flat thing's two poses, keeping its turn about the vertical. */
+    private static Quaternionf flipped(PlacedShape shape, Quaternionfc rotation) {
+        return flatPose(yawOf(rotation), !lying(shape, rotation, 45.0F));
+    }
+
+    /** The nearer of a flat thing's two poses. */
+    private static Quaternionf settled(PlacedShape shape, Quaternionfc rotation) {
+        return flatPose(yawOf(rotation), lying(shape, rotation, 45.0F));
     }
 
     /** The wheel on an item that stands. */
@@ -490,7 +809,7 @@ final class Placer {
         if (pose == null) {
             return;
         }
-        Quaternionfc rotation = size ? pose.rotation() : notched(options, pose.rotation(), amount, tilt, right);
+        Quaternionfc rotation = size ? pose.rotation() : notched(options, node.placed().shape(), pose.rotation(), amount, tilt, right);
         apply(station, node.placed(), rotation, size ? grown(options, pose.scale(), amount) : pose.scale(), true);
     }
 
@@ -507,11 +826,13 @@ final class Placer {
         }
     }
 
-    /** Sends where the item ended up. */
+    /** Sends where the item ended up: a flat thing standing or lying, whichever is nearer ({@code flat_poses: two}). */
     void commit(ClientStation station, NodeInstance node) {
         ItemPose pose = node.placed().pose();
         if (pose != null) {
-            apply(station, node.placed(), pose.rotation(), pose.scale(), true);
+            Quaternionfc rotation = twoPoses(options(station), node.placed().shape()) ? settled(node.placed().shape(), pose.rotation())
+                    : pose.rotation();
+            apply(station, node.placed(), detented(options(station), rotation), pose.scale(), true);
         }
     }
 
@@ -529,20 +850,47 @@ final class Placer {
         ItemPose after = surface != null
                 ? Placing.standing(options, item.shape(), surface, before.x(), before.y(), before.z(), rotation, scale, before.on())
                 : new ItemPose(before.x(), before.y(), before.z(), item.shape().extents(rotation, options.itemSize() * scale).y, rotation, scale, before.on());
+        if (Math.abs(scale - before.scale()) < 1.0e-5F) {
+            // Only turned: a thing squeezed to fit keeps the size it was given for when it is taken again.
+            after = after.wanting(before.wanted());
+        }
         set(station, item.slot(), after, send);
-        carryAbove(station, options, item.slot(), after.top() - before.top(), send);
+        PlacedPhysics physics = station.scene() == null ? null : station.scene().physics();
+        if (physics != null && physics.pileRides() && physics.holds(item.slot().index())) {
+            // Held by the hand, it carries its pile itself.
+            return;
+        }
+        // With a pile riding, what stands on it turns with it about its middle; else it only goes up or down with its top.
+        Quaternionf twist = new Quaternionf();
+        if (physics != null && physics.pileRides()) {
+            Quaternionf change = new Quaternionf(after.rotation()).mul(new Quaternionf(before.rotation()).conjugate());
+            twist.set(0.0F, change.y(), 0.0F, change.w());
+            if (twist.lengthSquared() < 1.0e-8F) {
+                twist.identity();
+            }
+            twist.normalize();
+        }
+        carryAbove(station, options, item.slot(), after.top() - before.top(), before.x(), before.z(), twist, send);
     }
 
-    private static void carryAbove(ClientStation station, PlacingOptions options, SlotRef below, float pixels, boolean send) {
-        if (Math.abs(pixels) < 1.0e-4F) {
+    private static void carryAbove(ClientStation station, PlacingOptions options, SlotRef below, float pixels, float pivotX, float pivotZ,
+            Quaternionfc twist, boolean send) {
+        boolean turns = Math.abs(twist.y()) > 1.0e-6F;
+        if (Math.abs(pixels) < 1.0e-4F && !turns) {
             return;
         }
         SlotGroup group = station.type().schema().slotGroups().get(below.group());
         for (int i = 0; i < group.size(); i++) {
             ItemPose pose = station.state().getPose(group.ref(i));
             if (pose != null && pose.on() == below.index() && !station.state().getItem(group.ref(i)).isEmpty()) {
-                set(station, group.ref(i), pose.raised(pixels), send);
-                carryAbove(station, options, group.ref(i), pixels, send);
+                ItemPose moved = pose.raised(pixels);
+                if (turns) {
+                    Vector3f offset = new Quaternionf(twist).transform(new Vector3f(pose.x() - pivotX, 0.0F, pose.z() - pivotZ));
+                    moved = new ItemPose(pivotX + offset.x, moved.y(), pivotZ + offset.z, moved.lift(),
+                            new Quaternionf(twist).mul(pose.rotation()).normalize(), moved.scale(), moved.on(), moved.wanted());
+                }
+                set(station, group.ref(i), moved, send);
+                carryAbove(station, options, group.ref(i), pixels, pivotX, pivotZ, twist, send);
             }
         }
     }

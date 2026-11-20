@@ -39,10 +39,63 @@ import java.util.Optional;
  *                     modelled, upright, where a frame would lay it on its back to face out of the wall; flat icons stand as in a
  *                     frame either way
  * @param hoverLift    pixels an item rises while the cursor is on it; 0 (default) keeps it still, the outline alone says so
+ * @param handling     how the hand stacks, turns and picks items (its fields are written at the top level of {@code "placing"})
  */
 public record PlacingOptions(String group, List<PlaceSurface> surfaces, float itemSize, float turnStep, float[] scaleRange, float scaleStep,
         float turnSpeed, boolean stacking, boolean blockModels, boolean itemLight, float lightRadius, int lightColor, boolean shadows,
-        float snap, int previewColor, SlotBinding.Counts counts, Optional<PlacingPhysics> physics, boolean framePose, float hoverLift) {
+        float snap, int previewColor, SlotBinding.Counts counts, Optional<PlacingPhysics> physics, boolean framePose, float hoverLift,
+        Handling handling) {
+    /**
+     * How the hand stacks, turns and picks items. Written at the top level of {@code "placing"}.
+     *
+     * @param stackLow  an item lower than this share of {@code item_size} is all top: pointed at anywhere, the stack in the hand
+     *                  goes on it (a book lying down)
+     * @param stackFrom of a taller item, the share of its height from its foot up from which pointing at it means on top of it;
+     *                  lower, the stack in the hand goes in front of it
+     * @param pickMin   pixels each side of an item's hit box measures at least for the cursor: a lying sheet seen edge-on or the
+     *                  tip of a slanted icon is still hit, though only where the cursor is on no item exactly; 0: exact boxes
+     * @param gripBlend GUI pixels of the cursor's travel over which an item just taken goes from where the hand took it to
+     *                  under the cursor: taken and put again without moving, it stands exactly where it stood, and the drag of
+     *                  a placed item keeps the point grabbed under the cursor; 0: it jumps under the cursor at once
+     * @param stackSnap  put on a wider thing, the stack in the hand goes where the cursor points on its top; within this share
+     *                   of that thing's half size from its middle (each way) it goes to the exact middle, so same things pile
+     *                   up neatly. 1: always the middle
+     * @param stackEdge  how far in from the edge of what it goes on the middle of the stack in the hand stays, as a share of its
+     *                   own half size: 0 lets its middle reach the edge (no further), 0.5 keeps half of it over the top
+     * @param stackAlign degrees: a flat thing laid on a flat thing turned within this much of it (or of a quarter turn from it)
+     *                   takes its turn, so a pile of sheets lies square; 0: never
+     * @param turnDetents degrees between the turns about the vertical a turn by hand settles on (45: square and diagonal)
+     * @param turnDetent  degrees: a turn by hand let go of within this much of one of those settles onto it; anywhere else it
+     *                    stays as it is. 0: never
+     * @param stackShrink of the size the player gave it, how small a thing put on another is made at most to fit under what is
+     *                    over it (never below {@code scale_range}); where it does not fit at that, it goes beside. Taken again
+     *                    later, it has its own size back. 1: never smaller
+     */
+    public record Handling(float stackLow, float stackFrom, float pickMin, float gripBlend, float stackSnap, float stackEdge,
+            float stackAlign, float turnDetents, float turnDetent, float stackShrink, boolean rightPutsOne) {
+        public static final Handling DEFAULT = new Handling(0.45F, 0.5F, 0.75F, 12.0F, 0.3F, 0.0F, 12.0F, 90.0F, 3.0F, 0.75F, true);
+
+        /** The handling before {@link #rightPutsOne} existed, with it on. */
+        public Handling(float stackLow, float stackFrom, float pickMin, float gripBlend, float stackSnap, float stackEdge, float stackAlign,
+                float turnDetents, float turnDetent, float stackShrink) {
+            this(stackLow, stackFrom, pickMin, gripBlend, stackSnap, stackEdge, stackAlign, turnDetents, turnDetent, stackShrink, true);
+        }
+
+        static final MapCodec<Handling> MAP_CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+                StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "stack_low", DEFAULT.stackLow()).forGetter(Handling::stackLow),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "stack_from", DEFAULT.stackFrom()).forGetter(Handling::stackFrom),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 2.0F), "pick_min", DEFAULT.pickMin()).forGetter(Handling::pickMin),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 64.0F), "grip_blend", DEFAULT.gripBlend()).forGetter(Handling::gripBlend),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "stack_snap", DEFAULT.stackSnap()).forGetter(Handling::stackSnap),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 0.5F), "stack_edge", DEFAULT.stackEdge()).forGetter(Handling::stackEdge),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 45.0F), "stack_align", DEFAULT.stackAlign()).forGetter(Handling::stackAlign),
+                StrictCodecs.optional(Codec.floatRange(1.0F, 180.0F), "turn_detents", DEFAULT.turnDetents()).forGetter(Handling::turnDetents),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 20.0F), "turn_detent", DEFAULT.turnDetent()).forGetter(Handling::turnDetent),
+                StrictCodecs.optional(Codec.floatRange(0.25F, 1.0F), "stack_shrink", DEFAULT.stackShrink()).forGetter(Handling::stackShrink),
+                StrictCodecs.optional(Codec.BOOL, "right_puts_one", DEFAULT.rightPutsOne()).forGetter(Handling::rightPutsOne)
+        ).apply(instance, Handling::new));
+    }
+
     /** The light of the items, read as one part: a record codec takes at most 16 fields. */
     private record Light(boolean itemLight, float lightRadius, int lightColor) {
         static final MapCodec<Light> MAP_CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
@@ -76,11 +129,12 @@ public record PlacingOptions(String group, List<PlaceSurface> surfaces, float it
             StrictCodecs.optional(Codec.floatRange(0.0F, 16.0F), "snap", 0.25F).forGetter(PlacingOptions::snap),
             StrictCodecs.optional(SlotBinding.Counts.CODEC, "counts", SlotBinding.Counts.NEVER).forGetter(PlacingOptions::counts),
             StrictCodecs.optional(PlacingPhysics.CODEC, "physics").forGetter(PlacingOptions::physics),
-            StrictCodecs.optional(Codec.BOOL, "frame_pose", false).forGetter(PlacingOptions::framePose)
+            StrictCodecs.optional(Codec.BOOL, "frame_pose", false).forGetter(PlacingOptions::framePose),
+            Handling.MAP_CODEC.forGetter(PlacingOptions::handling)
     ).apply(instance, (group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed, stacking, blockModels, light, look, snap,
-            counts, physics, framePose) -> new PlacingOptions(group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed,
+            counts, physics, framePose, handling) -> new PlacingOptions(group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed,
             stacking, blockModels, light.itemLight(), light.lightRadius(), light.lightColor(), look.shadows(), snap, look.previewColor(), counts,
-            physics, framePose, look.hoverLift())))
+            physics, framePose, look.hoverLift(), handling)))
             .comapFlatMap(PlacingOptions::validate, placing -> placing);
 
     public PlacingOptions {
@@ -92,7 +146,15 @@ public record PlacingOptions(String group, List<PlaceSurface> surfaces, float it
             float turnSpeed, boolean stacking, boolean blockModels, boolean itemLight, float lightRadius, int lightColor, boolean shadows,
             float snap, int previewColor, SlotBinding.Counts counts) {
         this(group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed, stacking, blockModels, itemLight, lightRadius, lightColor,
-                shadows, snap, previewColor, counts, Optional.empty(), false, 0.0F);
+                shadows, snap, previewColor, counts, Optional.empty(), false, 0.0F, Handling.DEFAULT);
+    }
+
+    /** The options with the hand's handling as it is by default, as before {@code handling} existed. */
+    public PlacingOptions(String group, List<PlaceSurface> surfaces, float itemSize, float turnStep, float[] scaleRange, float scaleStep,
+            float turnSpeed, boolean stacking, boolean blockModels, boolean itemLight, float lightRadius, int lightColor, boolean shadows,
+            float snap, int previewColor, SlotBinding.Counts counts, Optional<PlacingPhysics> physics, boolean framePose, float hoverLift) {
+        this(group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed, stacking, blockModels, itemLight, lightRadius, lightColor,
+                shadows, snap, previewColor, counts, physics, framePose, hoverLift, Handling.DEFAULT);
     }
 
     private static DataResult<PlacingOptions> validate(PlacingOptions placing) {
@@ -131,6 +193,7 @@ public record PlacingOptions(String group, List<PlaceSurface> surfaces, float it
         private PlacingPhysics physics;
         private boolean framePose;
         private float hoverLift;
+        private Handling handling = Handling.DEFAULT;
 
         private Builder(String group) {
             this.group = group;
@@ -235,9 +298,16 @@ public record PlacingOptions(String group, List<PlaceSurface> surfaces, float it
             return this;
         }
 
+        /** How the hand stacks, turns and picks items. */
+        public Builder handling(Handling value) {
+            handling = value;
+            return this;
+        }
+
         public PlacingOptions build() {
             PlacingOptions placing = new PlacingOptions(group, surfaces, itemSize, turnStep, scaleRange, scaleStep, turnSpeed, stacking,
-                    blockModels, itemLight, lightRadius, lightColor, shadows, snap, previewColor, counts, Optional.ofNullable(physics), framePose, hoverLift);
+                    blockModels, itemLight, lightRadius, lightColor, shadows, snap, previewColor, counts, Optional.ofNullable(physics), framePose,
+                    hoverLift, handling);
             return validate(placing).getOrThrow();
         }
     }

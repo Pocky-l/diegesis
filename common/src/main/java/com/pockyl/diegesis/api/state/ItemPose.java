@@ -16,8 +16,10 @@ import org.joml.Quaternionfc;
  * @param rotation how it is turned
  * @param scale    its size, as a factor of the scene's {@code item_size}
  * @param on       the index (in the same slot group) of the item it stands on, or -1: when that one is taken away, it comes down
+ * @param wanted   the size the player gave it, when it stands smaller to fit under what is over it ({@code scale} otherwise):
+ *                 taken again, it has that size back
  */
-public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotation, float scale, int on) {
+public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotation, float scale, int on, float wanted) {
     /** Nothing is placed farther from the block than this, in pixels; a modified client's numbers end here. */
     private static final float MAX_DISTANCE = 256.0F;
     private static final float MIN_SCALE = 0.05F;
@@ -25,16 +27,29 @@ public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotat
 
     public ItemPose {
         rotation = new Quaternionf(rotation);
+        if (!(wanted > 0.0F)) {
+            wanted = scale;
+        }
+    }
+
+    /** A pose at the size the player gave it. */
+    public ItemPose(float x, float y, float z, float lift, Quaternionfc rotation, float scale, int on) {
+        this(x, y, z, lift, rotation, scale, on, scale);
     }
 
     /** The same pose, moved up or down by {@code pixels}. */
     public ItemPose raised(float pixels) {
-        return new ItemPose(x, y + pixels, z, lift, rotation, scale, on);
+        return new ItemPose(x, y + pixels, z, lift, rotation, scale, on, wanted);
     }
 
     /** The same pose, standing on the item {@code index} (or on the surface, -1). */
     public ItemPose standingOn(int index) {
-        return new ItemPose(x, y, z, lift, rotation, scale, index);
+        return new ItemPose(x, y, z, lift, rotation, scale, index, wanted);
+    }
+
+    /** The same pose, remembering {@code size} as the size the player gave it. */
+    public ItemPose wanting(float size) {
+        return new ItemPose(x, y, z, lift, rotation, scale, on, size);
     }
 
     /** The height of the item's top, for what stands on it. */
@@ -51,7 +66,7 @@ public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotat
         }
         return new ItemPose(Mth.clamp(x, -MAX_DISTANCE, MAX_DISTANCE), Mth.clamp(y, -MAX_DISTANCE, MAX_DISTANCE),
                 Mth.clamp(z, -MAX_DISTANCE, MAX_DISTANCE), Mth.clamp(lift, 0.0F, MAX_DISTANCE), turn.normalize(),
-                Mth.clamp(scale, MIN_SCALE, MAX_SCALE), on);
+                Mth.clamp(scale, MIN_SCALE, MAX_SCALE), on, Float.isFinite(wanted) ? Mth.clamp(wanted, MIN_SCALE, MAX_SCALE) : scale);
     }
 
     public CompoundTag save() {
@@ -66,6 +81,9 @@ public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotat
         tag.putFloat("qw", rotation.w());
         tag.putFloat("scale", scale);
         tag.putInt("on", on);
+        if (wanted != scale) {
+            tag.putFloat("wanted", wanted);
+        }
         return tag;
     }
 
@@ -73,7 +91,7 @@ public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotat
     public static ItemPose load(CompoundTag tag) {
         return new ItemPose(tag.getFloatOr("x", 0), tag.getFloatOr("y", 0), tag.getFloatOr("z", 0), tag.getFloatOr("lift", 0),
                 new Quaternionf(tag.getFloatOr("qx", 0), tag.getFloatOr("qy", 0), tag.getFloatOr("qz", 0), tag.getFloatOr("qw", 0)), tag.getFloatOr("scale", 0),
-                tag.getIntOr("on", 0)).sanitized();
+                tag.getIntOr("on", 0), tag.getFloatOr("wanted", 0.0F)).sanitized();
     }
 
     public void write(FriendlyByteBuf buf) {
@@ -87,6 +105,7 @@ public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotat
         buf.writeFloat(rotation.w());
         buf.writeFloat(scale);
         buf.writeVarInt(on + 1);
+        buf.writeFloat(wanted);
     }
 
     public static ItemPose read(FriendlyByteBuf buf) {
@@ -95,6 +114,8 @@ public record ItemPose(float x, float y, float z, float lift, Quaternionfc rotat
         float z = buf.readFloat();
         float lift = buf.readFloat();
         Quaternionf rotation = new Quaternionf(buf.readFloat(), buf.readFloat(), buf.readFloat(), buf.readFloat());
-        return new ItemPose(x, y, z, lift, rotation, buf.readFloat(), buf.readVarInt() - 1);
+        float scale = buf.readFloat();
+        int on = buf.readVarInt() - 1;
+        return new ItemPose(x, y, z, lift, rotation, scale, on, buf.readFloat());
     }
 }

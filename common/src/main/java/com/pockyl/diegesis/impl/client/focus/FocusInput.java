@@ -45,6 +45,7 @@ import com.pockyl.diegesis.impl.action.StationAction.Target;
 import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.anim.Easing;
+import com.pockyl.diegesis.impl.client.scene.PlacedPhysics;
 import com.pockyl.diegesis.impl.client.scene.Placing;
 import com.pockyl.diegesis.impl.client.anim.Spring;
 import com.pockyl.diegesis.impl.client.fx.PourStreams;
@@ -168,7 +169,7 @@ public final class FocusInput {
         if (stack.isEmpty()) {
             return null;
         }
-        return new Carried(stack, carry.value(), lean, carryInWorld, carrySize, mouseX, mouseY, placer.preview());
+        return new Carried(stack, carry.value(), lean, carryInWorld, carrySize, mouseX, mouseY, placer.preview(), placer.landing());
     }
 
     /** Whether a slot is one of those the current drag spreads over. */
@@ -510,10 +511,22 @@ public final class FocusInput {
     }
 
     private void placeCarried(ClientStation station) {
+        placeCarried(station, 0);
+    }
+
+    /** Puts at most {@code count} of the stack in the hand down (0: as much as a slot takes). */
+    private void placeCarried(ClientStation station, int count) {
         ItemPose pose = placer.preview();
-        if (placer.place(station, carriedStack())) {
+        if (placer.place(station, carriedStack(), count) && !landingSounds(station)) {
             UiSounds.putDown(station.toWorld(pose.x(), pose.y(), pose.z()));
         }
+    }
+
+    /** With physics and {@code landing_sound}, a thing sounds as it lands, not at the click. */
+    private static boolean landingSounds(ClientStation station) {
+        PlacingOptions options = Placer.options(station);
+        return options != null && station.scene().physics() != null
+                && options.physics().map(com.pockyl.diegesis.api.scene.PlacingPhysics::landingSound).orElse(false);
     }
 
     private void clickItem(ClientStation station, Target target, int button, boolean shift, NodeInstance node) {
@@ -538,7 +551,8 @@ public final class FocusInput {
         } else if (carried.isEmpty() || target instanceof Target.Output) {
             boolean had = !itemAt(station, target).isEmpty();
             if (had && node != null && node.placed() != null && node.placed().pose() != null) {
-                placer.adopt(node.placed().stack(), node.placed().pose());
+                placer.adopt(station, node.placed().stack(), node.placed().slot().index(), node.placed().pose(),
+                        stationRay(station, mouseX, mouseY), mouseX, mouseY);
             }
             if (station.perform(new StationAction.Click(target, button, ClickKind.PICKUP)) && had) {
                 UiSounds.pickUp(at);
@@ -1154,7 +1168,7 @@ public final class FocusInput {
     /** The carried stack follows the cursor over the surface, leans as it moves and sticks to the slot under it. */
     private void updateCarry(ClientStation station, float dt, boolean carrying) {
         boolean overWorld = hoveredInventory == -1 && FocusScreen.isOverWorld(mouseX, mouseY);
-        placer.update(station, stationRay(station, mouseX, mouseY), carriedStack(), overWorld, gesture instanceof Turn, dt);
+        placer.update(station, stationRay(station, mouseX, mouseY), mouseX, mouseY, carriedStack(), overWorld, gesture instanceof Turn, dt);
         if (!carrying) {
             carryPlaced = false;
             carryInWorld = false;
@@ -1553,8 +1567,12 @@ public final class FocusInput {
     }
 
     /** The carried stack, for drawing: in 3D over the station (pose in station space) or as an icon at the cursor. */
+    /**
+     * The carried stack, for drawing: in 3D over the station (pose in station space) or as an icon at the cursor. With physics,
+     * {@code landing} is where it would land if let go of now (the mark under it), else null.
+     */
     public record Carried(ItemStack stack, Vector3fc stationPos, Vector3fc lean, boolean inWorld, float size, double mouseX,
-            double mouseY, ItemPose preview) {
+            double mouseY, ItemPose preview, ItemPose landing) {
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -1587,6 +1605,8 @@ public final class FocusInput {
         private static final float FOLLOW = 0.03F;
         /** Pixels the hand may press the item's middle towards a wall: its corners go in, and the wall turns it flat. */
         private static final float PRESS = 0.5F;
+        /** Pixels a dragged thing may overlap what it is beside without counting as over it. */
+        private static final float GRAZE = 0.05F;
         private final ClientStation station;
         private final NodeInstance node;
         private final double startX;
@@ -1595,6 +1615,13 @@ public final class FocusInput {
         private long lastFrame = Util.getNanos();
         /** The surface it slides on, from the start of the push. */
         private PlaceSurface surface;
+        /**
+         * How far from where the press aimed on that surface the item stood (x, z): kept at the start of the drag, so it moves off
+         * without a jump, and let go of as the drag goes on (see {@code grip_blend}).
+         */
+        private float[] grabbed;
+        /** The level it slides at: the top of what it stood on, lower once it is past that top's edge. */
+        private float level = Float.NaN;
 
         Shove(ClientStation station, NodeInstance node, double x, double y) {
             this.station = station;
@@ -1632,6 +1659,14 @@ public final class FocusInput {
                     return;
                 }
             }
+            if (grabbed == null) {
+                // Measured on the same aim as the drag (a shelf's slope too), from where the press was: the item stays put until
+                // the cursor moves, then moves with it.
+                StationRay press = stationRay(station, startX, startY);
+                Placing.Aim start = Placing.aimOn(options, surface, press.origin(), press.direction(), station.scene());
+                float blend = options.handling().gripBlend();
+                grabbed = start == null || blend <= 0.0F ? new float[2] : new float[] {pose.x() - start.x(), pose.z() - start.z()};
+            }
             StationRay ray = stationRay(station, mouseX, mouseY);
             // On its own surface's plane, wherever the cursor is: past the edge it does not drop to what lies behind.
             Placing.Aim aim = Placing.aimOn(options, surface, ray.origin(), ray.direction(), station.scene());
@@ -1640,9 +1675,28 @@ public final class FocusInput {
             }
             // With physics the hand pulls it there with its force and the item comes as its weight lets it; without, it follows.
             boolean weighed = options.physics().isPresent();
-            float x = weighed ? aim.x() : Easing.approach(pose.x(), aim.x(), FOLLOW, dt);
-            float z = weighed ? aim.z() : Easing.approach(pose.z(), aim.z(), FOLLOW, dt);
+            // Taken where the cursor pressed, it glides to under the cursor over the first grip_blend pixels of the drag; then
+            // it follows the cursor freely across the surface, near or far, not kept the grabbed offset away (on a shelf's
+            // slope that offset pinned it to the front edge, sliding only along it).
+            float share = Placing.gripShare(Math.hypot(mouseX - startX, mouseY - startY), options.handling().gripBlend());
+            float aimX = aim.x() + grabbed[0] * share;
+            float aimZ = aim.z() + grabbed[1] * share;
+            float x = weighed ? aimX : Easing.approach(pose.x(), aimX, FOLLOW, dt);
+            float z = weighed ? aimZ : Easing.approach(pose.z(), aimZ, FOLLOW, dt);
             ItemPose moved = Placing.standing(options, node.placed().shape(), surface, x, surface.height(), z, pose.rotation(), pose.scale(), -1);
+            if (weighed) {
+                // On a pile it slides across the top of what it stands on, pressing nothing down, and steps down past its edge.
+                if (Float.isNaN(level)) {
+                    level = pose.y();
+                }
+                Vector3f extents = node.placed().shape().extents(pose.rotation(), options.itemSize() * pose.scale());
+                // Over any of what it stood on it stays at that top; once clear of it, past the edge, it comes down.
+                float midX = Math.max(0.0F, extents.x - GRAZE);
+                float midZ = Math.max(0.0F, extents.z - GRAZE);
+                PlacedPhysics.Ground ground = station.scene().physics().groundUnder(surface, x - midX, x + midX, z - midZ, z + midZ);
+                level = Placing.shoveLevel(level, ground.top(), extents.y * 2.0F, surface.height() + surface.liftRoom());
+                moved = new ItemPose(moved.x(), level, moved.z(), moved.lift(), moved.rotation(), moved.scale(), -1);
+            }
             // Towards a wall the hand presses it in a little (the physics holds it out and the wall turns it flat against
             // itself); over an open side it may pull it past the edge, to let it fall off.
             float keptX = x < surface.from().x() && surface.open().contains(PlaceSurface.Side.RIGHT)
@@ -1651,7 +1705,7 @@ public final class FocusInput {
             float keptZ = z < surface.from().y() && surface.open().contains(PlaceSurface.Side.FRONT)
                     || z > surface.to().y() && surface.open().contains(PlaceSurface.Side.BACK) ? z
                     : Mth.clamp(z, surface.from().y() + PRESS, Math.max(surface.from().y() + PRESS, surface.to().y() - PRESS));
-            ItemPose steered = new ItemPose(keptX, moved.y(), keptZ, moved.lift(), moved.rotation(), moved.scale(), -1);
+            ItemPose steered = new ItemPose(keptX, moved.y(), keptZ, moved.lift(), moved.rotation(), moved.scale(), -1, pose.wanted());
             station.state().setPose(node.placed().slot(), steered);
             station.scene().physics().steer(index(), steered);
         }
@@ -1660,7 +1714,9 @@ public final class FocusInput {
         public void release() {
             if (moving) {
                 station.scene().physics().release(index());
-                UiSounds.putDown(node.worldPosition());
+                if (!landingSounds(station)) {
+                    UiSounds.putDown(node.worldPosition());
+                }
                 return;
             }
             Target target = itemTarget(station, node.definition());
@@ -1745,23 +1801,35 @@ public final class FocusInput {
         }
     }
 
-    /** The right button held: the drag turns the item under it, or the stack in the hand, which stays where it is meanwhile. */
+    /**
+     * The right button held: the drag turns the item under it, or the stack in the hand, which stays where it is meanwhile. With
+     * the stack in the hand, a right click that does not move ({@code right_puts_one}) puts one of it down, as in a chest.
+     */
     private final class Turn implements Gesture {
+        /** GUI pixels the mouse may wander before a right click counts as a turn rather than putting one down. */
+        private static final double CLICK_SLOP = 3.0;
+
         private final ClientStation station;
         private final NodeInstance node;
+        private final double startX;
+        private final double startY;
         private double lastX;
         private double lastY;
         private long lastSent;
+        private boolean turned;
 
         Turn(ClientStation station, NodeInstance node, double x, double y) {
             this.station = station;
             this.node = node;
+            startX = x;
+            startY = y;
             lastX = x;
             lastY = y;
         }
 
         @Override
         public void drag(double x, double y) {
+            turned |= Math.abs(x - startX) + Math.abs(y - startY) > CLICK_SLOP;
             float dx = (float) (x - lastX);
             float dy = (float) (y - lastY);
             lastX = x;
@@ -1791,6 +1859,13 @@ public final class FocusInput {
 
         @Override
         public void release() {
+            PlacingOptions options = Placer.options(station);
+            if (node == null && options != null) {
+                placer.settleCarried(options);
+                if (!turned && options.handling().rightPutsOne() && placer.preview() != null && !carriedStack().isEmpty()) {
+                    placeCarried(station, 1);
+                }
+            }
             if (node != null) {
                 placer.commit(station, node);
                 if (station.scene() != null && station.scene().physics() != null) {

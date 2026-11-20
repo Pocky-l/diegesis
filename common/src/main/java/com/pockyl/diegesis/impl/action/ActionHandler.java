@@ -394,7 +394,8 @@ public final class ActionHandler {
         }
         // The pose first: the logic hears of the new item from the slot, and may want to know where it stands.
         station.state().setPose(action.slot(), checkedSupport(station, group, action.slot(), pose));
-        slot.set(carried.split(slot.limit(carried)));
+        int limit = slot.limit(carried);
+        slot.set(carried.split(action.count() > 0 ? Math.min(limit, action.count()) : limit));
         setCarried(player, carried);
         return true;
     }

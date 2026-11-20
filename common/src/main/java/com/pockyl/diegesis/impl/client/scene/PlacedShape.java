@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * its block, everything else is drawn as the game draws it in an item frame. The box is measured on the model, so that an item
  * stands on its lowest point whichever way it is turned, and an apple that fills half its icon is as big as a sword.
  */
-public final class PlacedShape {
+public final class PlacedShape implements Placing.Shape {
     private static final float THINNEST = 0.012F;
     /** A block's longest side counts for less than a sword's: it fills all of its box. */
     private static final float SOLID_SIZE = 0.8F;
@@ -400,6 +400,7 @@ public final class PlacedShape {
     }
 
     /** Whether the item is an icon a pixel thin (bread, a carrot), not a thing with a body (a block, a 3D model). */
+    @Override
     public boolean isFlat() {
         float longest = Math.max(half.x, Math.max(half.y, half.z));
         return block == null && Math.min(half.x, Math.min(half.y, half.z)) < longest * 0.2F;
@@ -420,7 +421,13 @@ public final class PlacedShape {
         return hitTurn;
     }
 
+    /** Its size for the physics: the hit box, and the factor from the model to pixels per pixel of size. */
+    public PlacedPhysics.Solid solid() {
+        return new PlacedPhysics.Solid(hitHalf, hitTurn, unit, isFlat());
+    }
+
     /** Half the box round the item in scene pixels, turned as given. */
+    @Override
     public Vector3f extents(Quaternionfc rotation, float size) {
         Matrix4f turn = new Matrix4f().rotation(new Quaternionf(rotation));
         float scale = modelScale(size);

@@ -41,6 +41,29 @@ public final class UiSounds {
         play(DiegesisSounds.DETENT, at, 0.4F, 1.6F + position * 0.3F);
     }
 
+    /** Landing speeds (pixels a second) between which a landing goes from soft to its loudest. */
+    private static final float SOFT = 3.0F;
+    private static final float HARD = 40.0F;
+
+    /**
+     * A thing put down touches what it lands on: a block of its material (its place sound), a flat thing a light tick, anything
+     * else the put-down sound, lower the heavier it is (pitch 1.35 at a weight of 0.3 down to 0.8 at 30); louder the faster.
+     */
+    public static void landed(Vec3 at, net.minecraft.world.item.ItemStack stack, float speed, float mass, boolean flat) {
+        float hard = net.minecraft.util.Mth.clamp((speed - SOFT) / (HARD - SOFT), 0.0F, 1.0F);
+        if (stack.getItem() instanceof net.minecraft.world.item.BlockItem block) {
+            net.minecraft.world.level.block.SoundType sound = block.getBlock().defaultBlockState().getSoundType();
+            play(sound.getPlaceSound(), at, 0.25F + 0.2F * hard, sound.getPitch() * 0.8F);
+            return;
+        }
+        if (flat) {
+            play(DiegesisSounds.SET_DOWN, at, 0.3F + 0.2F * hard, 1.5F);
+            return;
+        }
+        float heavy = net.minecraft.util.Mth.clamp((float) (Math.log(Math.max(mass, 0.3F) / 0.3F) / Math.log(100.0)), 0.0F, 1.0F);
+        play(DiegesisSounds.PUT_DOWN, at, 0.35F + 0.25F * hard + 0.1F * heavy, 1.35F - 0.55F * heavy);
+    }
+
     /** A vessel sounds higher the fuller it gets, as any filling bottle does. */
     static void pour(Vec3 at, float flow, float fill) {
         play(DiegesisSounds.POUR, at, 0.2F + 0.35F * flow, 0.95F + 0.55F * fill);

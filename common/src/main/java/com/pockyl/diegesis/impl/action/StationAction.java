@@ -38,7 +38,7 @@ public sealed interface StationAction {
             case 5 -> new Press(buf.readUtf(MAX_NAME));
             case 6 -> new Custom(buf.readUtf(MAX_NAME), Objects.requireNonNullElseGet(buf.readNbt(), CompoundTag::new));
             case 7 -> new Pour(buf.readUtf(MAX_NAME), buf.readUtf(MAX_NAME), buf.readVarInt());
-            case 8 -> new Place(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf));
+            case 8 -> new Place(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf), Math.max(0, buf.readVarInt()));
             case 9 -> new Pose(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf));
             default -> throw new IllegalArgumentException("Unknown station action " + kind);
         };
@@ -156,14 +156,23 @@ public sealed interface StationAction {
         }
     }
 
-    /** Puts the stack on the cursor down freely, into an empty slot of a placed group: as much of it as the slot takes. */
-    record Place(SlotRef slot, ItemPose pose) implements StationAction {
+    /**
+     * Puts the stack on the cursor down freely, into an empty slot of a placed group: as much of it as the slot takes, or at most
+     * {@code count} of it (a right click puts one); 0 for no limit of its own.
+     */
+    record Place(SlotRef slot, ItemPose pose, int count) implements StationAction {
+        /** As much as the slot takes. */
+        public Place(SlotRef slot, ItemPose pose) {
+            this(slot, pose, 0);
+        }
+
         @Override
         public void write(FriendlyByteBuf buf) {
             buf.writeByte(8);
             buf.writeUtf(slot.group(), MAX_NAME);
             buf.writeVarInt(slot.index());
             pose.write(buf);
+            buf.writeVarInt(count);
         }
     }
 

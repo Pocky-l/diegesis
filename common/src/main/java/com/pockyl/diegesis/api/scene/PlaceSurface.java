@@ -30,9 +30,39 @@ import java.util.Set;
  * @param headroom  with {@code placing.physics}: how high over the surface the stack in the hand may be lifted to pass over
  *                  what stands there (and things stacked); {@link #clearance} when not given. More than the clearance where
  *                  open air is over the surface (a drawer pulled out), less to keep the hand low
+ * @param flatRest  how a flat thing (an icon: bread, paper) is put down here unless the player turns it otherwise:
+ *                  {@code stand}, standing facing the front, as on a shelf seen from the front; {@code lie}, lying on its back
+ *                  with its top towards the far side, as in a drawer or box seen from above, where it reads whole and piles up
+ * @param fill      where a thing that comes without a place (shift-clicked in, brought by a hopper) is set out here: {@code back},
+ *                  from the back row to the front, each row from its middle out, as on a shelf; {@code middle}, as near the
+ *                  middle of the surface as there is room, then outwards round it, as on a plate or a turntable
  */
 public record PlaceSurface(Vector2fc from, Vector2fc to, float height, float clearance, float aimHeight, Optional<Float> wall,
-        Set<Side> open, Optional<Float> headroom) {
+        Set<Side> open, Optional<Float> headroom, FlatRest flatRest, Fill fill) {
+    /** Where a thing that comes without a place is set out on a surface. */
+    public enum Fill implements StringRepresentable {
+        BACK, MIDDLE;
+
+        public static final Codec<Fill> CODEC = StringRepresentable.fromEnum(Fill::values);
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    /** How a flat thing is put down on a surface. */
+    public enum FlatRest implements StringRepresentable {
+        STAND, LIE;
+
+        public static final Codec<FlatRest> CODEC = StringRepresentable.fromEnum(FlatRest::values);
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
     /** A side of a surface, as the scene's front (-z) sees it: left is +x, the viewer's left. */
     public enum Side implements StringRepresentable {
         FRONT, BACK, LEFT, RIGHT;
@@ -59,7 +89,9 @@ public record PlaceSurface(Vector2fc from, Vector2fc to, float height, float cle
             StrictCodecs.optional(Codec.FLOAT, "wall").forGetter(PlaceSurface::wall),
             StrictCodecs.optional(Side.CODEC.listOf().<Set<Side>>xmap(Set::copyOf, List::copyOf), "open", Set.<Side>of())
                     .forGetter(PlaceSurface::open),
-            StrictCodecs.optional(Codec.floatRange(0.0F, 256.0F), "headroom").forGetter(PlaceSurface::headroom)
+            StrictCodecs.optional(Codec.floatRange(0.0F, 256.0F), "headroom").forGetter(PlaceSurface::headroom),
+            StrictCodecs.optional(FlatRest.CODEC, "flat_rest", FlatRest.STAND).forGetter(PlaceSurface::flatRest),
+            StrictCodecs.optional(Fill.CODEC, "fill", Fill.BACK).forGetter(PlaceSurface::fill)
     ).apply(instance, PlaceSurface::new));
 
     /** A surface walled on every side. */
@@ -70,6 +102,28 @@ public record PlaceSurface(Vector2fc from, Vector2fc to, float height, float cle
     /** A surface with the hand's headroom its clearance. */
     public PlaceSurface(Vector2fc from, Vector2fc to, float height, float clearance, float aimHeight, Optional<Float> wall, Set<Side> open) {
         this(from, to, height, clearance, aimHeight, wall, open, Optional.empty());
+    }
+
+    /** A surface where flat things stand. */
+    public PlaceSurface(Vector2fc from, Vector2fc to, float height, float clearance, float aimHeight, Optional<Float> wall, Set<Side> open,
+            Optional<Float> headroom) {
+        this(from, to, height, clearance, aimHeight, wall, open, headroom, FlatRest.STAND);
+    }
+
+    /** A surface where things without a place are set out from the back. */
+    public PlaceSurface(Vector2fc from, Vector2fc to, float height, float clearance, float aimHeight, Optional<Float> wall, Set<Side> open,
+            Optional<Float> headroom, FlatRest flatRest) {
+        this(from, to, height, clearance, aimHeight, wall, open, headroom, flatRest, Fill.BACK);
+    }
+
+    /** Whether things without a place are set out from the middle ({@code fill: middle}). */
+    public boolean fillsFromMiddle() {
+        return fill == Fill.MIDDLE;
+    }
+
+    /** Whether flat things lie here ({@code flat_rest: lie}). */
+    public boolean flatLies() {
+        return flatRest == FlatRest.LIE;
     }
 
     /** How high over the surface the stack in the hand may be lifted ({@link #headroom}, else the clearance). */
