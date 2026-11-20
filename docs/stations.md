@@ -74,7 +74,9 @@ At least one block, supplier or tag is required.
 
   Client code: `StationView.menu()` (`MenuAccess`: the menu itself for its data, clicks, `quickMoveFromInventory` for an
   automatic shift-click that waits until the menu has been open a moment, `pressButton`), `StationBehavior.onMenuOpened`
-  and `onMenuRefused` (`TIMEOUT`, `OTHER_MENU`, `CLOSED_BY_SERVER`). Menu stations go over to neighbours of
+  and `onMenuRefused` (`TIMEOUT`, `OTHER_MENU`, `CLOSED_BY_SERVER`). On `OTHER_MENU` (another mod's menu answered the use)
+  the station steps aside at once, the camera back at the player's eyes and the HUD in place, so that mod's screen shows as
+  it would without Diegesis; the block's uses go to that mod while its block state stays the same. Menu stations go over to neighbours of
   every kind like the others: the menu of the station left is closed, and the block gone over to gets a use of its own, sent
   once any earlier use has been answered.
 

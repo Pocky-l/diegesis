@@ -2,12 +2,14 @@ package com.pockyl.diegesis.impl.client.menu;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 
 import com.pockyl.diegesis.DiegesisMod;
 import com.pockyl.diegesis.api.client.MenuAccess;
@@ -21,6 +23,7 @@ import com.pockyl.diegesis.impl.menu.MenuClicks;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +36,8 @@ import java.util.Map;
  * <li>An open that arrives after the player left is closed at once: otherwise the server keeps a menu the client does not
  * have, and the inventory screen's clicks (container 0) go nowhere.</li>
  * <li>A use the server does not answer in time ends the station without a word.</li>
- * <li>Only the expected menu types are taken; any other opens its vanilla screen.</li>
+ * <li>Only the expected menu types are taken; any other opens its own screen, and the block is left to it while it stays as
+ * it was ({@link #answeredElsewhere}).</li>
  * <li>No automatic click before the menu has been open its delay, and at most one a tick.</li>
  * </ul>
  */
@@ -71,6 +75,12 @@ public final class MenuSession implements MenuAccess {
     private int ticks;
     private final Deque<Integer> autoMoves = new ArrayDeque<>();
     private int lastAutoTick = -1;
+    /**
+     * Blocks whose use the server answered with a menu the station does not take (another mod's: Amendments' lectern editor
+     * for a book and quill), with the block state they had then. Their next uses go on as without the library, so the camera
+     * does not set off to come straight back.
+     */
+    private final Map<BlockPos, BlockState> otherMenus = new HashMap<>();
 
     private MenuSession() {
     }
@@ -157,8 +167,14 @@ public final class MenuSession implements MenuAccess {
         // Whatever menu this is, it has replaced a stale one left open on the server.
         staleOpen = -1;
         if (!wanted.binding().accepts(type)) {
-            // A plugin's screen, another mod's menu: never guessed at; its own screen opens.
-            refuse(wanted.station(), MenuRefusal.OTHER_MENU);
+            // A plugin's screen, another mod's menu: never guessed at; its own screen opens, over the world as without the
+            // library: the station steps aside at once, with no flight back behind that screen.
+            BlockPos pos = wanted.station().pos();
+            otherMenus.put(pos, player.level().getBlockState(pos));
+            DiegesisMod.LOGGER.info("Station {} at {} was answered with menu {}: the block is left to it",
+                    wanted.station().type().id(), pos, net.minecraft.core.registries.BuiltInRegistries.MENU.getKey(type));
+            wanted.station().menuRefused(MenuRefusal.OTHER_MENU);
+            FocusController.get().stepAside(pos);
             return false;
         }
         if (menu != null) {
@@ -214,8 +230,25 @@ public final class MenuSession implements MenuAccess {
         }
     }
 
+    /**
+     * Whether a use of the block at {@code pos}, now {@code state}, was answered with another mod's menu: its station does not
+     * open. Forgotten once the block changes (the lectern's book taken off).
+     */
+    public boolean answeredElsewhere(BlockPos pos, BlockState state) {
+        BlockState then = otherMenus.get(pos);
+        if (then == null) {
+            return false;
+        }
+        if (then != state) {
+            otherMenus.remove(pos);
+            return false;
+        }
+        return true;
+    }
+
     /** Level change, disconnect: forget everything; the server forgets its menus too. */
     public void reset() {
+        otherMenus.clear();
         expect = null;
         stale.clear();
         pendingUse = null;

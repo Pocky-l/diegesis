@@ -75,6 +75,8 @@ public final class FocusController {
     /** The pose and field of view of the last frame. */
     private CameraPose lastPose;
     private double lastFov;
+    /** Where the player looked before the use turned them to the station ({@link #begin}); null once that use is over. */
+    private float[] lookBefore;
 
     private FocusController() {
     }
@@ -128,6 +130,7 @@ public final class FocusController {
             startYaw = eyeYaw;
             startPitch = eyePitch;
             exitFrom = null;
+            lookBefore = null;
             confirmed = !awaitServer;
             phase = Phase.ENTERING;
             // From where the camera is: the way in eases differently from the way back.
@@ -159,6 +162,7 @@ public final class FocusController {
         FocusInput.get().neighbors().reset();
         FocusInput.get().gains().reset();
         snapBaseShot();
+        lookBefore = new float[] {player.getYRot(), player.getXRot()};
         lookAtStation(player);
         if (confirmed) {
             station.setFocusedInternal(true);
@@ -198,6 +202,7 @@ public final class FocusController {
         flightFromFov = lastFov;
         flightFromStation = left;
         flightTime = seconds;
+        lookBefore = null;
         station = target;
         confirmed = !awaitServer;
         phase = Phase.ENTERING;
@@ -246,6 +251,7 @@ public final class FocusController {
             station = target;
             if (!confirmed) {
                 confirmed = true;
+                lookBefore = null;
                 station.setFocusedInternal(true);
             }
         }
@@ -256,6 +262,41 @@ public final class FocusController {
         if (station != null && station.pos().equals(pos)) {
             exit(true);
         }
+    }
+
+    /**
+     * Another mod answered the use of the station at {@code pos} with a screen of its own (a menu the station does not take, a
+     * screen opened on the click): the station steps aside at once, as if it had never opened. The camera is back at the
+     * player's eyes, looking where they looked before the use, and the HUD is in place, so that screen shows over the world as
+     * it would without the library. A flight back behind it moved the HUD under that screen (Amendments' lectern editor).
+     */
+    public void stepAside(BlockPos pos) {
+        if (station == null || !station.pos().equals(pos) || phase == Phase.IDLE || phase == Phase.EXITING) {
+            return;
+        }
+        float[] look = confirmed || flightFrom != null ? null : lookBefore;
+        exit(true);
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.options.hideGui = savedHideGui;
+        HudSlide.reset();
+        LocalPlayer player = minecraft.player;
+        if (look != null && player != null) {
+            player.setYRot(look[0]);
+            player.setXRot(look[1]);
+            player.yRotO = look[0];
+            player.xRotO = look[1];
+            player.yHeadRot = look[0];
+        }
+        phase = Phase.IDLE;
+        progress = 0.0F;
+        confirmed = false;
+        station = null;
+        flightFrom = null;
+        flightFromStation = null;
+        exitFrom = null;
+        lastPose = null;
+        lookBefore = null;
+        ClearBlocks.clear();
     }
 
     /** The server ended the player's use. */
@@ -359,6 +400,7 @@ public final class FocusController {
         flightFromStation = null;
         exitFrom = null;
         lastPose = null;
+        lookBefore = null;
         ClearBlocks.clear();
     }
 
@@ -431,6 +473,11 @@ public final class FocusController {
         ClearBlocks.keep(station, flightFromStation, dt);
         if ((phase == Phase.FOCUSED || phase == Phase.ENTERING) && !(minecraft.gui.screen() instanceof FocusScreen)
                 && !com.pockyl.diegesis.impl.client.ClientRegistry.isChildScreen(minecraft.gui.screen())) {
+            if (!confirmed && minecraft.gui.screen() != null) {
+                // A screen came before the station was accepted: another mod answered the use with it.
+                stepAside(station.pos());
+                return;
+            }
             // Another screen replaced ours (chat, inventory, death): leave the station.
             exit(true);
         }

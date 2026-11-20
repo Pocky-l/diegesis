@@ -177,6 +177,10 @@ public final class DiegesisClientRuntime {
             return false;
         }
         if (type.authority() == Authority.MENU) {
+            if (com.pockyl.diegesis.impl.client.menu.MenuSession.get().answeredElsewhere(pos, state)) {
+                // Another mod's menu answers this block: its use goes on as without the library.
+                return false;
+            }
             // Vanilla's rule: sneaking with anything in a hand uses the item, the block's menu never opens.
             return !(player.isSecondaryUseActive() && (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty()));
         }
