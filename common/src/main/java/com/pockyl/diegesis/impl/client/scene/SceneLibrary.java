@@ -37,6 +37,7 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Ident
 
     private volatile Map<Identifier, SceneDefinition> scenes = Map.of();
     private volatile Map<Identifier, com.pockyl.diegesis.impl.client.mesh.Mesh> preparedMeshes = Map.of();
+    private volatile com.pockyl.diegesis.impl.client.fx.FxLibrary.Prepared preparedFx;
 
     private SceneLibrary() {
     }
@@ -51,6 +52,7 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Ident
     protected Map<Identifier, SceneDefinition> prepare(ResourceManager manager, ProfilerFiller profiler) {
         Map<Identifier, SceneDefinition> loaded = new HashMap<>();
         preparedMeshes = com.pockyl.diegesis.impl.client.mesh.MeshLibrary.load(manager);
+        preparedFx = com.pockyl.diegesis.impl.client.fx.FxLibrary.load(manager);
         Map<Identifier, JsonObject> templates = loadTemplates(manager);
         Map<Identifier, Resource> files = manager.listResources(SCENE_DIR, path -> path.getPath().endsWith(".json"));
         files.forEach((file, resource) -> {
@@ -94,10 +96,14 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Ident
     protected void apply(Map<Identifier, SceneDefinition> loaded, ResourceManager manager, ProfilerFiller profiler) {
         scenes = Map.copyOf(loaded);
         com.pockyl.diegesis.impl.client.mesh.MeshLibrary.INSTANCE.apply(preparedMeshes);
+        if (preparedFx != null) {
+            com.pockyl.diegesis.impl.client.fx.FxLibrary.apply(preparedFx);
+        }
         DefaultColliders.clearCache();
         PlacedShape.clearCache();
         com.pockyl.diegesis.impl.client.mesh.ItemShapes.clearCache();
-        DiegesisMod.LOGGER.info("Loaded {} Diegesis scenes, {} meshes", loaded.size(), preparedMeshes.size());
+        DiegesisMod.LOGGER.info("Loaded {} Diegesis scenes, {} meshes, {} effects, {} particle styles", loaded.size(), preparedMeshes.size(),
+                com.pockyl.diegesis.impl.client.fx.FxLibrary.effectCount(), com.pockyl.diegesis.impl.client.fx.FxLibrary.particleCount());
         ClientStations.get().onScenesReloaded();
     }
 

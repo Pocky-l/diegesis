@@ -37,6 +37,8 @@ import java.util.UUID;
 public final class StationManager {
     /** Actions a player may send per second before the rest are dropped (a burst of 40 is fine). */
     private static final int ACTION_BUDGET_PER_SECOND = 40;
+    /** Shared effects a player's client may pass on to the others in a second. */
+    private static final int EFFECT_BUDGET_PER_SECOND = 10;
     private static final int PRESENCE_BUDGET_PER_SECOND = 25;
 
     private static StationManager instance;
@@ -45,6 +47,7 @@ public final class StationManager {
     private final Map<Key, ActiveStation> stations = new HashMap<>();
     private final Map<UUID, ActiveStation> byPlayer = new HashMap<>();
     private final Map<UUID, RateLimit> actionLimits = new HashMap<>();
+    private final Map<UUID, RateLimit> effectLimits = new HashMap<>();
     private final Map<UUID, RateLimit> presenceLimits = new HashMap<>();
     private final Map<UUID, PourBudget> pourBudgets = new HashMap<>();
 
@@ -156,6 +159,7 @@ public final class StationManager {
     public void onLogout(ServerPlayer player) {
         close(player, false);
         actionLimits.remove(player.getUUID());
+        effectLimits.remove(player.getUUID());
         presenceLimits.remove(player.getUUID());
         pourBudgets.remove(player.getUUID());
     }
@@ -182,6 +186,7 @@ public final class StationManager {
         }
         long second = server.getTickCount() / 20L;
         actionLimits.values().forEach(limit -> limit.reset(second));
+        effectLimits.values().forEach(limit -> limit.reset(second));
         presenceLimits.values().forEach(limit -> limit.reset(second));
     }
 
@@ -203,6 +208,13 @@ public final class StationManager {
             return;
         }
         StationAction action = packet.action();
+        if (action instanceof StationAction.Effect effect) {
+            // Only the look, passed on to the others; dropped without a word over the budget or when too big.
+            if (effectLimits.computeIfAbsent(player.getUUID(), uuid -> new RateLimit(EFFECT_BUDGET_PER_SECOND)).take() && effect.isSmall()) {
+                station.relayEffect(player, effect.effect(), effect.node(), effect.data());
+            }
+            return;
+        }
         if (action instanceof StationAction.Pour pour) {
             // Pouring is paced: at most the tanks' pour rate, with up to a second's worth saved up.
             int allowed = pourBudget(player, station, pour);

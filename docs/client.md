@@ -209,6 +209,23 @@ DiegesisClient.registerEffect(ResourceLocation.fromNamespaceAndPath("mymod", "po
 
 The built-in particle styles are effects already: `station.effect(DiegesisParticles.STEAM, "flask")`.
 
+An effect can also be a file, `assets/<namespace>/diegesis/effects/<path>.json`, made of the steps of
+[scenes](scenes.md#effect-steps): particles, a sound, a flash of light, a shake, a while of a node's emitter, ripples. F3+T
+reloads it, and a file wins over an effect registered in code under the same id, so a resource pack can restyle it.
+
+```json
+{"steps": [
+  {"type": "particles", "style": "diegesis:dust", "count": 6, "spread": 1.0},
+  {"type": "sound", "id": "minecraft:block.stone.hit", "volume": 0.3, "pitch": 1.2}]}
+```
+
+Data an effect gets from a reaction, and may get from the logic: `other` (the event's other node), `x`, `y`, `z` (its point in
+scene pixels), `speed`, and `count`, `color` for particle styles played as effects.
+
+`view.shareEffect(id, node, data)` plays an effect here at once and has the server show it to everyone near: for what only
+this client knows, such as a knock in the scene's physics. Only the look; at most 10 a second reach the others, with up to
+256 bytes of data. The others' behaviours hear it in `onEffect`, and server listeners in `StationListener.onEffect`.
+
 ## Particles
 
 Scene particles are drawn inside the interface, in scene space: they turn with the station, stay put relative to the
@@ -231,6 +248,16 @@ Builder: `color`, `size(min, max)` (pixels), `life(min, max)` (seconds), `gravit
 `grow(factor)` (how many times larger by the end), `pop()` (vanishes at the end instead of fading), `wobble(pixels)`
 (sideways wandering). Several sprites play as an animation over the particle's life.
 
+A style can be a file too, `assets/<namespace>/diegesis/particles/<path>.json`, with the builder's fields: `sprites` (a list,
+or `{"base": "minecraft:spark", "count": 8}` for `spark_0` .. `spark_7`), `color`, `size`, `life`, `gravity`, `drag`,
+`emissive`, `stretch`, `grow`, `fade` (`false` pops), `wobble`, `fade_in`, `surface`. A file wins over a style registered in
+code under the same id, and every style is an effect id as well.
+
+```json
+{"sprites": ["minecraft:flame"], "color": "#FFFF9040", "size": [0.2, 0.4], "life": [0.4, 0.9],
+ "gravity": -8.0, "drag": 0.9, "emissive": true, "wobble": 0.2}
+```
+
 ## Liquids
 
 Water and lava have looks; describe any other liquid id your tanks hold:
@@ -252,7 +279,9 @@ less (a soup 0.6). A mixture blends its parts by amount and drifts to a new colo
 `DiegesisSounds` holds quiet station sounds for client code: `PICK_UP`, `PUT_DOWN`, `GRAB`, `SET_DOWN`, `TOGGLE`,
 `BUTTON`, `DETENT`, `POUR`, `SLOSH`, `BUBBLE`, `SPARK`, `STEAM` (`view.playSound(DiegesisSounds.POUR, "flask", 0.5F,
 1.0F)`). The library plays the item, grab and control sounds by itself unless the scene sets
-`"interface": {"sounds": false}`. A resource pack can replace any of them (`assets/diegesis/sounds.json`).
+`"interface": {"sounds": false}`. A scene swaps, changes or silences each of them for its station, a node for itself
+(`feedback.sounds`, see [scenes](scenes.md#feedback)), and a resource pack can replace any of them everywhere
+(`assets/diegesis/sounds.json`).
 
 ## Other client calls
 

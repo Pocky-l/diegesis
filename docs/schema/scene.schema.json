@@ -60,6 +60,20 @@
       ],
       "description": "\"minecraft:lever[face=floor]\", or vanilla's {\"Name\": ..., \"Properties\": ...}."
     },
+    "sound_cue": {
+      "oneOf": [
+        {
+          "const": false
+        },
+        {
+          "$ref": "#/definitions/resource_location"
+        },
+        {
+          "$ref": "#/definitions/sound_cue_object"
+        }
+      ],
+      "description": "false for silence, a sound id, or {\"id\", \"volume\", \"pitch\"}."
+    },
     "scene": {
       "type": "object",
       "description": "A Diegesis scene: what a station shows and lets the player touch. File: assets/<namespace>/diegesis/scenes/<path>.json. Coordinates are Blockbench pixels (16 = one block) relative to the block's corner, for a block facing north (its front on the -Z side); the library turns the scene with the block.",
@@ -132,6 +146,10 @@
         "hud": {
           "$ref": "#/definitions/hud",
           "description": "How the game's HUD slides away when the player starts to work here, and back when they leave."
+        },
+        "feedback": {
+          "$ref": "#/definitions/feedback",
+          "description": "The library's sounds at this station, effects played on events (reactions), and the impact threshold."
         }
       },
       "patternProperties": {
@@ -1146,6 +1164,10 @@
               "$ref": "#/definitions/node"
             },
             "description": "Nodes attached to this one."
+          },
+          "feedback": {
+            "$ref": "#/definitions/node_feedback",
+            "description": "The library's sounds for this node, and marks saying what touching it means (diegesis:fire, diegesis:wet...)."
           }
         },
         "patternProperties": {
@@ -1196,6 +1218,328 @@
           ]
         }
       }
+    },
+    "feedback": {
+      "type": "object",
+      "description": "How the scene answers what the player does; nothing changes by default.",
+      "properties": {
+        "sounds": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "pick_up",
+              "put_down",
+              "grab",
+              "set_down",
+              "toggle",
+              "button",
+              "detent",
+              "pour",
+              "landing"
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/sound_cue"
+          },
+          "description": "The library's sounds at this station."
+        },
+        "reactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/reaction"
+          },
+          "description": "Effects played when things happen."
+        },
+        "impact_min_speed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "How fast (pixels a second) placed things must knock together to count as an impact.",
+          "default": 12
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "node_feedback": {
+      "type": "object",
+      "description": "A node's own sounds and marks.",
+      "properties": {
+        "sounds": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "pick_up",
+              "put_down",
+              "grab",
+              "set_down",
+              "toggle",
+              "button",
+              "detent",
+              "pour",
+              "landing"
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/sound_cue"
+          },
+          "description": "The library's sounds for this node, over the scene's."
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/resource_location"
+          },
+          "description": "What touching the node exposes a carried thing to: diegesis:fire, diegesis:hot, diegesis:wet, diegesis:sharp or any id. A tank with liquid is diegesis:wet and its liquid's id by itself."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "sound_cue_object": {
+      "type": "object",
+      "description": "A library sound changed: another id, or the same louder or higher.",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/resource_location",
+          "description": "The sound event played instead; the library's own without it."
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "Times the library's volume.",
+          "default": 1
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 4,
+          "description": "Times the library's pitch.",
+          "default": 1
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "reaction": {
+      "type": "object",
+      "description": "Plays an effect when something happens in the scene; only the look.",
+      "properties": {
+        "on": {
+          "type": "string",
+          "enum": [
+            "click",
+            "grab",
+            "release",
+            "contact",
+            "contact_end",
+            "pour",
+            "pour_end",
+            "control",
+            "button",
+            "impact",
+            "landed",
+            "fell_off",
+            "stream_landed",
+            "submerge",
+            "emerge",
+            "item_contact",
+            "item_contact_end",
+            "exposed",
+            "unexposed"
+          ],
+          "description": "The event."
+        },
+        "node": {
+          "type": "string",
+          "description": "Only for this node (held, clicked, landed; for control and button the control's node)."
+        },
+        "other": {
+          "type": "string",
+          "description": "Only when the other node of the event is this one (touched, poured into, landed on)."
+        },
+        "mark": {
+          "$ref": "#/definitions/resource_location",
+          "description": "Only when the other node carries this mark."
+        },
+        "min_speed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Only at this speed or faster, pixels a second.",
+          "default": 0
+        },
+        "effect": {
+          "$ref": "#/definitions/resource_location",
+          "description": "An effect id: an effect file, one registered in code, or a particle style."
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/effect_step"
+          },
+          "description": "The effect written out here."
+        },
+        "cooldown": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Seconds before it plays again.",
+          "default": 0.1
+        },
+        "shared": {
+          "type": "boolean",
+          "description": "Everyone near sees it too (needs an effect id).",
+          "default": false
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "on"
+      ]
+    },
+    "effect_step": {
+      "type": "object",
+      "description": "One thing an effect does; \"type\" says which, and only its fields apply.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "particles",
+            "sound",
+            "light",
+            "shake",
+            "emit",
+            "ripple"
+          ],
+          "description": "What the step does."
+        },
+        "style": {
+          "$ref": "#/definitions/resource_location",
+          "description": "particles: the particle style."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "description": "particles: how many.",
+          "default": 8
+        },
+        "color": {
+          "$ref": "#/definitions/color",
+          "description": "particles: ARGB tint; the style's own without it."
+        },
+        "where": {
+          "type": "string",
+          "enum": [
+            "place",
+            "in_liquid",
+            "on_liquid",
+            "liquid_edge"
+          ],
+          "description": "particles: at the place, anywhere in its liquid, off its surface, or along its walls.",
+          "default": "place"
+        },
+        "offset": {
+          "$ref": "#/definitions/vec3",
+          "description": "particles: pixels from the place.",
+          "default": [
+            0,
+            0,
+            0
+          ]
+        },
+        "velocity": {
+          "$ref": "#/definitions/vec3",
+          "description": "particles: start velocity, pixels a second; a small burst without it."
+        },
+        "spread": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 32,
+          "description": "particles: random spread of the start, pixels.",
+          "default": 0.4
+        },
+        "id": {
+          "$ref": "#/definitions/resource_location",
+          "description": "sound: the sound event."
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "sound: volume.",
+          "default": 1
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 4,
+          "description": "sound: pitch.",
+          "default": 1
+        },
+        "pitch_by_speed": {
+          "type": "number",
+          "minimum": -4,
+          "maximum": 4,
+          "description": "sound: how much higher per 100 pixels a second of the event's speed.",
+          "default": 0
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "description": "light: how bright the node's own light flashes.",
+          "default": 15
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 30,
+          "description": "light, shake, emit: how long."
+        },
+        "pixels": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "shake: how far.",
+          "default": 0.3
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "ripple: about the wave's height in pixels.",
+          "default": 0.5
+        },
+        "at": {
+          "type": "string",
+          "enum": [
+            "node",
+            "other",
+            "point"
+          ],
+          "description": "Where: the effect's node, the event's other node, or the event's point.",
+          "default": "node"
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ]
     },
     "visual": {
       "type": "object",
@@ -4210,6 +4554,606 @@
             }
           ],
           "description": "Nodes attached to this one."
+        },
+        "feedback": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/node_feedback_partial",
+              "description": "The library's sounds for this node, and marks saying what touching it means (diegesis:fire, diegesis:wet...)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The library's sounds for this node, and marks saying what touching it means (diegesis:fire, diegesis:wet...)."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "feedback_partial": {
+      "type": "object",
+      "description": "How the scene answers what the player does; nothing changes by default.",
+      "properties": {
+        "sounds": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "enum": [
+                  "pick_up",
+                  "put_down",
+                  "grab",
+                  "set_down",
+                  "toggle",
+                  "button",
+                  "detent",
+                  "pour",
+                  "landing"
+                ]
+              },
+              "additionalProperties": {
+                "$ref": "#/definitions/sound_cue"
+              },
+              "description": "The library's sounds at this station."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The library's sounds at this station."
+        },
+        "reactions": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/reaction_partial"
+              },
+              "description": "Effects played when things happen."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Effects played when things happen."
+        },
+        "impact_min_speed": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000,
+              "description": "How fast (pixels a second) placed things must knock together to count as an impact.",
+              "default": 12
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How fast (pixels a second) placed things must knock together to count as an impact."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "node_feedback_partial": {
+      "type": "object",
+      "description": "A node's own sounds and marks.",
+      "properties": {
+        "sounds": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "enum": [
+                  "pick_up",
+                  "put_down",
+                  "grab",
+                  "set_down",
+                  "toggle",
+                  "button",
+                  "detent",
+                  "pour",
+                  "landing"
+                ]
+              },
+              "additionalProperties": {
+                "$ref": "#/definitions/sound_cue"
+              },
+              "description": "The library's sounds for this node, over the scene's."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The library's sounds for this node, over the scene's."
+        },
+        "marks": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/resource_location"
+              },
+              "description": "What touching the node exposes a carried thing to: diegesis:fire, diegesis:hot, diegesis:wet, diegesis:sharp or any id. A tank with liquid is diegesis:wet and its liquid's id by itself."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What touching the node exposes a carried thing to: diegesis:fire, diegesis:hot, diegesis:wet, diegesis:sharp or any id. A tank with liquid is diegesis:wet and its liquid's id by itself."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "sound_cue_object_partial": {
+      "type": "object",
+      "description": "A library sound changed: another id, or the same louder or higher.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/resource_location",
+              "description": "The sound event played instead; the library's own without it."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The sound event played instead; the library's own without it."
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4,
+              "description": "Times the library's volume.",
+              "default": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Times the library's volume."
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 4,
+              "description": "Times the library's pitch.",
+              "default": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Times the library's pitch."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "reaction_partial": {
+      "type": "object",
+      "description": "Plays an effect when something happens in the scene; only the look.",
+      "properties": {
+        "on": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "click",
+                "grab",
+                "release",
+                "contact",
+                "contact_end",
+                "pour",
+                "pour_end",
+                "control",
+                "button",
+                "impact",
+                "landed",
+                "fell_off",
+                "stream_landed",
+                "submerge",
+                "emerge",
+                "item_contact",
+                "item_contact_end",
+                "exposed",
+                "unexposed"
+              ],
+              "description": "The event."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The event."
+        },
+        "node": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Only for this node (held, clicked, landed; for control and button the control's node)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Only for this node (held, clicked, landed; for control and button the control's node)."
+        },
+        "other": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Only when the other node of the event is this one (touched, poured into, landed on)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Only when the other node of the event is this one (touched, poured into, landed on)."
+        },
+        "mark": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/resource_location",
+              "description": "Only when the other node carries this mark."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Only when the other node carries this mark."
+        },
+        "min_speed": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000,
+              "description": "Only at this speed or faster, pixels a second.",
+              "default": 0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Only at this speed or faster, pixels a second."
+        },
+        "effect": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/resource_location",
+              "description": "An effect id: an effect file, one registered in code, or a particle style."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An effect id: an effect file, one registered in code, or a particle style."
+        },
+        "steps": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/effect_step_partial"
+              },
+              "description": "The effect written out here."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The effect written out here."
+        },
+        "cooldown": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 60,
+              "description": "Seconds before it plays again.",
+              "default": 0.1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds before it plays again."
+        },
+        "shared": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "description": "Everyone near sees it too (needs an effect id).",
+              "default": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Everyone near sees it too (needs an effect id)."
+        }
+      },
+      "patternProperties": {
+        "^\\$": {}
+      },
+      "additionalProperties": false
+    },
+    "effect_step_partial": {
+      "type": "object",
+      "description": "One thing an effect does; \"type\" says which, and only its fields apply.",
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "particles",
+                "sound",
+                "light",
+                "shake",
+                "emit",
+                "ripple"
+              ],
+              "description": "What the step does."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the step does."
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/resource_location",
+              "description": "particles: the particle style."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: the particle style."
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64,
+              "description": "particles: how many.",
+              "default": 8
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: how many."
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/color",
+              "description": "particles: ARGB tint; the style's own without it."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: ARGB tint; the style's own without it."
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "place",
+                "in_liquid",
+                "on_liquid",
+                "liquid_edge"
+              ],
+              "description": "particles: at the place, anywhere in its liquid, off its surface, or along its walls.",
+              "default": "place"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: at the place, anywhere in its liquid, off its surface, or along its walls."
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/vec3",
+              "description": "particles: pixels from the place.",
+              "default": [
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: pixels from the place."
+        },
+        "velocity": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/vec3",
+              "description": "particles: start velocity, pixels a second; a small burst without it."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: start velocity, pixels a second; a small burst without it."
+        },
+        "spread": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 32,
+              "description": "particles: random spread of the start, pixels.",
+              "default": 0.4
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "particles: random spread of the start, pixels."
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/resource_location",
+              "description": "sound: the sound event."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "sound: the sound event."
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4,
+              "description": "sound: volume.",
+              "default": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "sound: volume."
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 4,
+              "description": "sound: pitch.",
+              "default": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "sound: pitch."
+        },
+        "pitch_by_speed": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": -4,
+              "maximum": 4,
+              "description": "sound: how much higher per 100 pixels a second of the event's speed.",
+              "default": 0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "sound: how much higher per 100 pixels a second of the event's speed."
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 15,
+              "description": "light: how bright the node's own light flashes.",
+              "default": 15
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "light: how bright the node's own light flashes."
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.05,
+              "maximum": 30,
+              "description": "light, shake, emit: how long."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "light, shake, emit: how long."
+        },
+        "pixels": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4,
+              "description": "shake: how far.",
+              "default": 0.3
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "shake: how far."
+        },
+        "strength": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4,
+              "description": "ripple: about the wave's height in pixels.",
+              "default": 0.5
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ripple: about the wave's height in pixels."
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "node",
+                "other",
+                "point"
+              ],
+              "description": "Where: the effect's node, the event's other node, or the event's point.",
+              "default": "node"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Where: the effect's node, the event's other node, or the event's point."
         }
       },
       "patternProperties": {
@@ -6203,6 +7147,10 @@
             "$ref": "#/definitions/node"
           },
           "description": "Nodes attached to this one."
+        },
+        "feedback": {
+          "$ref": "#/definitions/node_feedback",
+          "description": "The library's sounds for this node, and marks saying what touching it means (diegesis:fire, diegesis:wet...)."
         }
       },
       "patternProperties": {

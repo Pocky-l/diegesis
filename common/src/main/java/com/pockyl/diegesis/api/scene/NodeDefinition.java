@@ -56,11 +56,12 @@ import java.util.regex.Pattern;
  * @param hidden    starts invisible (code can show it later)
  * @param extra     free-form data for the mod's own code, read through the client node view
  * @param children  nodes attached to this one
+ * @param feedback  the library's sounds for this node and the marks that say what touching it means
  */
 public record NodeDefinition(String id, Transform transform, Optional<Visual> visual, Optional<Box> collider, boolean trigger,
         boolean pickable, boolean precise, boolean strokes, Optional<String> dropZone, boolean takesItems, Optional<String> tooltip, Optional<Grabbable> grabbable, Optional<SlotBinding> slot, Optional<OutputBinding> output, Optional<ControlBinding> control,
         Optional<TankBinding> tank, Optional<EmitterDefinition> emitter, Optional<LightDefinition> light, boolean hidden,
-        JsonObject extra, List<NodeDefinition> children) {
+        JsonObject extra, List<NodeDefinition> children, com.pockyl.diegesis.api.scene.fx.NodeFeedback feedback) {
     private static final Pattern ID = Pattern.compile("[a-z0-9_]+");
 
     public static final Codec<String> ID_CODEC = Codec.STRING.comapFlatMap(id -> ID.matcher(id).matches() ? DataResult.success(id)
@@ -99,14 +100,26 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
             StrictCodecs.optional(EmitterDefinition.CODEC, "emitter").forGetter(NodeDefinition::emitter),
             StrictCodecs.optional(LightDefinition.CODEC, "light").forGetter(NodeDefinition::light),
             StrictCodecs.optional(JSON_OBJECT, "extra", new JsonObject()).forGetter(NodeDefinition::extra),
-            StrictCodecs.optional(NodeDefinition.CODEC.listOf(), "children", List.of()).forGetter(NodeDefinition::children)
-    ).apply(instance, (id, transform, visual, collider, flags, grabbable, slot, output, control, tank, emitter, light, extra, children) ->
+            StrictCodecs.optional(NodeDefinition.CODEC.listOf(), "children", List.of()).forGetter(NodeDefinition::children),
+            StrictCodecs.optional(com.pockyl.diegesis.api.scene.fx.NodeFeedback.CODEC, "feedback",
+                    com.pockyl.diegesis.api.scene.fx.NodeFeedback.DEFAULT).forGetter(NodeDefinition::feedback)
+    ).apply(instance, (id, transform, visual, collider, flags, grabbable, slot, output, control, tank, emitter, light, extra, children, feedback) ->
             new NodeDefinition(id, transform, visual, collider, flags.trigger, flags.pickable, flags.precise, flags.strokes, flags.dropZone, flags.takesItems, flags.tooltip, grabbable, slot, output,
-                    control, tank, emitter, light, flags.hidden, extra, children))).comapFlatMap(NodeDefinition::validate, node -> node));
+                    control, tank, emitter, light, flags.hidden, extra, children, feedback))).comapFlatMap(NodeDefinition::validate, node -> node));
 
     public NodeDefinition {
         extra = extra.deepCopy();
         children = List.copyOf(children);
+    }
+
+    /** A node without feedback options. */
+    public NodeDefinition(String id, Transform transform, Optional<Visual> visual, Optional<Box> collider, boolean trigger, boolean pickable,
+            boolean precise, boolean strokes, Optional<String> dropZone, boolean takesItems, Optional<String> tooltip,
+            Optional<Grabbable> grabbable, Optional<SlotBinding> slot, Optional<OutputBinding> output, Optional<ControlBinding> control,
+            Optional<TankBinding> tank, Optional<EmitterDefinition> emitter, Optional<LightDefinition> light, boolean hidden,
+            JsonObject extra, List<NodeDefinition> children) {
+        this(id, transform, visual, collider, trigger, pickable, precise, strokes, dropZone, takesItems, tooltip, grabbable, slot, output,
+                control, tank, emitter, light, hidden, extra, children, com.pockyl.diegesis.api.scene.fx.NodeFeedback.DEFAULT);
     }
 
     /** Starts a node in code; the same as writing it in a scene file. */
@@ -162,6 +175,7 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
         private boolean hidden;
         private JsonObject extra = new JsonObject();
         private final List<NodeDefinition> children = new ArrayList<>();
+        private com.pockyl.diegesis.api.scene.fx.NodeFeedback feedback = com.pockyl.diegesis.api.scene.fx.NodeFeedback.DEFAULT;
 
         private Builder(String id) {
             this.id = ID_CODEC.parse(JsonOps.INSTANCE, new com.google.gson.JsonPrimitive(id)).getOrThrow();
@@ -274,6 +288,12 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
             return this;
         }
 
+        /** The library's sounds for this node and its marks. */
+        public Builder feedback(com.pockyl.diegesis.api.scene.fx.NodeFeedback value) {
+            feedback = value;
+            return this;
+        }
+
         public Builder child(NodeDefinition child) {
             children.add(child);
             return this;
@@ -282,7 +302,7 @@ public record NodeDefinition(String id, Transform transform, Optional<Visual> vi
         public NodeDefinition build() {
             NodeDefinition node = new NodeDefinition(id, transform, Optional.ofNullable(visual), Optional.ofNullable(collider), trigger,
                     pickable, precise, strokes, Optional.ofNullable(dropZone), takesItems, Optional.ofNullable(tooltip), Optional.ofNullable(grabbable), Optional.ofNullable(slot), Optional.ofNullable(output), Optional.ofNullable(control),
-                    Optional.ofNullable(tank), Optional.ofNullable(emitter), Optional.ofNullable(light), hidden, extra, children);
+                    Optional.ofNullable(tank), Optional.ofNullable(emitter), Optional.ofNullable(light), hidden, extra, children, feedback);
             return validate(node).getOrThrow();
         }
     }

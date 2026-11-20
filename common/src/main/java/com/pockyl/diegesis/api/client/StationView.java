@@ -78,6 +78,19 @@ public interface StationView {
     void sendAction(String action, CompoundTag data);
 
     /**
+     * Plays an effect here at once and shows it to everyone near the station: the server passes it on to their clients, which
+     * play it as one the logic sent (their behaviours hear it in {@code onEffect}). Only the look, never a change of state; at
+     * most 10 a second reach the others and the data must stay small (256 bytes). Use it for what only this client knows,
+     * such as a knock in the scene's physics. At a client-only station, or while the local player does not work here, it is
+     * played here only.
+     *
+     * @param node the node it plays at, or {@code null} for the station's middle
+     */
+    @org.jetbrains.annotations.ApiStatus.Experimental
+    default void shareEffect(Identifier effect, String node, CompoundTag data) {
+    }
+
+    /**
      * Whether shift is held now, as the station's own clicks see it: for a {@code SceneEvent.Click} or a key that does more
      * with shift. Read it here rather than from {@code Screen.hasShiftDown()}, which test drivers cannot press.
      */

@@ -74,8 +74,10 @@ public final class ClientRegistry {
         LIQUIDS.put(id, look);
     }
 
+    /** A particle style: a file's ({@code diegesis/particles/}), else one registered in code. */
     public static ParticleStyle particle(Identifier id) {
-        return PARTICLES.get(id);
+        ParticleStyle file = com.pockyl.diegesis.impl.client.fx.FxLibrary.particle(id);
+        return file != null ? file : PARTICLES.get(id);
     }
 
     public static LiquidLook liquid(Identifier id) {

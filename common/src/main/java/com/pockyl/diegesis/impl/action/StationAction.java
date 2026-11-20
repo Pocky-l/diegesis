@@ -40,6 +40,7 @@ public sealed interface StationAction {
             case 7 -> new Pour(buf.readUtf(MAX_NAME), buf.readUtf(MAX_NAME), buf.readVarInt());
             case 8 -> new Place(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf), Math.max(0, buf.readVarInt()));
             case 9 -> new Pose(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf));
+            case 10 -> new Effect(buf.readResourceLocation(), buf.readUtf(MAX_NAME), Objects.requireNonNullElseGet(buf.readNbt(), CompoundTag::new));
             default -> throw new IllegalArgumentException("Unknown station action " + kind);
         };
     }
@@ -184,6 +185,34 @@ public sealed interface StationAction {
             buf.writeUtf(slot.group(), MAX_NAME);
             buf.writeVarInt(slot.index());
             pose.write(buf);
+        }
+    }
+
+    /**
+     * A player's client shares an effect it plays (a scene reaction, {@code StationView.shareEffect}): the server shows it to the
+     * others near the station. Only the look; the state never changes for it.
+     */
+    record Effect(net.minecraft.resources.Identifier effect, String node, CompoundTag data) implements StationAction {
+        /** The largest effect data the server passes on, in bytes. */
+        public static final int MAX_DATA = 256;
+
+        @Override
+        public void write(FriendlyByteBuf buf) {
+            buf.writeByte(10);
+            buf.writeResourceLocation(effect);
+            buf.writeUtf(node, MAX_NAME);
+            buf.writeNbt(data);
+        }
+
+        /** Whether the data is small enough to pass on. */
+        public boolean isSmall() {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.io.DataOutputStream out = new java.io.DataOutputStream(bytes)) {
+                net.minecraft.nbt.NbtIo.write(data, out);
+            } catch (java.io.IOException e) {
+                return false;
+            }
+            return bytes.size() <= MAX_DATA;
         }
     }
 

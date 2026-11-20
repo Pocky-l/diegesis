@@ -87,6 +87,8 @@ obj("scene", "SceneDefinition",
                                                             " sized freely."),
         "hud": field({"$ref": "#/definitions/hud"}, "How the game's HUD slides away when the player starts to work here, and"
                                                     " back when they leave."),
+        "feedback": field({"$ref": "#/definitions/feedback"}, "The library's sounds at this station, effects played on"
+                                                              " events (reactions), and the impact threshold."),
     })
 
 obj("camera", "CameraRig", "The camera rig used while a player works at the station.", {
@@ -301,7 +303,69 @@ obj("node", "NodeDefinition",
         "hidden": field(BOOL, "Starts invisible; code can show it (NodeView.setVisible).", False),
         "extra": field({"type": "object"}, "Free-form data for the mod's own code (NodeView.extra())."),
         "children": field({"type": "array", "items": {"$ref": "#/definitions/node"}}, "Nodes attached to this one."),
+        "feedback": field({"$ref": "#/definitions/node_feedback"}, "The library's sounds for this node, and marks saying what"
+                                                                   " touching it means (diegesis:fire, diegesis:wet...)."),
     }, required=["id"])
+
+CUES = ["pick_up", "put_down", "grab", "set_down", "toggle", "button", "detent", "pour", "landing"]
+SOUNDS = {"type": "object", "propertyNames": {"enum": CUES}, "additionalProperties": {"$ref": "#/definitions/sound_cue"},
+          "description": "The library's sounds by name (" + ", ".join(CUES) + "); a missing one sounds as it is."}
+EVENTS = ["click", "grab", "release", "contact", "contact_end", "pour", "pour_end", "control", "button", "impact", "landed",
+          "fell_off", "stream_landed", "submerge", "emerge", "item_contact", "item_contact_end", "exposed", "unexposed"]
+AT = {"type": "string", "enum": ["node", "other", "point"]}
+
+obj("feedback", "fx/FeedbackOptions", "How the scene answers what the player does; nothing changes by default.", {
+    "sounds": field(SOUNDS, "The library's sounds at this station."),
+    "reactions": field({"type": "array", "items": {"$ref": "#/definitions/reaction"}}, "Effects played when things happen."),
+    "impact_min_speed": field(num(0, 10000), "How fast (pixels a second) placed things must knock together to count as an"
+                                             " impact.", 12),
+})
+
+obj("node_feedback", "fx/NodeFeedback", "A node's own sounds and marks.", {
+    "sounds": field(SOUNDS, "The library's sounds for this node, over the scene's."),
+    "marks": field({"type": "array", "items": ID}, "What touching the node exposes a carried thing to: diegesis:fire,"
+                                                   " diegesis:hot, diegesis:wet, diegesis:sharp or any id. A tank with"
+                                                   " liquid is diegesis:wet and its liquid's id by itself."),
+})
+
+obj("sound_cue_object", "fx/SoundCue", "A library sound changed: another id, or the same louder or higher.", {
+    "id": field(ID, "The sound event played instead; the library's own without it."),
+    "volume": field(num(0, 4), "Times the library's volume.", 1),
+    "pitch": field(num(0.1, 4), "Times the library's pitch.", 1),
+})
+
+obj("reaction", "fx/Reaction", "Plays an effect when something happens in the scene; only the look.", {
+    "on": field({"type": "string", "enum": EVENTS}, "The event."),
+    "node": field(STRING, "Only for this node (held, clicked, landed; for control and button the control's node)."),
+    "other": field(STRING, "Only when the other node of the event is this one (touched, poured into, landed on)."),
+    "mark": field(ID, "Only when the other node carries this mark."),
+    "min_speed": field(num(0, 10000), "Only at this speed or faster, pixels a second.", 0),
+    "effect": field(ID, "An effect id: an effect file, one registered in code, or a particle style."),
+    "steps": field({"type": "array", "items": {"$ref": "#/definitions/effect_step"}}, "The effect written out here."),
+    "cooldown": field(num(0, 60), "Seconds before it plays again.", 0.1),
+    "shared": field(BOOL, "Everyone near sees it too (needs an effect id).", False),
+}, required=["on"])
+
+obj("effect_step", "fx/EffectStep", "One thing an effect does; \"type\" says which, and only its fields apply.", {
+    "type": field({"type": "string", "enum": ["particles", "sound", "light", "shake", "emit", "ripple"]}, "What the step does."),
+    "style": field(ID, "particles: the particle style."),
+    "count": field(num(1, 64, integer=True), "particles: how many.", 8),
+    "color": field(COLOR, "particles: ARGB tint; the style's own without it."),
+    "where": field({"type": "string", "enum": ["place", "in_liquid", "on_liquid", "liquid_edge"]},
+                   "particles: at the place, anywhere in its liquid, off its surface, or along its walls.", "place"),
+    "offset": field(VEC3, "particles: pixels from the place.", [0, 0, 0]),
+    "velocity": field(VEC3, "particles: start velocity, pixels a second; a small burst without it."),
+    "spread": field(num(0, 32), "particles: random spread of the start, pixels.", 0.4),
+    "id": field(ID, "sound: the sound event."),
+    "volume": field(num(0, 4), "sound: volume.", 1),
+    "pitch": field(num(0.1, 4), "sound: pitch.", 1),
+    "pitch_by_speed": field(num(-4, 4), "sound: how much higher per 100 pixels a second of the event's speed.", 0),
+    "level": field(num(1, 15, integer=True), "light: how bright the node's own light flashes.", 15),
+    "seconds": field(num(0.05, 30), "light, shake, emit: how long."),
+    "pixels": field(num(0, 4), "shake: how far.", 0.3),
+    "strength": field(num(0, 4), "ripple: about the wave's height in pixels.", 0.5),
+    "at": field(AT, "Where: the effect's node, the event's other node, or the event's point.", "node"),
+}, required=["type"])
 
 obj("visual", "Visual", "What a node looks like: exactly one of model, mesh, item, block.", {
     "mesh": field(ID, "A polygon model, assets/<namespace>/diegesis/meshes/<path>.obj; one unit is one pixel. Needs texture."),
@@ -534,6 +598,9 @@ TYPES = {
     "node_id": {"type": "string", "pattern": "^[a-z0-9_]+$", "description": "Lower case letters, digits and _."},
     "block_state": {"oneOf": [{"type": "string"}, {"type": "object"}],
                     "description": "\"minecraft:lever[face=floor]\", or vanilla's {\"Name\": ..., \"Properties\": ...}."},
+    "sound_cue": {"oneOf": [{"const": False}, {"$ref": "#/definitions/resource_location"},
+                            {"$ref": "#/definitions/sound_cue_object"}],
+                  "description": "false for silence, a sound id, or {\"id\", \"volume\", \"pitch\"}."},
 }
 
 ROLES = ["grabbable", "slot", "output", "control"]

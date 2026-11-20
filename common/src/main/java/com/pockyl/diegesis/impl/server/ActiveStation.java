@@ -165,6 +165,17 @@ final class ActiveStation implements StationContext {
         com.pockyl.diegesis.impl.Listeners.effect(logic, this, effect, node == null || node.isEmpty() ? null : node, data);
     }
 
+    /** An effect a user's client played and shares: the others near see it, the listeners hear of it. */
+    void relayEffect(ServerPlayer from, Identifier effect, String node, CompoundTag data) {
+        Packets.Effect packet = new Packets.Effect(pos, effect, node == null ? "" : node, data);
+        forEachRecipient(player -> {
+            if (player != from) {
+                Platform.INSTANCE.send(player, packet);
+            }
+        });
+        com.pockyl.diegesis.impl.Listeners.effect(logic, this, effect, node == null || node.isEmpty() ? null : node, data);
+    }
+
     void addUser(ServerPlayer player) {
         boolean first = users.isEmpty();
         users.add(player);

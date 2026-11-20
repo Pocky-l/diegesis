@@ -177,6 +177,27 @@ public final class ListenerGameTests {
             context.effect(ResourceLocation.withDefaultNamespace("flame"), null, new CompoundTag());
             check(helper, CALLS.equals(List.of("a:effect:flame:burner", "a:effect:flame:null")), "effects heard: " + CALLS);
 
+            // A client shares an effect: passed on (the listeners hear it), at most 10 a second, small data only.
+            CALLS.clear();
+            ResourceLocation clatter = ResourceLocation.fromNamespaceAndPath("mymod", "clatter");
+            for (int i = 0; i < 15; i++) {
+                manager.handle(player, new Packets.Action(at, new StationAction.Effect(clatter, "pot", new CompoundTag())));
+            }
+            check(helper, CALLS.size() == 10 && CALLS.get(0).equals("a:effect:clatter:pot"), "10 of 15 shared effects passed on: " + CALLS);
+            CALLS.clear();
+            ServerPlayer stranger = mockPlayer(helper);
+            try {
+                stranger.teleportTo(standing.x, standing.y, standing.z);
+                manager.handle(stranger, new Packets.Action(at, new StationAction.Effect(clatter, "", new CompoundTag())));
+                check(helper, CALLS.isEmpty(), "a player who does not work at the station shared an effect: " + CALLS);
+            } finally {
+                DiegesisMod.onPlayerLogout(stranger);
+            }
+            CompoundTag big = new CompoundTag();
+            big.putString("text", "x".repeat(400));
+            check(helper, !new StationAction.Effect(clatter, "", big).isSmall(), "400 bytes of data are too much");
+            check(helper, new StationAction.Effect(clatter, "", new CompoundTag()).isSmall(), "empty data is small");
+
             manager.close(player, false);
             check(helper, CALLS.contains("all:close"), "the closing was heard");
             check(helper, player.getInventory().countItem(Items.STICK) == 1, "the stick came back on close");

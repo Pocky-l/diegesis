@@ -82,6 +82,7 @@ public final class ClientStation implements StationView, StationContext {
     private final StationLogic idleLogic;
     private StationBehavior behavior;
     private SceneInstance scene;
+    private com.pockyl.diegesis.impl.client.fx.Reactions reactions = com.pockyl.diegesis.impl.client.fx.Reactions.NONE;
     private final Map<UUID, RemoteHolding> remote = new HashMap<>();
     private final SceneParticles particles = new SceneParticles();
     private final PourStreams pourStreams = new PourStreams();
@@ -175,9 +176,11 @@ public final class ClientStation implements StationView, StationContext {
                         type.scene().getNamespace(), type.scene().getPath());
             }
             scene = null;
+            reactions = com.pockyl.diegesis.impl.client.fx.Reactions.NONE;
             return;
         }
         scene = new SceneInstance(this, definition);
+        reactions = com.pockyl.diegesis.impl.client.fx.Reactions.of(definition);
         scene.update(state, 0.0F);
         sceneReady();
     }
@@ -907,12 +910,52 @@ public final class ClientStation implements StationView, StationContext {
     }
 
     public void onEvent(SceneEvent event) {
+        if (!reactions.isEmpty()) {
+            fire(() -> reactions.handle(this, event));
+        }
         fire(() -> behavior.onEvent(this, event));
     }
 
+    /** The scene's reactions, for events found by the library itself (physics, liquids). */
+    public com.pockyl.diegesis.impl.client.fx.Reactions reactions() {
+        return reactions;
+    }
+
+    /**
+     * Plays an effect here: an effect file's steps, else the handler registered in code, else a burst of the particle style of
+     * that id. Then the behaviour hears of it.
+     */
     void playEffect(Identifier effect, String node, CompoundTag data) {
-        ClientRegistry.effect(effect).ifPresent(handler -> fire(() -> handler.play(this, node, data)));
+        playLook(effect, node, data);
         fire(() -> behavior.onEffect(this, effect, node, data));
+    }
+
+    @Override
+    public void shareEffect(Identifier effect, String node, CompoundTag data) {
+        playLook(effect, node, data);
+        if (focused && type.authority() == Authority.SERVER) {
+            ClientPlatform.INSTANCE.sendToServer(new Packets.Action(pos, new StationAction.Effect(effect, node == null ? "" : node, data)));
+        }
+    }
+
+    /** {@link #playEffect} without telling the behaviour: a scene's own reaction. */
+    public void playLook(Identifier effect, String node, CompoundTag data) {
+        com.pockyl.diegesis.api.scene.fx.EffectDefinition file = com.pockyl.diegesis.impl.client.fx.FxLibrary.effect(effect);
+        if (file != null) {
+            fire(() -> com.pockyl.diegesis.impl.client.fx.EffectPlayer.play(this, file, node, data));
+            return;
+        }
+        java.util.Optional<com.pockyl.diegesis.api.client.EffectHandler> handler = ClientRegistry.effect(effect);
+        if (handler.isPresent()) {
+            fire(() -> handler.get().play(this, node, data));
+        } else if (com.pockyl.diegesis.impl.client.fx.FxLibrary.particle(effect) != null) {
+            spawnParticles(effect, node, data.contains("count") ? data.getInt("count") : 12, data.getInt("color"));
+        }
+    }
+
+    /** Plays steps written in a scene here. */
+    public void playSteps(com.pockyl.diegesis.api.scene.fx.EffectDefinition steps, String node, CompoundTag data) {
+        fire(() -> com.pockyl.diegesis.impl.client.fx.EffectPlayer.play(this, steps, node, data));
     }
 
     /** What another player at this station holds now. */

@@ -89,6 +89,12 @@ public final class NodeInstance implements NodeView {
     private float agitation;
     private float emitDebt;
     private int lightLevel;
+    /** An effect's flash of light over the node's own level, and the seconds it takes to fade. */
+    private float flareLevel;
+    private float flareTime;
+    private float flareLeft;
+    /** Seconds an effect keeps the emitter running, also while it is switched off. */
+    private float emitLeft;
 
     /** What the liquid does; null without a tank. */
     private final LiquidSim liquid;
@@ -352,7 +358,19 @@ public final class NodeInstance implements NodeView {
     }
 
     public boolean isEmitting() {
-        return emitting && definition.emitter().isPresent();
+        return (emitting || emitLeft > 0.0F) && definition.emitter().isPresent();
+    }
+
+    /** Runs the emitter for {@code seconds}, also while it is switched off (an effect's {@code emit} step). */
+    public void emitFor(float seconds) {
+        emitLeft = Math.max(emitLeft, seconds);
+    }
+
+    /** Flashes the node's light up to {@code level}, fading back to its own over {@code seconds} (an effect's {@code light} step). */
+    public void flare(int level, float seconds) {
+        flareLevel = Math.max(0, Math.min(15, level));
+        flareTime = Math.max(0.05F, seconds);
+        flareLeft = flareTime;
     }
 
     /** Adds {@code dt} seconds of emitting; returns how many particles are due now. */
@@ -512,7 +530,10 @@ public final class NodeInstance implements NodeView {
     }
 
     public int lightLevel() {
-        return lightLevel;
+        if (flareLeft <= 0.0F) {
+            return lightLevel;
+        }
+        return Math.max(lightLevel, Math.round(flareLevel * flareLeft / flareTime));
     }
 
     /** What the liquid in the node's tank is doing; null for a node without a tank. */
@@ -714,6 +735,12 @@ public final class NodeInstance implements NodeView {
     // ---------------------------------------------------------------------------------------------------------------
 
     void update(float dt) {
+        if (flareLeft > 0.0F) {
+            flareLeft = Math.max(0.0F, flareLeft - dt);
+        }
+        if (emitLeft > 0.0F) {
+            emitLeft = Math.max(0.0F, emitLeft - dt);
+        }
         if (placed != null) {
             hoverAmount = Easing.approach(hoverAmount, hovered ? 1.0F : 0.0F, HOVER_HALF_LIFE, dt);
             placed.update(dt, hoverAmount, matrix, pickMatrix);

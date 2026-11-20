@@ -41,6 +41,7 @@ scene for completion and checks in VS Code, IntelliJ and other editors.
 | `carry_planes` | `[]` | Levels carried objects rise to over parts of the scene, or areas closed to them. |
 | `pouring` | defaults | How pouring looks. |
 | `placing` | none | Items put down anywhere on surfaces, see [placing](#placing). |
+| `feedback` | defaults | The library's sounds at this station and effects played on events, see [feedback](#feedback). |
 
 ### camera
 
@@ -179,6 +180,7 @@ extras (tank, emitter, light). Children move, turn and scale with their parent -
 | `hidden` | `false` | Starts invisible; code shows it with `NodeView.setVisible(true)`. |
 | `extra` | `{}` | Free-form JSON for your own code: `NodeView.extra()`. |
 | `children` | `[]` | Nodes attached to this one. |
+| `feedback` | none | The library's sounds for this node (`sounds`, as in [feedback](#feedback)) and its `marks`: what touching it means. |
 
 Vanilla blocks drawn from planes (torches, flowers, rails) have a full 16-pixel model box: give them an explicit
 `collider`, or they catch clicks meant for their neighbours.
@@ -507,6 +509,87 @@ while the rest of the HUD is gone (`keep_vignette`). The HUD slides back while t
 | `slide` | `true` | The parts slide away and back; `false`: they are gone and back at once. |
 | `seconds` | `0.3` | How long the slide takes. |
 | `keep_vignette` | `true` | What covers the whole screen stays while the rest of the HUD is gone: the vignette, frost, the view through a carved pumpkin, the portal's swirl, the game's own (other mods' screen layers go with the HUD, as F1 hides them). `false`: they go with the HUD. |
+
+## feedback
+
+How the scene answers what the player does. Nothing changes by default; every field is optional.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `sounds` | `{}` | The library's own sounds at this station, by name: `pick_up`, `put_down`, `grab`, `set_down`, `toggle`, `button`, `detent`, `pour`, `landing`. Each is a sound id (`"mymod:station.clink"`), `false` for silence, or `{"id": ..., "volume": 0.5, "pitch": 1.2}`, where `volume` and `pitch` multiply what the library plays (a hard landing still sounds louder, a fuller vessel higher) and `id` may be left out to keep the sound. A missing name sounds as it is; `interface.sounds: false` still silences them all. A node's own `feedback.sounds` (`grab`, `set_down`, `toggle`, `button`, `detent`, `pour`) wins over the scene's. |
+| `reactions` | `[]` | Effects played when something happens, below. |
+| `impact_min_speed` | `12` | How fast (pixels a second) placed things must knock together for an `impact`. |
+
+```json
+"feedback": {
+  "sounds": {"put_down": "mymod:station.clink", "landing": false, "grab": {"pitch": 1.3}},
+  "reactions": [
+    {"on": "contact", "other": "grindstone", "min_speed": 20, "steps": [
+      {"type": "particles", "style": "diegesis:spark", "count": 6, "at": "point"},
+      {"type": "sound", "id": "minecraft:block.grindstone.use", "volume": 0.3, "pitch_by_speed": 0.2}]},
+    {"on": "impact", "min_speed": 30, "effect": "mymod:clatter", "shared": true}]
+}
+```
+
+### feedback.reactions
+
+A reaction plays an effect when an event happens in the scene, before the behaviour's `onEvent`. It is only the look: it
+never changes the station's state. It is seen by the local player, and with `shared` by everyone near the station.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `on` | required | The event, below. |
+| `node` | any | Only for this node: the one held, clicked, landed, or a control's node. |
+| `other` | any | Only when the other node is this one: what was touched, poured into, landed on. |
+| `mark` | any | Only when the other node carries this mark (`contact`, `exposed`, `unexposed`). |
+| `min_speed` | `0` | Only at this speed or faster, pixels a second (events with a speed). |
+| `effect` | none | An effect id: an effect file, one registered in code, or a particle style (a burst). |
+| `steps` | none | The effect written out here instead of `effect`: a list of steps, below. |
+| `cooldown` | `0.1` | Seconds before it plays again. |
+| `shared` | `false` | Everyone near the station sees it too, through the server (at most 10 a second). Needs `effect`: the others play it from their own files. |
+
+| `on` | When | `node` / `other` |
+|---|---|---|
+| `click` | A node without a role was clicked. | the node |
+| `grab`, `release` | A grabbable was picked up, let go. | it / the node under it |
+| `contact`, `contact_end` | A carried node started, stopped touching another. Speed: how fast it moved. | it / the touched node |
+| `pour`, `pour_end` | A held vessel started, stopped pouring. | it / the vessel poured into |
+| `control`, `button` | A control was moved, a button pressed. | the control's node |
+| `impact` | Placed things knocked together, or into a wall (`placing.physics`). Speed: how hard; point: where. | the moving one / the one hit (none for a wall) |
+| `landed` | A placed thing came to rest where it was put. Speed: how hard it landed. | it / what it landed on |
+| `fell_off` | A placed thing fell off its surfaces. | it |
+| `stream_landed` | A stream of liquid reached where it lands. Point: where. | the vessel it came from (none for code's streams) / the node it fills |
+| `submerge`, `emerge` | A carried node went under a liquid's surface, came out again. | it / the tank's node |
+| `item_contact`, `item_contact_end` | The stack in the hand started, stopped touching a trigger or marked node. Speed: how fast it moved. | none / the node |
+| `exposed`, `unexposed` | A carried node or the stack in the hand started touching a node with a mark, left the last one with that mark. | it (none for the stack) / the marked node |
+
+### Effect steps
+
+An effect is a list of steps, written in a reaction's `steps` or in an effect file
+(`assets/<namespace>/diegesis/effects/<path>.json`, `{"steps": [...]}`; its id plays it anywhere an effect id is taken). Each
+step has a `type` and `at`: `node` (default: the effect's node), `other` (the event's other node) or `point` (where the event
+happened; the node without one).
+
+| `type` | Fields | Does |
+|---|---|---|
+| `particles` | `style` (required), `count` (`8`), `color`, `where` (`place`, `in_liquid`, `on_liquid`, `liquid_edge`), `offset` (`[0,0,0]`), `velocity`, `spread` (`0.4`) | A burst of scene particles. The liquid kinds need a node with a tank. Without `velocity`, falling kinds burst up a little and light ones drift. |
+| `sound` | `id` (required), `volume` (`1`), `pitch` (`1`), `pitch_by_speed` (`0`) | A sound; `pitch_by_speed` raises it per 100 pixels a second of the event's speed. |
+| `light` | `level` (`15`), `seconds` (`0.4`) | The node's own `light` flashes up and fades back. A node without `light` has nothing to flash. |
+| `shake` | `pixels` (`0.3`), `seconds` (`0.3`) | The node shakes, calming down. |
+| `emit` | `seconds` (`1`) | The node's own `emitter` runs for a while, also when it is switched off. |
+| `ripple` | `strength` (`0.5`) | Ripples over the node's liquid, from the event's point when it has one. |
+
+### Marks
+
+A node's `feedback.marks` say what touching it means: `diegesis:fire`, `diegesis:hot`, `diegesis:wet`, `diegesis:sharp` or
+any id of your own. A tank's node holding liquid is `diegesis:wet` and its liquid's id (`minecraft:lava`) by itself. Marks are
+labels: nothing burns or gets wet unless the station's logic says so. A carried node or the stack in the hand touching a marked
+node gives `SceneEvent.Exposed`; the behaviour sends an action and the logic decides what it means:
+
+```json
+{"id": "burner_flame", "collider": {"from": [7, 9, 7], "to": [9, 12, 9]}, "trigger": true,
+ "feedback": {"marks": ["diegesis:fire"]}}
+```
 
 ## Meshes
 
