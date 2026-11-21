@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "package": "com.pockyl.diegesis.fabric.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "plugin": "com.pockyl.diegesis.fabric.mixin.DiegesisFabricMixinPlugin",
+  "client": [
+    "FocusScreenControlifyMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -46,6 +46,16 @@ repositories {
         }
         filter { includeGroup('dev.ryanhcode.sable-companion') }
     }
+    // Modrinth Maven for soft dependencies (e.g. Controlify controller support)
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter { includeGroup('maven.modrinth') }
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

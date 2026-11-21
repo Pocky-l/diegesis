@@ -17,7 +17,10 @@
     "main": ["com.pockyl.diegesis.fabric.DiegesisFabric"],
     "client": ["com.pockyl.diegesis.fabric.DiegesisFabricClient"]
   },
-  "mixins": ["diegesis.mixins.json"],
+  "mixins": [
+    "diegesis.mixins.json",
+    "diegesis.fabric.mixins.json"
+  ],
   "accessWidener": "diegesis.accesswidener",
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
