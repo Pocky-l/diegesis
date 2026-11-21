@@ -16,10 +16,15 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Vector3fc;
 
+import java.util.List;
+
 import com.pockyl.diegesis.api.scene.CameraGlance;
 import com.pockyl.diegesis.api.scene.CameraRig;
 import com.pockyl.diegesis.api.scene.CameraShot;
 import com.pockyl.diegesis.api.scene.ClearViewOptions;
+import com.pockyl.diegesis.api.scene.PlaceSurface;
+import com.pockyl.diegesis.api.scene.PlacingOptions;
+import com.pockyl.diegesis.api.scene.SceneDefinition;
 import com.pockyl.diegesis.impl.client.ClientStation;
 
 /**
@@ -41,6 +46,8 @@ public final class ClearBlocks {
     private static final float RECHECK = 0.5F;
     /** Where the work surface is checked across the block, pixels from its side. */
     private static final float[] GRID = {2.0F, 5.0F, 8.0F, 11.0F, 14.0F};
+    /** A block's side, pixels: a placing surface is checked at the same shares of its own width and depth. */
+    private static final float BLOCK = 16.0F;
     /**
      * The share of the lines to the work surface a block must stand in before it is left out. Owner, 2026-11-17: a block
      * disappears only when it is in the way of the view; a neighbour that cuts the lines to the far corner of the surface
@@ -130,24 +137,31 @@ public final class ClearBlocks {
         if (station == null || station.scene() == null) {
             return;
         }
-        if (!station.scene().definition().clearView().blocks()) {
+        SceneDefinition definition = station.scene().definition();
+        if (!definition.clearView().blocks()) {
             return;
         }
-        CameraRig rig = station.scene().definition().camera();
+        List<PlaceSurface> surfaces = definition.clearView().surface() == ClearViewOptions.Surface.PLACING
+                ? definition.placing().map(PlacingOptions::surfaces).orElse(List.of())
+                : List.of();
+        CameraRig rig = definition.camera();
         CollisionContext context = CollisionContext.empty();
-        shot(level, station, rig.position(), rig.target(), context, found);
+        shot(level, station, rig.position(), rig.target(), surfaces, context, found);
         for (CameraShot seat : rig.seats().values()) {
-            shot(level, station, seat.position(), seat.target(), context, found);
+            shot(level, station, seat.position(), seat.target(), surfaces, context, found);
         }
-        rig.inventory().ifPresent(inventory -> shot(level, station, inventory.position(), inventory.target(), context, found));
+        rig.inventory().ifPresent(inventory -> shot(level, station, inventory.position(), inventory.target(), surfaces, context, found));
         for (CameraGlance glance : rig.glances()) {
-            shot(level, station, glance.position(), glance.target(), context, found);
+            shot(level, station, glance.position(), glance.target(), surfaces, context, found);
         }
     }
 
-    /** What is in the way of one shot: blocks round the camera, and between it and the work surface round the target. */
-    private static void shot(ClientLevel level, ClientStation station, Vector3fc position, Vector3fc target, CollisionContext context,
-            LongOpenHashSet found) {
+    /**
+     * What is in the way of one shot: blocks round the camera, and between it and the work surface: the block's middle round the
+     * target, or each of {@code surfaces} on its own when there are any.
+     */
+    private static void shot(ClientLevel level, ClientStation station, Vector3fc position, Vector3fc target, List<PlaceSurface> surfaces,
+            CollisionContext context, LongOpenHashSet found) {
         // In the level's coordinates: on a moving structure, the blocks cleared away are the structure's own.
         Vec3 camera = station.toLevel(position.x(), position.y(), position.z());
         // The station's own blocks are never in its way: its block, and every other block of a multiblock its scene stands in for.
@@ -167,14 +181,47 @@ public final class ClearBlocks {
         }
         // What stands before the point looked at is in the way; before the rest of the surface, only what covers a good part of it.
         sight(level, own, camera, station.toLevel(target.x(), target.y(), target.z()), context, found);
+        LongOpenHashSet crossing = new LongOpenHashSet();
+        if (surfaces.isEmpty()) {
+            surface(level, station, own, camera, 0.0F, 0.0F, BLOCK, BLOCK, target.y(), context, found, crossing);
+        } else {
+            for (PlaceSurface surface : surfaces) {
+                surface(level, station, own, camera, Math.min(surface.from().x(), surface.to().x()),
+                        Math.min(surface.from().y(), surface.to().y()), Math.abs(surface.to().x() - surface.from().x()),
+                        Math.abs(surface.to().y() - surface.from().y()), surface.height(), context, found, crossing);
+            }
+        }
+        // What stands on a block left out and still crosses the view goes with it (a pot on a stove in the way): left, it would hang
+        // in the air before the camera. Up a stack, as far as it crosses the view.
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (LongIterator it = crossing.iterator(); it.hasNext(); ) {
+                long packed = it.nextLong();
+                if (!found.contains(packed) && found.contains(BlockPos.offset(packed, 0, -1, 0))) {
+                    found.add(packed);
+                    grew = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * The blocks before a good part of one work surface, {@code width} by {@code depth} pixels from its corner at {@code x z}, at
+     * {@code height} and up to the tops of things lying on it, go into {@code found}; every block any of its lines crosses into
+     * {@code crossing}.
+     */
+    private static void surface(ClientLevel level, ClientStation station, LongOpenHashSet own, Vec3 camera, float x, float z, float width,
+            float depth, float height, CollisionContext context, LongOpenHashSet found, LongOpenHashSet crossing) {
         Long2IntOpenHashMap cut = new Long2IntOpenHashMap();
         LongOpenHashSet line = new LongOpenHashSet();
         int lines = 0;
         for (float rise : new float[] {0.0F, RISE}) {
-            for (float x : GRID) {
-                for (float z : GRID) {
+            for (float across : GRID) {
+                for (float along : GRID) {
                     line.clear();
-                    sight(level, own, camera, station.toLevel(x, target.y() + rise, z), context, line);
+                    sight(level, own, camera, station.toLevel(x + across / BLOCK * width, height + rise, z + along / BLOCK * depth),
+                            context, line);
                     for (LongIterator it = line.iterator(); it.hasNext(); ) {
                         cut.addTo(it.nextLong(), 1);
                     }
@@ -188,19 +235,7 @@ public final class ClearBlocks {
                 found.add(entry.getLongKey());
             }
         });
-        // What stands on a block left out and still crosses the view goes with it (a pot on a stove in the way): left, it would hang
-        // in the air before the camera. Up a stack, as far as it crosses the view.
-        boolean grew = true;
-        while (grew) {
-            grew = false;
-            for (LongIterator it = cut.keySet().iterator(); it.hasNext(); ) {
-                long packed = it.nextLong();
-                if (!found.contains(packed) && found.contains(BlockPos.offset(packed, 0, -1, 0))) {
-                    found.add(packed);
-                    grew = true;
-                }
-            }
-        }
+        crossing.addAll(cut.keySet());
     }
 
     /** Every block whose visual shape the line from {@code from} to {@code to} passes through. */

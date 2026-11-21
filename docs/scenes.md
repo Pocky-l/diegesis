@@ -494,6 +494,7 @@ framed. Nobody else sees a change, and the scene's own particles stay. On by def
 | `radius` | `16` | How wide the clear cone is at the station, pixels. |
 | `soft` | `12` | How far beyond `radius` things come back to full strength, pixels. |
 | `blocks` | `true` | Blocks in the camera's way are not drawn: those within 0.3 blocks of the camera in any shot of the scene (the rig's, seats', the inventory's, glances'), and those that stand before the work surface: before the camera's target, or before at least a third of the surface. The work surface is the block's top at the camera target's height and 4 pixels over it, 2 pixels in from the sides: put the target on the surface the player works on. A neighbour whose corner only grazes the view past the station's side stays. Blocks count by their visual shape, as for the vanilla third-person camera (glass never does); the station's own block always stays. Works with Embeddium and Sodium. |
+| `surface` | `"block"` | The work surface `blocks` keeps in view: `block`, the block's middle at the camera target's height as above; `placing`, the scene's `placing` surfaces where they are written, each on its own (a block counts when it stands before a third of one of them, checked across its width and depth at its height and 4 pixels over it), or the block's middle when the scene has none. For a station worked on outside its block, such as a drawer pulled out before it: counted over the block, the block on top of it is seen past the drawer's own front and goes from the picture though it hides nothing. |
 
 ## hud
 

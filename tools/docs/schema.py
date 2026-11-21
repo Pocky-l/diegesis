@@ -164,6 +164,10 @@ obj("clear_view", "ClearViewOptions", "Keeps the view of the station free while 
     "blocks": field(BOOL, "Blocks the camera stands in, or that stand between it and the station's work surface (a wall cabinet"
                           " over the station, a low ceiling), are not drawn while the player works here. The shot stays as"
                           " written.", True),
+    "surface": field({"enum": ["block", "placing"]}, "The work surface blocks must leave in view: the block's middle at the"
+                                                     " height of the camera's target, or the scene's placing surfaces where"
+                                                     " they are written, each on its own (a drawer pulled out before the"
+                                                     " block).", "block"),
 })
 
 obj("hud", "HudOptions", "How the game's HUD leaves and comes back; every field is optional.", {
