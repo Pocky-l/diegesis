@@ -220,7 +220,7 @@ obj("placing", "PlacingOptions", "Free placing: items of a slot group with place
 }, required=["group", "surfaces"])
 
 obj("placing_physics", "PlacingPhysics", "Solid placed items: they fall, tip over and shove each other.", {
-    "gravity": field(num(1, 4000), "How fast things fall, pixels per second squared.", 200),
+    "gravity": field(num(1, 4000), "How fast things fall, pixels per second squared; 157 is the real one at 16 pixels a metre.", 157),
     "friction": field(num(0, 1), "How hard a thing grips what it stands on or touches, as a share of its weight.", 0.6),
     "upright_flat": field(BOOL, "Flat items (icons) standing straight stay standing and rock back when bumped; at a lean they are plates; false: cards.", True),
     "rock": field(num(0, 45), "Degrees a flat item rocks at most when bumped; 0 keeps it rigidly upright.", 25),
@@ -244,7 +244,10 @@ obj("placing_physics", "PlacingPhysics", "Solid placed items: they fall, tip ove
     "landing_sound": field(BOOL, "A thing put down sounds as it touches what it lands on, as what it is; false: at the click.", True),
     "flush": field(num(0, 1), "Pixels: put down this close to a neighbour or a wall, a thing lands touching it; 0: off.", 0.3),
     "flat_poses": field({"enum": ["two", "free"]}, "How a flat thing may be turned: free (any angle, resting as it falls) or two (standing or lying only).", "free"),
-    "pile_rides": field(BOOL, "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone.", True),
+    "pile_rides": field(BOOL, "What stands on an item goes along with it when the hand drags, turns or pushes it; false: by friction alone.", True),
+    "push_out": field(num(0, 200), "Pixels per second a thing put or crowded inside another glides out of it at most, without speed; 0: at once.", 12),
+    "wake": field({"enum": ["near", "all"]}, "What a change wakes: near (what it touches, and on from there what moves) or all (every item).", "near"),
+    "fall_ease": field(num(0, 0.5), "Seconds a thing moved by the physics is drawn behind it (half the way); small, so falls look real.", 0.008),
 })
 
 obj("place_surface", "PlaceSurface", "A level surface items can stand on.", {

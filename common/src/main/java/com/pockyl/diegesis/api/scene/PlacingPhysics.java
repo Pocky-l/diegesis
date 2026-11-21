@@ -24,7 +24,8 @@ import com.pockyl.diegesis.impl.codec.StrictCodecs;
  * <p>The player who moves things works it out on their side and sends where everything came to rest; everyone else sees the
  * items glide there.
  *
- * @param gravity     how fast things fall, pixels per second squared
+ * @param gravity     how fast things fall, pixels per second squared; 157 is the real one (9.81 m/s^2) at 16 pixels a metre, a
+ *                    block a metre; for a scene drawn at another scale, 9.81 times its pixels per metre
  * @param friction    0..1, how hard a thing grips what it stands on or touches, as a share of its weight: pushed less than that
  *                    it stays put, pushed harder it slides and slows down by a little less
  * @param uprightFlat flat items (an icon: bread, a carrot) standing straight (within 10 degrees) keep standing and rock back
@@ -60,16 +61,34 @@ import com.pockyl.diegesis.impl.codec.StrictCodecs;
  *                    (never more than this along each way, never into anything); 0: where it was let go
  * @param landingSound a thing put down sounds when it touches what it lands on, as what it is (a block of its material, a
  *                    flat thing a light tick, a heavy thing lower); false: at the click, the same for everything
- * @param pileRides   a pile is one thing: what stands on an item goes along with it, standing as it stood, when that item is
- *                    dragged, turned or pushed, and falls only when it tips over or a dragged thing hits the pile itself;
- *                    false: what stands on it holds on by friction alone
+ * @param pileRides   a pile is one thing: what stands on an item goes along with it, standing as it stood, when the hand drags,
+ *                    turns or pushes that item, and falls only when it tips over or a dragged thing hits the pile itself; moved
+ *                    by the physics alone (settling, knocked), what stands on it comes to rest by the physics too; false: what
+ *                    stands on it holds on by friction alone
+ * @param pushOut     pixels per second a thing put down, carried or crowded inside another glides out of it at most, without
+ *                    taking speed from that; 0: out at once
+ * @param wake        what a change wakes: {@code near}, what it touches, and what touched something that then moves or goes
+ *                    (a heap at rest elsewhere stays exactly as it is); {@code all}, every item of the station
+ * @param fallEase    seconds a thing moved by the physics is drawn behind where the physics has it (half the way): small, so
+ *                    a fall looks as fast as it is and stops dead; things set there glide as before
  */
 public record PlacingPhysics(float gravity, float friction, boolean uprightFlat, float rock, float flatDepth, float hover, float carryLag,
         float reach, float climb, boolean swing, float swingAngle, float swingCalm, float hopTime, float toss, boolean handPushes,
         float handForce, float turnPower, FallOff fallOff, float maxSpeed, float bounce, boolean pileRides, FlatPoses flatPoses,
-        float flush, boolean landingSound) {
-    public static final PlacingPhysics DEFAULT = new PlacingPhysics(200.0F, 0.6F, true, 25.0F, 0.0F, 1.5F, 0.035F, 4.0F, 48.0F, true,
-            12.0F, 0.15F, 0.1F, 0.0F, false, 40000.0F, 1.5F, FallOff.ANY, 80.0F, 0.0F, true, FlatPoses.FREE, 0.3F, true);
+        float flush, boolean landingSound, float pushOut, Wake wake, float fallEase) {
+    public static final PlacingPhysics DEFAULT = new PlacingPhysics(157.0F, 0.6F, true, 25.0F, 0.0F, 1.5F, 0.035F, 4.0F, 48.0F, true,
+            12.0F, 0.15F, 0.1F, 0.0F, false, 40000.0F, 1.5F, FallOff.ANY, 80.0F, 0.0F, true, FlatPoses.FREE, 0.3F, true, 12.0F, Wake.NEAR,
+            0.008F);
+
+    /** The physics as it was before {@code push_out}, {@code wake} and {@code fall_ease}, with their defaults. */
+    public PlacingPhysics(float gravity, float friction, boolean uprightFlat, float rock, float flatDepth, float hover, float carryLag,
+            float reach, float climb, boolean swing, float swingAngle, float swingCalm, float hopTime, float toss, boolean handPushes,
+            float handForce, float turnPower, FallOff fallOff, float maxSpeed, float bounce, boolean pileRides, FlatPoses flatPoses,
+            float flush, boolean landingSound) {
+        this(gravity, friction, uprightFlat, rock, flatDepth, hover, carryLag, reach, climb, swing, swingAngle, swingCalm, hopTime, toss,
+                handPushes, handForce, turnPower, fallOff, maxSpeed, bounce, pileRides, flatPoses, flush, landingSound, DEFAULT.pushOut(),
+                DEFAULT.wake(), DEFAULT.fallEase());
+    }
 
     /** The physics as it was before {@code pile_rides}, with piles riding. */
     public PlacingPhysics(float gravity, float friction, boolean uprightFlat, float rock, float flatDepth, float hover, float carryLag,
@@ -78,6 +97,21 @@ public record PlacingPhysics(float gravity, float friction, boolean uprightFlat,
         this(gravity, friction, uprightFlat, rock, flatDepth, hover, carryLag, reach, climb, swing, swingAngle, swingCalm, hopTime, toss,
                 handPushes, handForce, turnPower, fallOff, maxSpeed, bounce, DEFAULT.pileRides(), DEFAULT.flatPoses(),
                 DEFAULT.flush(), DEFAULT.landingSound());
+    }
+
+    /** What a change at the station wakes. */
+    public enum Wake implements StringRepresentable {
+        /** What it touches, and on from there what moves. */
+        NEAR,
+        /** Every item. */
+        ALL;
+
+        public static final Codec<Wake> CODEC = StringRepresentable.fromEnum(Wake::values);
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
     }
 
     /** How a flat thing may stand. */
@@ -128,6 +162,15 @@ public record PlacingPhysics(float gravity, float friction, boolean uprightFlat,
         ).apply(instance, Hand::new));
     }
 
+    /** How things come to rest, read as one part: the top level is full (16 fields). */
+    private record Rest(float pushOut, Wake wake, float fallEase) {
+        static final MapCodec<Rest> MAP_CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+                StrictCodecs.optional(Codec.floatRange(0.0F, 200.0F), "push_out", DEFAULT.pushOut()).forGetter(Rest::pushOut),
+                StrictCodecs.optional(Wake.CODEC, "wake", DEFAULT.wake()).forGetter(Rest::wake),
+                StrictCodecs.optional(Codec.floatRange(0.0F, 0.5F), "fall_ease", DEFAULT.fallEase()).forGetter(Rest::fallEase)
+        ).apply(instance, Rest::new));
+    }
+
     public static final Codec<PlacingPhysics> CODEC = StrictCodecs.record(instance -> instance.group(
             StrictCodecs.optional(Codec.floatRange(1.0F, 4000.0F), "gravity", DEFAULT.gravity()).forGetter(PlacingPhysics::gravity),
             StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "friction", DEFAULT.friction()).forGetter(PlacingPhysics::friction),
@@ -143,10 +186,12 @@ public record PlacingPhysics(float gravity, float friction, boolean uprightFlat,
             StrictCodecs.optional(Codec.BOOL, "pile_rides", DEFAULT.pileRides()).forGetter(PlacingPhysics::pileRides),
             StrictCodecs.optional(FlatPoses.CODEC, "flat_poses", DEFAULT.flatPoses()).forGetter(PlacingPhysics::flatPoses),
             StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "flush", DEFAULT.flush()).forGetter(PlacingPhysics::flush),
-            StrictCodecs.optional(Codec.BOOL, "landing_sound", DEFAULT.landingSound()).forGetter(PlacingPhysics::landingSound)
+            StrictCodecs.optional(Codec.BOOL, "landing_sound", DEFAULT.landingSound()).forGetter(PlacingPhysics::landingSound),
+            Rest.MAP_CODEC.forGetter(physics -> new Rest(physics.pushOut, physics.wake, physics.fallEase))
     ).apply(instance, (gravity, friction, uprightFlat, rock, flatDepth, hand, turnPower, fallOff, maxSpeed, bounce, pileRides, flatPoses,
-            flush, landingSound) ->
+            flush, landingSound, rest) ->
             new PlacingPhysics(gravity, friction, uprightFlat, rock, flatDepth, hand.hover(), hand.carryLag(), hand.reach(), hand.climb(),
                     hand.swing(), hand.swingAngle(), hand.swingCalm(), hand.hopTime(), hand.toss(), hand.handPushes(), hand.handForce(),
-                    turnPower, fallOff, maxSpeed, bounce, pileRides, flatPoses, flush, landingSound)));
+                    turnPower, fallOff, maxSpeed, bounce, pileRides, flatPoses, flush, landingSound, rest.pushOut(), rest.wake(),
+                    rest.fallEase())));
 }

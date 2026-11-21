@@ -426,6 +426,11 @@ public final class SceneInstance {
         }
         if (physics != null) {
             physics.update(dt);
+            for (int i = 0; i < placed.size(); i++) {
+                PlacedItem item = placed.get(i).placed();
+                // What the physics moves is drawn where it has it now, not a frame and an ease behind.
+                item.simulate(physics.moving(i) && !physics.holds(i), state.getPose(item.slot()));
+            }
         }
         for (NodeInstance root : roots) {
             root.update(dt);

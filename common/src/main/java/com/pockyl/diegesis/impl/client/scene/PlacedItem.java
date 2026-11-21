@@ -51,6 +51,8 @@ public final class PlacedItem {
     /** Gone from sight until then (it fell out and is being taken); shown again where it stood if it is still there. */
     private long hiddenUntil;
     private boolean hidden;
+    /** Moved by the physics this frame: drawn right where it is, so a fall looks as fast as it is, not eased. */
+    private boolean simulated;
 
     /** Where an item that came without a place stands. */
     interface Spots {
@@ -165,9 +167,21 @@ public final class PlacedItem {
             position.set(pose.x(), pose.y() + pose.lift(), pose.z());
             rotation.set(pose.rotation());
             size = pose.scale();
-            dropLeft = DROP_TIME;
+            // With physics it really falls from where the hand let go of it; the drop is for things that are only set down.
+            dropLeft = options.physics().isPresent() ? 0.0F : DROP_TIME;
         }
         return true;
+    }
+
+    /**
+     * Whether the physics moves it this frame, and where it has it now: drawn there within {@code fall_ease}, so it falls and
+     * stops as fast as the physics has it; false: it glides to its pose as anything set there does.
+     */
+    void simulate(boolean moving, ItemPose now) {
+        simulated = moving && now != null;
+        if (simulated) {
+            pose = now;
+        }
     }
 
     /** Writes the node's matrices for this frame. */
@@ -188,11 +202,18 @@ public final class PlacedItem {
             rotation.set(pose.rotation());
             size = pose.scale();
         }
-        position.x = Easing.approach(position.x, pose.x(), EASE, dt);
-        position.y = Easing.approach(position.y, pose.y() + pose.lift(), EASE * 2.0F, dt);
-        position.z = Easing.approach(position.z, pose.z(), EASE, dt);
-        rotation.slerp(pose.rotation(), 1.0F - (float) Math.pow(0.5, dt / EASE)).normalize();
-        size = Easing.approach(size, pose.scale(), EASE, dt);
+        float ease = simulated ? options.physics().map(physics -> physics.fallEase()).orElse(EASE) : EASE;
+        if (ease <= 0.0F) {
+            position.set(pose.x(), pose.y() + pose.lift(), pose.z());
+            rotation.set(pose.rotation());
+            size = pose.scale();
+        } else {
+            position.x = Easing.approach(position.x, pose.x(), ease, dt);
+            position.y = Easing.approach(position.y, pose.y() + pose.lift(), simulated ? ease : EASE * 2.0F, dt);
+            position.z = Easing.approach(position.z, pose.z(), ease, dt);
+            rotation.slerp(pose.rotation(), 1.0F - (float) Math.pow(0.5, dt / ease)).normalize();
+            size = Easing.approach(size, pose.scale(), ease, dt);
+        }
         dropLeft = Math.max(0.0F, dropLeft - dt);
         float fall = dropLeft / DROP_TIME;
         float scale = shape.modelScale(size * options.itemSize());

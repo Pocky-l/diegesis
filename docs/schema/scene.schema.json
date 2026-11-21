@@ -741,8 +741,8 @@
           "type": "number",
           "minimum": 1,
           "maximum": 4000,
-          "description": "How fast things fall, pixels per second squared.",
-          "default": 200
+          "description": "How fast things fall, pixels per second squared; 157 is the real one at 16 pixels a metre.",
+          "default": 157
         },
         "friction": {
           "type": "number",
@@ -894,8 +894,30 @@
         },
         "pile_rides": {
           "type": "boolean",
-          "description": "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone.",
+          "description": "What stands on an item goes along with it when the hand drags, turns or pushes it; false: by friction alone.",
           "default": true
+        },
+        "push_out": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200,
+          "description": "Pixels per second a thing put or crowded inside another glides out of it at most, without speed; 0: at once.",
+          "default": 12
+        },
+        "wake": {
+          "enum": [
+            "near",
+            "all"
+          ],
+          "description": "What a change wakes: near (what it touches, and on from there what moves) or all (every item).",
+          "default": "near"
+        },
+        "fall_ease": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "description": "Seconds a thing moved by the physics is drawn behind it (half the way); small, so falls look real.",
+          "default": 0.008
         }
       },
       "patternProperties": {
@@ -3679,14 +3701,14 @@
               "type": "number",
               "minimum": 1,
               "maximum": 4000,
-              "description": "How fast things fall, pixels per second squared.",
-              "default": 200
+              "description": "How fast things fall, pixels per second squared; 157 is the real one at 16 pixels a metre.",
+              "default": 157
             },
             {
               "type": "null"
             }
           ],
-          "description": "How fast things fall, pixels per second squared."
+          "description": "How fast things fall, pixels per second squared; 157 is the real one at 16 pixels a metre."
         },
         "friction": {
           "anyOf": [
@@ -4016,14 +4038,60 @@
           "anyOf": [
             {
               "type": "boolean",
-              "description": "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone.",
+              "description": "What stands on an item goes along with it when the hand drags, turns or pushes it; false: by friction alone.",
               "default": true
             },
             {
               "type": "null"
             }
           ],
-          "description": "What stands on an item goes along with it when it is dragged, turned or pushed; false: by friction alone."
+          "description": "What stands on an item goes along with it when the hand drags, turns or pushes it; false: by friction alone."
+        },
+        "push_out": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 200,
+              "description": "Pixels per second a thing put or crowded inside another glides out of it at most, without speed; 0: at once.",
+              "default": 12
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Pixels per second a thing put or crowded inside another glides out of it at most, without speed; 0: at once."
+        },
+        "wake": {
+          "anyOf": [
+            {
+              "enum": [
+                "near",
+                "all"
+              ],
+              "description": "What a change wakes: near (what it touches, and on from there what moves) or all (every item).",
+              "default": "near"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What a change wakes: near (what it touches, and on from there what moves) or all (every item)."
+        },
+        "fall_ease": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5,
+              "description": "Seconds a thing moved by the physics is drawn behind it (half the way); small, so falls look real.",
+              "default": 0.008
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Seconds a thing moved by the physics is drawn behind it (half the way); small, so falls look real."
         }
       },
       "patternProperties": {

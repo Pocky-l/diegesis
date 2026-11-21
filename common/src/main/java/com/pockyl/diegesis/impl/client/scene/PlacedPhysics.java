@@ -31,8 +31,8 @@ import java.util.List;
  * touches them or their support.
  *
  * <p>Only the player at the station works it out. A change it did not make itself (an item put down, taken away, turned)
- * wakes the items; when all have come to rest, the poses that changed go to the server, so everyone else sees them glide
- * there. While it runs the poses are written into the client's state only. The scene is reached through a {@link Host}, so
+ * wakes what it touches ({@code wake}); as each thing comes to rest, its pose goes to the server, so everyone else sees it
+ * glide there. While it runs the poses are written into the client's state only. The scene is reached through a {@link Host}, so
  * the core also runs without a client (the game tests).
  */
 public final class PlacedPhysics {
@@ -46,8 +46,10 @@ public final class PlacedPhysics {
     private static final int SUBSTEPS = 4;
     /** Pixels a corner may stand off a box's side and still touch it. */
     private static final float CONTACT_SLACK = 0.02F;
-    /** Deeper than this (pixels) into a body at rest, a push wakes it. */
+    /** Deeper than this (pixels) into a body at rest, a push of what the hand moves wakes it. */
     private static final float WAKE_DEPTH = 0.02F;
+    /** Deeper than this (pixels in a short step: coming at 24 pixels a second), anything else knocks a body at rest awake. */
+    private static final float KNOCK_DEPTH = 0.05F;
     /** How much of {@code friction} (which holds a thing still) is left once it slides: sliding things grip less. */
     private static final float KINETIC = 0.8F;
     /** Coming together slower than this (pixels a second), things never bounce: whatever rests stays at rest. */
@@ -64,6 +66,19 @@ public final class PlacedPhysics {
     /** A box moving less than this (pixels a step) for {@link #SLEEP_TIME} seconds comes to rest. */
     private static final float SLEEP_MOTION = 0.004F;
     private static final float SLEEP_TIME = 0.2F;
+    /** A thing that has not got further than this (pixels, and turned less than {@link #WINDOW_TURN}) for {@link #WINDOW_TIME} rests. */
+    private static final float WINDOW_MOVE = 0.01F;
+    private static final float WINDOW_TURN = (float) Math.cos(Math.toRadians(0.3) / 2.0);
+    private static final float WINDOW_TIME = 0.3F;
+    /** Seconds a thing wedged inside another (a crowd that cannot all fit) goes on before it rests all the same. */
+    private static final float WEDGED_TIME = 1.0F;
+    /** Turned more than this (as a quaternion's dot), a thing touched by one at rest wakes that one (1 degree). */
+    private static final float TOUCH_TURNED = (float) Math.cos(Math.toRadians(1.0) / 2.0);
+    /** Come to rest within this (pixels, and a degree) of where it last slept, a thing is set back there: a wake moves nothing. */
+    private static final float SLEPT_MOVE = 0.05F;
+    private static final float SLEPT_TURN = (float) Math.cos(Math.toRadians(1.0) / 2.0);
+    /** Things a thing notes it touches, at most. */
+    private static final int TOUCHES = 6;
     /** Nothing runs longer than this after a change; whatever still trembles is let rest. */
     private static final float GIVE_UP = 5.0F;
     /** Fastest an item let go of by the hand slides on (pixels a second) and spins on (radians a second). */
@@ -99,6 +114,12 @@ public final class PlacedPhysics {
      * them as any thing does, and what is crowded out over an open edge falls out.
      */
     private static final float FRESH_MOST = 0.3F;
+    /** Pixels of an overlap there before that are undone as any push is: what one pass over the contacts leaves of a step. */
+    private static final float QUIET_FROM = 0.01F;
+    /** Times a short step goes over its contacts: twice, a heap's pushes reach from the floor to its top. */
+    private static final int PASSES = 2;
+    /** The share of a push that a thing standing on the floor takes from what stands on it ({@link #grounding}). */
+    private static final float GROUNDED_SHARE = 0.2F;
     /** Deeper than this (pixels) into another box, a box just put down is still being moved out of it. */
     private static final float OVERLAP = 0.05F;
     /**
@@ -112,6 +133,14 @@ public final class PlacedPhysics {
     private static final long ECHO_MILLIS = 4000L;
     /** How long a thing that fell out stays out of sight while the server takes it. */
     private static final long TAKE_MILLIS = 1500L;
+    /** Pixels apart two boxes still count as touching: the patch they meet at is the same step after step. */
+    private static final float CONTACT_MARGIN = 0.05F;
+    private final PlacedContacts touch = new PlacedContacts();
+    private final PlacedContacts.Manifold manifold = new PlacedContacts.Manifold();
+    /** Per pair of slots (lower first), the way they touched along last, plus one; 0: they did not touch. */
+    private final byte[] pairAxis;
+    /** The same for each slot and the stack in the hand. */
+    private final byte[] handAxis;
     /** The contacts of the short step being worked out: reused, {@link #used} of them in use. */
     private final List<Contact> contacts = new ArrayList<>();
     private int used;
@@ -294,6 +323,8 @@ public final class PlacedPhysics {
         this.dirty = new boolean[slots];
         this.forced = new boolean[slots];
         this.tossed = new Vector3f[slots];
+        this.pairAxis = new byte[slots * slots];
+        this.handAxis = new byte[slots];
         for (int i = 0; i < slots; i++) {
             echoes.add(new ArrayList<>());
             stale.add(new ArrayList<>());
@@ -392,6 +423,49 @@ public final class PlacedPhysics {
         return least;
     }
 
+    /** How many items are moving by the physics now (the held one not counted). */
+    public int awake() {
+        int count = 0;
+        for (int i = 0; i < bodies.length; i++) {
+            if (bodies[i] != null && bodies[i].awake && i != held) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** How far (pixels) the corner furthest out of its room is past a walled side, the floor or the ceiling; 0 inside. */
+    public float outside() {
+        float worst = 0.0F;
+        for (Body body : bodies) {
+            if (body == null) {
+                continue;
+            }
+            PlaceSurface room = body.room;
+            float lowX = Math.min(room.from().x(), room.to().x());
+            float highX = Math.max(room.from().x(), room.to().x());
+            float lowZ = Math.min(room.from().y(), room.to().y());
+            float highZ = Math.max(room.from().y(), room.to().y());
+            for (Vector3f point : body.points) {
+                if (!room.open().contains(PlaceSurface.Side.RIGHT)) {
+                    worst = Math.max(worst, lowX - point.x);
+                }
+                if (!room.open().contains(PlaceSurface.Side.LEFT)) {
+                    worst = Math.max(worst, point.x - highX);
+                }
+                if (!room.open().contains(PlaceSurface.Side.FRONT)) {
+                    worst = Math.max(worst, lowZ - point.z);
+                }
+                if (!room.open().contains(PlaceSurface.Side.BACK)) {
+                    worst = Math.max(worst, point.z - highZ);
+                }
+                worst = Math.max(worst, room.height() - point.y);
+                worst = Math.max(worst, point.y - room.height() - room.clearance());
+            }
+        }
+        return worst;
+    }
+
     /** Whether the item of slot {@code index} is still moving by the physics. */
     public boolean moving(int index) {
         return index >= 0 && index < bodies.length && bodies[index] != null && bodies[index].awake;
@@ -428,7 +502,9 @@ public final class PlacedPhysics {
                 forced[index] = true;
                 dirty[index] = true;
             }
-            wakeAll();
+            if (wakesAll()) {
+                wakeAll();
+            }
         }
     }
 
@@ -880,6 +956,10 @@ public final class PlacedPhysics {
             if (lowered) {
                 bodies[i].spin.zero();
             }
+            if (!bodies[i].perched && !wakesAll()) {
+                // New here, or moved here by the server: it comes to rest by itself and wakes what it meets.
+                bodies[i].wake();
+            }
             known[i] = pose;
             // From the state: the server's word, or what this client asked of it (put down, turned), which the server takes.
             committed[i] = pose;
@@ -903,7 +983,7 @@ public final class PlacedPhysics {
                 changed = true;
             }
         }
-        if (changed && local) {
+        if (changed && local && wakesAll()) {
             wakeAll();
         }
         return changed;
@@ -943,7 +1023,9 @@ public final class PlacedPhysics {
             host.fellOff(index);
         }
         host.perform(new StationAction.Click(new StationAction.Target.Station(host.slot(index)), 0, StationAction.ClickKind.SPILL));
-        wakeAll();
+        if (wakesAll()) {
+            wakeAll();
+        }
     }
 
     /**
@@ -966,6 +1048,14 @@ public final class PlacedPhysics {
             }
         }
         return null;
+    }
+
+    /**
+     * Whether a change wakes every item ({@code wake: all}); otherwise only what it touches wakes: a thing put down, taken or
+     * moved wakes what it meets, and what touched something that moves or goes wakes then (see {@link #wakeTouched}).
+     */
+    private boolean wakesAll() {
+        return physics.wake() == PlacingPhysics.Wake.ALL;
     }
 
     /** Wakes every item but those put on top of another: they stay as put until something touches them or their support. */
@@ -1046,6 +1136,14 @@ public final class PlacedPhysics {
      * how far they really went, then stops them along each contact (nothing bounces off) and lets friction slow their sliding.
      */
     private void step() {
+        wakeTouched();
+        for (int i = 0; i < bodies.length; i++) {
+            Body body = bodies[i];
+            if (body != null) {
+                // Moved by the hand: the held thing, and (as the steps find them) what it pushes.
+                body.driven = i == held;
+            }
+        }
         for (Body body : bodies) {
             if (body == null || !body.perched) {
                 continue;
@@ -1095,10 +1193,15 @@ public final class PlacedPhysics {
             used = 0;
             for (int i = 0; i < bodies.length; i++) {
                 Body body = bodies[i];
-                if (body != null && body.awake) {
-                    roomContacts(body, i);
+                if (body != null) {
+                    // What rests stands firm; the awake ones learn it again from the floor up.
+                    body.grounded = !body.awake;
+                    if (body.awake) {
+                        roomContacts(body, i);
+                    }
                 }
             }
+            int room = used;
             for (int a = 0; a < bodies.length; a++) {
                 for (int b = a + 1; b < bodies.length; b++) {
                     pairContacts(a, b);
@@ -1107,8 +1210,14 @@ public final class PlacedPhysics {
                     handContacts(a);
                 }
             }
+            sortUp(room);
             for (int c = 0; c < used; c++) {
-                solvePosition(contacts.get(c));
+                contacts.get(c).outDone = 0.0F;
+            }
+            for (int pass = 0; pass < PASSES; pass++) {
+                for (int c = 0; c < used; c++) {
+                    solvePosition(contacts.get(c), h, pass == 0);
+                }
             }
             for (int c = 0; c < used; c++) {
                 holdStill(contacts.get(c));
@@ -1128,6 +1237,9 @@ public final class PlacedPhysics {
                     body.limit();
                 }
             }
+            if (last) {
+                noteTouches();
+            }
             if (last && hand != null) {
                 stuckHand();
             }
@@ -1140,6 +1252,28 @@ public final class PlacedPhysics {
         }
         if (physics.pileRides()) {
             ride();
+        }
+    }
+
+    /**
+     * A thing at rest wakes when something it touched as it came to rest has gone or has moved (or turned) since: take a thing
+     * from under a heap and what lay on it comes down, then what lay on that; the rest of the heap sleeps on.
+     */
+    private void wakeTouched() {
+        for (Body body : bodies) {
+            if (body == null || body.awake || body.perched || body.touchedCount == 0) {
+                continue;
+            }
+            for (int k = 0; k < body.touchedCount; k++) {
+                int index = body.touched[k];
+                Body other = index >= 0 && index < bodies.length ? bodies[index] : null;
+                // Gone, made anew (the server moved it), or moved or turned since (also carried on a pile).
+                if (other == null || other != body.touchedBody[k] || other.center.distance(body.touchedAt[k]) > PERCH_SHIFT
+                        || Math.abs(other.rotation.dot(body.touchedTurn[k])) < TOUCH_TURNED) {
+                    body.wake();
+                    break;
+                }
+            }
         }
     }
 
@@ -1181,6 +1315,15 @@ public final class PlacedPhysics {
                     // Tipped over: what stood on it falls as it may.
                     body.perched = false;
                     body.wake();
+                    continue;
+                }
+                if (!support.driven && !support.rode) {
+                    // Moved by the physics alone (settling, knocked): what stands on it is a thing of its own again once that moved
+                    // or turned, and comes to rest by the physics. Carried rigidly, it was pulled into its neighbours.
+                    if (support.center.distance(body.supportAt) > PERCH_SHIFT || Math.abs(support.rotation.dot(body.supportTurn)) < TOUCH_TURNED) {
+                        body.perched = false;
+                        body.wake();
+                    }
                     continue;
                 }
                 Quaternionf twist = new Quaternionf(0.0F, change.y(), 0.0F, change.w());
@@ -1266,6 +1409,19 @@ public final class PlacedPhysics {
 
     private Body bodyAt(int index) {
         return index == HAND ? hand : index >= 0 && index < bodies.length ? bodies[index] : null;
+    }
+
+    /** Sorts the contacts from {@code from} on by how high they touch: a heap is worked out from the bottom up. */
+    private void sortUp(int from) {
+        for (int i = from + 1; i < used; i++) {
+            Contact contact = contacts.get(i);
+            int at = i;
+            while (at > from && contacts.get(at - 1).height > contact.height) {
+                contacts.set(at, contacts.get(at - 1));
+                at--;
+            }
+            contacts.set(at, contact);
+        }
     }
 
     private Contact nextContact() {
@@ -1452,91 +1608,38 @@ public final class PlacedPhysics {
     }
 
     /**
-     * Where two boxes touch: the axis they overlap least along (the faces of each and the crossings of their edges), the
-     * corners of each inside the other along it, or, edge across edge, one point between them.
+     * Where two boxes touch ({@link PlacedContacts}): face to face the patch where they meet, up to four points; edge across
+     * edge one point. The way they touch along is kept from step to step while it stays nearly as good.
      */
     private void boxContacts(Body a, int ai, Body b, int bi) {
-        Quaternionf frameA = a.frame();
-        Quaternionf frameB = b.frame();
-        Vector3f[] axesA = {frameA.transform(new Vector3f(1.0F, 0.0F, 0.0F)), frameA.transform(new Vector3f(0.0F, 1.0F, 0.0F)),
-                frameA.transform(new Vector3f(0.0F, 0.0F, 1.0F))};
-        Vector3f[] axesB = {frameB.transform(new Vector3f(1.0F, 0.0F, 0.0F)), frameB.transform(new Vector3f(0.0F, 1.0F, 0.0F)),
-                frameB.transform(new Vector3f(0.0F, 0.0F, 1.0F))};
-        Vector3f between = new Vector3f(b.center).sub(a.center);
-        Vector3f best = new Vector3f();
-        float bestScore = Float.MAX_VALUE;
-        float bestOverlap = 0.0F;
-        Vector3f axis = new Vector3f();
-        for (int test = 0; test < 15; test++) {
-            boolean edges = test >= 6;
-            if (test < 3) {
-                axis.set(axesA[test]);
-            } else if (test < 6) {
-                axis.set(axesB[test - 3]);
-            } else {
-                axesA[(test - 6) / 3].cross(axesB[(test - 6) % 3], axis);
-                if (axis.lengthSquared() < 1.0e-6F) {
-                    continue;
-                }
-                axis.normalize();
-            }
-            float reachA = a.half.x * Math.abs(axesA[0].dot(axis)) + a.half.y * Math.abs(axesA[1].dot(axis)) + a.half.z * Math.abs(axesA[2].dot(axis));
-            float reachB = b.half.x * Math.abs(axesB[0].dot(axis)) + b.half.y * Math.abs(axesB[1].dot(axis)) + b.half.z * Math.abs(axesB[2].dot(axis));
-            float overlap = reachA + reachB - Math.abs(between.dot(axis));
-            if (overlap <= 0.0F) {
-                return;
-            }
-            // Faces are preferred: a box resting on another touches it face to face, not by an edge a hair less deep.
-            float score = edges ? overlap * 1.05F + 0.01F : overlap;
-            if (score < bestScore) {
-                bestScore = score;
-                bestOverlap = overlap;
-                best.set(axis);
-            }
+        int memory = bi == HAND ? ai : ai * slots + bi;
+        byte[] axes = bi == HAND ? handAxis : pairAxis;
+        if (ai < 0 || memory < 0 || memory >= axes.length) {
+            axes = null;
         }
-        // From b to a: a is pushed out along it.
-        Vector3f normal = new Vector3f(best);
-        if (normal.dot(between) > 0.0F) {
-            normal.negate();
-        }
-        float supportB = b.center.dot(normal) + b.half.x * Math.abs(axesB[0].dot(normal)) + b.half.y * Math.abs(axesB[1].dot(normal))
-                + b.half.z * Math.abs(axesB[2].dot(normal));
-        float supportA = a.center.dot(normal) - a.half.x * Math.abs(axesA[0].dot(normal)) - a.half.y * Math.abs(axesA[1].dot(normal))
-                - a.half.z * Math.abs(axesA[2].dot(normal));
-        int before = used;
-        Vector3f other = new Vector3f();
-        for (Vector3f point : a.points) {
-            float depth = supportB - point.dot(normal);
-            if (depth > 0.0F && b.holds(point, CONTACT_SLACK)) {
-                Contact contact = nextContact();
-                contact.set(a, ai, b, bi, normal.x, normal.y, normal.z);
-                a.anchor(point, contact.anchorA);
-                b.anchor(other.set(normal).mul(depth).add(point), contact.anchorB);
-                contact.normalSpeedBefore = relativeSpeed(contact, point, other);
+        int kept = axes == null ? -1 : axes[memory] - 1;
+        if (!touch.boxBox(a.center, a.axes, a.half, b.center, b.axes, b.half, CONTACT_MARGIN, kept, manifold)) {
+            if (axes != null) {
+                axes[memory] = 0;
             }
+            return;
         }
-        for (Vector3f point : b.points) {
-            float depth = point.dot(normal) - supportA;
-            if (depth > 0.0F && a.holds(point, CONTACT_SLACK)) {
-                Contact contact = nextContact();
-                contact.set(a, ai, b, bi, normal.x, normal.y, normal.z);
-                a.anchor(other.set(normal).mul(-depth).add(point), contact.anchorA);
-                b.anchor(point, contact.anchorB);
-                contact.normalSpeedBefore = relativeSpeed(contact, other, point);
-            }
+        if (axes != null) {
+            axes[memory] = (byte) (manifold.axis + 1);
         }
-        if (used == before) {
-            // Edge across edge: one point, halfway between the two boxes' deepest points.
-            Vector3f deepA = a.support(new Vector3f(normal).negate());
-            Vector3f deepB = b.support(normal);
-            Vector3f middle = new Vector3f(deepA).add(deepB).mul(0.5F);
+        Vector3f normal = manifold.normal;
+        Contact lead = null;
+        for (int k = 0; k < manifold.count; k++) {
             Contact contact = nextContact();
             contact.set(a, ai, b, bi, normal.x, normal.y, normal.z);
-            Vector3f onA = new Vector3f(normal).mul(-bestOverlap * 0.5F).add(middle);
-            Vector3f onB = new Vector3f(normal).mul(bestOverlap * 0.5F).add(middle);
-            a.anchor(onA, contact.anchorA);
-            b.anchor(onB, contact.anchorB);
-            contact.normalSpeedBefore = relativeSpeed(contact, onA, onB);
+            a.anchor(manifold.onA[k], contact.anchorA);
+            b.anchor(manifold.onB[k], contact.anchorB);
+            contact.height = manifold.onA[k].y;
+            if (lead == null) {
+                lead = contact;
+            }
+            contact.lead = lead;
+            contact.normalSpeedBefore = relativeSpeed(contact, manifold.onA[k], manifold.onB[k]);
         }
     }
 
@@ -1565,7 +1668,12 @@ public final class PlacedPhysics {
         }
         if (body.fromHand && physics.pileRides() && under != null && underIndex >= 0 && underIndex != held) {
             if (body.faceUp() && under.faceUp() && clearOfAllBut(body, under)) {
-                // Level with what it lands on: it stays as it touched down, without a stack of loose boxes trembling.
+                // Level with what it lands on: it stays as it touched down, without a stack of loose boxes trembling; on its top,
+                // not the hair inside it a short step's fall took it (the pile never pushes itself apart).
+                float into = penetration(body, under);
+                if (into > 0.0F) {
+                    body.shift(new Vector3f(0.0F, into, 0.0F));
+                }
                 body.sleep();
                 body.perched = true;
                 body.restingOn = underIndex;
@@ -1636,7 +1744,7 @@ public final class PlacedPhysics {
      * Pushes the two bodies of a contact apart by how deep it is now, each by its share: the lighter and the one that turns more
      * easily about the point give more.
      */
-    private void solvePosition(Contact contact) {
+    private void solvePosition(Contact contact, float h, boolean first) {
         Body a = contact.a;
         Body b = contact.b;
         // A standing icon is held up by the floor, not tipped by it: only things meeting it rock it.
@@ -1647,32 +1755,36 @@ public final class PlacedPhysics {
         Vector3f onA = a.world(contact.anchorA, new Vector3f());
         Vector3f onB = b == null ? new Vector3f(contact.anchorB) : b.world(contact.anchorB, new Vector3f());
         float depth = new Vector3f(onB).sub(onA).dot(contact.normal);
-        contact.lambda = 0.0F;
+        if (first) {
+            contact.lambda = 0.0F;
+        }
         if (depth <= 0.0F || b != null && physics.pileRides() && contact.ai >= 0 && contact.bi >= 0
                 && (under(contact.ai, contact.bi) || under(contact.bi, contact.ai))) {
             // A thing joined the pile of the other in this short step (it landed on it): from now on it rides, not pushes.
             return;
         }
-        if (depth > WAKE_DEPTH) {
+        if (first && depth > WAKE_DEPTH) {
             // A body at rest stays put for a graze; pushed in deeper, it wakes and takes its share.
             // Pushed into, a thing at rest wakes, also one riding a pile: the pile is hit, that piece leaves it and gives way.
             // Kept still instead, two piles carried into each other went through each other.
-            if (!a.awake && !fixed(contact.ai)) {
+            // What the hand moves wakes what it touches; anything else must knock it (a thing laid on a heap rests on it and
+            // disturbs nothing; one falling hard knocks what it hits).
+            if (!a.awake && !fixed(contact.ai) && (b == null || depth > KNOCK_DEPTH || b.driven || fixed(contact.bi))) {
                 a.wake();
             }
-            if (b != null && !b.awake && !fixed(contact.bi)) {
+            if (b != null && !b.awake && !fixed(contact.bi) && (depth > KNOCK_DEPTH || a.driven || fixed(contact.ai))) {
                 b.wake();
             }
             if (contact.ai == HAND || contact.bi == HAND) {
                 handTouched = true;
             }
         }
-        if (-contact.normalSpeedBefore >= host.impactMinSpeed()) {
+        if (first && -contact.normalSpeedBefore >= host.impactMinSpeed()) {
             knock(contact, onA, onB);
         }
-        if (contact.normal.y > 0.5F) {
+        if (first && contact.normal.y > 0.5F) {
             landing(a, contact.ai, -contact.normalSpeedBefore, b, contact.bi);
-        } else if (contact.normal.y < -0.5F && b != null) {
+        } else if (first && contact.normal.y < -0.5F && b != null) {
             landing(b, contact.bi, -contact.normalSpeedBefore, a, contact.ai);
         }
         if (b != null && depth > OVERLAP) {
@@ -1690,25 +1802,85 @@ public final class PlacedPhysics {
             b.handPushed = true;
         }
         Vector3f normal = contact.normal;
-        float weightA = givesA ? a.weightAt(onA, normal) : 0.0F;
-        float weightB = givesB ? b.weightAt(onB, normal) : 0.0F;
-        float lambda = depth / (weightA + weightB);
-        // Put down (or turned, or set out) inside another, a thing slides out of it without taking speed from that: a row of
-        // things put down a hair inside each other spreads by that hair, it is not flung apart.
-        // Deeper than a step's move brings two things together, the overlap was there before (set there, carried there, turned
-        // there): it is undone the same way, without the speed a collision would give.
-        boolean quiet = b != null && (a.fresh || b.fresh || depth > OVERLAP);
-        if (givesA) {
-            a.nudge(onA, new Vector3f(normal).mul(lambda), quiet);
+        grounding(contact);
+        float weightA = givesA ? a.weightAt(onA, normal) * contact.shareA : 0.0F;
+        float weightB = givesB ? b.weightAt(onB, normal) * contact.shareB : 0.0F;
+        // What this short step's moves brought together is stopped as a collision (it takes the speed away); an overlap that was
+        // there before (put down, carried or turned there, left by a crowd) is undone slowly and without speed, so nothing
+        // is flung out of another, a hair or a pixel deep alike.
+        Vector3f before = a.previousWorld(contact.anchorA, new Vector3f());
+        Vector3f beforeB = b == null ? new Vector3f(contact.anchorB) : b.previousWorld(contact.anchorB, new Vector3f());
+        // The room's sides push as they always did: what is past them goes back at once, the floor holds a thing as it stands.
+        float old = Mth.clamp(beforeB.sub(before).dot(normal), 0.0F, depth);
+        if (b == null || old <= QUIET_FROM) {
+            old = 0.0F;
         }
-        if (givesB) {
-            b.nudge(onB, new Vector3f(normal).mul(-lambda), quiet);
+        if (b != null && (a.insideFor > WEDGED_TIME || b.insideFor > WEDGED_TIME)) {
+            // Wedged in a crowd that cannot all fit: the overlap is left as it is, so the crowd comes to rest instead of shoving
+            // against the walls for ever. What comes together anew is still stopped.
+            depth -= old;
+            old = 0.0F;
+        }
+        float struck = depth - old;
+        // The points of one touch share the pace: the pair glides apart at push_out, not once per point.
+        Contact lead = contact.lead;
+        float out = physics.pushOut() <= 0.0F ? old : Math.min(old, Math.max(0.0F, physics.pushOut() * h - lead.outDone));
+        lead.outDone += out;
+        float weight = weightA + weightB;
+        if (struck > 0.0F) {
+            if (givesA) {
+                a.nudge(onA, new Vector3f(normal).mul(struck / weight * contact.shareA), false);
+            }
+            if (givesB) {
+                b.nudge(onB, new Vector3f(normal).mul(-struck / weight * contact.shareB), false);
+            }
+        }
+        if (out > 0.0F) {
+            if (givesA) {
+                a.nudge(onA, new Vector3f(normal).mul(out / weight * contact.shareA), true);
+            }
+            if (givesB) {
+                b.nudge(onB, new Vector3f(normal).mul(-out / weight * contact.shareB), true);
+            }
+        }
+        float lambda = (struck + out) / weight + contact.lambda;
+        if (b != null && (a.driven || fixed(contact.ai)) && givesB) {
+            b.driven = true;
+        } else if (b != null && (b.driven || fixed(contact.bi)) && givesA) {
+            a.driven = true;
+        }
+        if (b == null && normal.y > STANDING) {
+            a.grounded = true;
+        } else if (b != null && normal.y > STANDING && b.grounded) {
+            a.grounded = true;
+        } else if (b != null && normal.y < -STANDING && a.grounded) {
+            b.grounded = true;
         }
         contact.lambda = lambda;
         if (normal.y > 0.5F && contact.bi >= 0) {
             a.restingOn = contact.bi;
         } else if (normal.y < -0.5F && b != null && contact.ai >= 0) {
             b.restingOn = contact.ai;
+        }
+    }
+
+    /**
+     * What stands on something that stands on the floor does not press it into the floor: in a contact one above the other
+     * whose lower body rests on the floor (down its pile), the lower one gives only {@link #GROUNDED_SHARE} of its share and
+     * the upper one takes the rest. Sideways pushes keep the true weights.
+     */
+    private void grounding(Contact contact) {
+        contact.shareA = 1.0F;
+        contact.shareB = 1.0F;
+        Body a = contact.a;
+        Body b = contact.b;
+        if (b == null) {
+            return;
+        }
+        if (contact.normal.y > STANDING && b.grounded && contact.bi != held && contact.bi != HAND) {
+            contact.shareB = GROUNDED_SHARE;
+        } else if (contact.normal.y < -STANDING && a.grounded && contact.ai != held && contact.ai != HAND) {
+            contact.shareA = GROUNDED_SHARE;
         }
     }
 
@@ -1747,15 +1919,15 @@ public final class PlacedPhysics {
             return;
         }
         Vector3f across = new Vector3f(slid).div(length);
-        float tangentA = givesA ? a.weightAt(onA, across) : 0.0F;
-        float tangentB = givesB ? b.weightAt(onB, across) : 0.0F;
+        float tangentA = givesA ? a.weightAt(onA, across) * contact.shareA : 0.0F;
+        float tangentB = givesB ? b.weightAt(onB, across) * contact.shareB : 0.0F;
         float hold = length / (tangentA + tangentB);
         if (hold < physics.friction() * lambda) {
             if (givesA) {
-                a.nudge(onA, new Vector3f(across).mul(-hold));
+                a.nudge(onA, new Vector3f(across).mul(-hold * contact.shareA));
             }
             if (givesB) {
-                b.nudge(onB, new Vector3f(across).mul(hold));
+                b.nudge(onB, new Vector3f(across).mul(hold * contact.shareB));
             }
         }
     }
@@ -1792,14 +1964,15 @@ public final class PlacedPhysics {
         float sliding = across.length();
         if (sliding > 1.0e-6F && !contact.slippery) {
             across.div(sliding);
-            float weight = (givesA ? a.weightAt(onA, across) : 0.0F) + (givesB ? b.weightAt(onB, across) : 0.0F);
+            float weight = (givesA ? a.weightAt(onA, across) * contact.shareA : 0.0F)
+                    + (givesB ? b.weightAt(onB, across) * contact.shareB : 0.0F);
             float most = physics.friction() * KINETIC * contact.lambda / h;
             float impulse = Math.min(sliding / weight, most);
             if (givesA) {
-                a.strike(onA, new Vector3f(across).mul(-impulse));
+                a.strike(onA, new Vector3f(across).mul(-impulse * contact.shareA));
             }
             if (givesB) {
-                b.strike(onB, new Vector3f(across).mul(impulse));
+                b.strike(onB, new Vector3f(across).mul(impulse * contact.shareB));
             }
         }
         speed = a.speedAt(onA, new Vector3f());
@@ -1810,13 +1983,35 @@ public final class PlacedPhysics {
         float wanted = contact.normalSpeedBefore < -BOUNCE_LEAST ? -physics.bounce() * contact.normalSpeedBefore : 0.0F;
         float change = wanted - along;
         if (Math.abs(change) > 1.0e-6F) {
-            float weight = (givesA ? a.weightAt(onA, normal) : 0.0F) + (givesB ? b.weightAt(onB, normal) : 0.0F);
+            float weight = (givesA ? a.weightAt(onA, normal) * contact.shareA : 0.0F)
+                    + (givesB ? b.weightAt(onB, normal) * contact.shareB : 0.0F);
             float impulse = change / weight;
             if (givesA) {
-                a.strike(onA, new Vector3f(normal).mul(impulse));
+                a.strike(onA, new Vector3f(normal).mul(impulse * contact.shareA));
             }
             if (givesB) {
-                b.strike(onB, new Vector3f(normal).mul(-impulse));
+                b.strike(onB, new Vector3f(normal).mul(-impulse * contact.shareB));
+            }
+        }
+    }
+
+    /** Each awake thing notes what it touches in the last short step of a step: what it rests against if it falls asleep now. */
+    private void noteTouches() {
+        for (Body body : bodies) {
+            if (body != null && body.awake) {
+                body.touchedCount = 0;
+            }
+        }
+        for (int c = 0; c < used; c++) {
+            Contact contact = contacts.get(c);
+            if (contact.b == null || contact.ai < 0 || contact.bi < 0) {
+                continue;
+            }
+            if (contact.a.awake) {
+                contact.a.touches(contact.bi, contact.b);
+            }
+            if (contact.b.awake) {
+                contact.b.touches(contact.ai, contact.a);
             }
         }
     }
@@ -1905,6 +2100,15 @@ public final class PlacedPhysics {
 
         /** No friction along it (the ceiling). */
         boolean slippery;
+        /** How much of its share each body takes in this short step ({@link #grounding}). */
+        float shareA = 1.0F;
+        float shareB = 1.0F;
+        /** How high it touches: the short step works the contacts out from the bottom up. */
+        float height;
+        /** Pixels of an old overlap undone in this short step so far, kept on the first contact of the touch ({@link #lead}). */
+        float outDone;
+        /** The first contact of the same touch (itself for the first, and for the room's). */
+        Contact lead = this;
 
         void set(Body a, int ai, Body b, int bi, float nx, float ny, float nz) {
             slippery = false;
@@ -1914,6 +2118,9 @@ public final class PlacedPhysics {
             this.bi = bi;
             normal.set(nx, ny, nz);
             lambda = 0.0F;
+            shareA = 1.0F;
+            shareB = 1.0F;
+            lead = this;
         }
     }
 
@@ -1969,9 +2176,32 @@ public final class PlacedPhysics {
         private float armedFor;
         /** Pushed by the hand in this step. */
         boolean handPushed;
+        /** Stands on the floor in this short step, or on something that does, down its pile. */
+        boolean grounded;
+        /** Moved by the hand in this step: held, or pushed by what the hand moves. What rides on it goes along. */
+        boolean driven;
+        /** What it touched as it last moved (slots, bodies, and where they were when it fell asleep). */
+        final int[] touched = new int[TOUCHES];
+        final Body[] touchedBody = new Body[TOUCHES];
+        final Vector3f[] touchedAt = {new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f()};
+        final Quaternionf[] touchedTurn = {new Quaternionf(), new Quaternionf(), new Quaternionf(), new Quaternionf(), new Quaternionf(),
+                new Quaternionf()};
+        int touchedCount;
+        /** Where it last fell asleep: come to rest again a hair from there, it is put back exactly (a wake moves nothing). */
+        final Vector3f sleptAt = new Vector3f();
+        final Quaternionf sleptTurn = new Quaternionf();
+        boolean slept;
+        /** Where it was when it last moved more than a hair: still that long there, it rests, however it trembles in place. */
+        final Vector3f windowAt = new Vector3f();
+        final Quaternionf windowTurn = new Quaternionf();
+        private float windowTime;
+        private float insideFor;
         boolean supportSeen;
         /** The corners where they are now, kept with every move. */
         final Vector3f[] points = new Vector3f[8];
+        /** The hit box's three sides in the room (its frame), kept with every move. */
+        final Vector3f[] axes = {new Vector3f(), new Vector3f(), new Vector3f()};
+        private final Quaternionf frameNow = new Quaternionf();
         /** The corners in the item, about its middle. */
         final Vector3f[] corners = new Vector3f[8];
         final Vector3f center = new Vector3f();
@@ -2109,6 +2339,9 @@ public final class PlacedPhysics {
             awake = true;
             perched = false;
             still = 0.0F;
+            windowTime = 0.0F;
+            windowAt.set(center);
+            windowTurn.set(rotation);
         }
 
         /** For a thin box (a card, an icon) standing on an edge, the way its thin side faces; null otherwise. */
@@ -2129,6 +2362,10 @@ public final class PlacedPhysics {
             for (int corner = 0; corner < 8; corner++) {
                 rotation.transform(points[corner].set(corners[corner])).add(center);
             }
+            rotation.mul(hitTurn, frameNow);
+            frameNow.transform(axes[0].set(1.0F, 0.0F, 0.0F));
+            frameNow.transform(axes[1].set(0.0F, 1.0F, 0.0F));
+            frameNow.transform(axes[2].set(0.0F, 0.0F, 1.0F));
         }
 
         /** A point of the room as a point of this body, in its own turn about its middle. */
@@ -2150,23 +2387,6 @@ public final class PlacedPhysics {
         Vector3f speedAt(Vector3f point, Vector3f into) {
             Vector3f arm = new Vector3f(point).sub(center);
             return spin.cross(arm, into).add(velocity);
-        }
-
-        /** Whether {@code point} is inside the box, give or take {@code slack} pixels. */
-        boolean holds(Vector3f point, float slack) {
-            Vector3f local = frame().conjugate().transform(new Vector3f(point).sub(center));
-            return Math.abs(local.x) <= half.x + slack && Math.abs(local.y) <= half.y + slack && Math.abs(local.z) <= half.z + slack;
-        }
-
-        /** Its corner farthest along {@code way}. */
-        Vector3f support(Vector3f way) {
-            Vector3f best = points[0];
-            for (Vector3f point : points) {
-                if (point.dot(way) > best.dot(way)) {
-                    best = point;
-                }
-            }
-            return new Vector3f(best);
         }
 
         /**
@@ -2394,8 +2614,36 @@ public final class PlacedPhysics {
             awake = false;
             velocity.zero();
             spin.zero();
+            if (slept && !gripped && center.distance(sleptAt) < SLEPT_MOVE && Math.abs(rotation.dot(sleptTurn)) > SLEPT_TURN) {
+                // Woken and come back to rest where it was: exactly there, so no wake makes a heap creep.
+                center.set(sleptAt);
+                rotation.set(sleptTurn);
+                refresh();
+            }
+            slept = true;
+            sleptAt.set(center);
+            sleptTurn.set(rotation);
             previousCenter.set(center);
             previousRotation.set(rotation);
+            for (int k = 0; k < touchedCount; k++) {
+                Body other = touchedBody[k];
+                touchedAt[k].set(other.center);
+                touchedTurn[k].set(other.rotation);
+            }
+        }
+
+        /** It touches the body of slot {@code index} in the last short step. */
+        void touches(int index, Body other) {
+            for (int k = 0; k < touchedCount; k++) {
+                if (touched[k] == index) {
+                    return;
+                }
+            }
+            if (touchedCount < TOUCHES) {
+                touched[touchedCount] = index;
+                touchedBody[touchedCount] = other;
+                touchedCount++;
+            }
         }
 
         /**
@@ -2477,12 +2725,27 @@ public final class PlacedPhysics {
             if (!overlapping || freshFor > FRESH_MOST) {
                 fresh = false;
             }
-            // Still inside another, it is not at rest yet, however slowly it is moved out.
+            // Still inside another, it is not at rest yet while it is moved out; wedged there for good (a crowd), it rests after a
+            // while all the same.
             boolean inside = overlapping;
             overlapping = false;
+            insideFor = inside ? insideFor + dt : 0.0F;
             float fastest = Math.max(velocity.length(), spin.length() * half.length());
-            still = !gripped && !inside && fastest * STEP < SLEEP_MOTION ? still + dt : 0.0F;
-            if (still >= SLEEP_TIME) {
+            boolean slow = fastest * STEP < SLEEP_MOTION;
+            still = !gripped && slow ? still + dt : 0.0F;
+            // Trembling in place (leaning on two things, the solver's last hair): it has not got anywhere for a while.
+            if (center.distance(windowAt) < WINDOW_MOVE && Math.abs(rotation.dot(windowTurn)) > WINDOW_TURN) {
+                windowTime += dt;
+            } else {
+                windowAt.set(center);
+                windowTurn.set(rotation);
+                windowTime = 0.0F;
+            }
+            boolean resting = !gripped && (still >= SLEEP_TIME || windowTime >= WINDOW_TIME);
+            if (inside && insideFor < WEDGED_TIME) {
+                resting = false;
+            }
+            if (resting) {
                 sleep();
                 if (physics.pileRides() && !onFloor && restingOn >= 0) {
                     // Come to rest on another thing (put on it, or fallen onto it): from now on it is part of that pile.
