@@ -63,6 +63,12 @@ if (file('src/devtools').isDirectory()) {
         gameDirectory = project.file('run-shots')
         systemProperty 'diegesis.shots', rootProject.file('tools/shots').absolutePath
         programArguments.addAll('--width', '1280', '--height', '720')
+        // The game's strict render checks of a dev run fail with Iris; players never have them.
+        systemProperty 'neoforge.disableBlaze3DValidation', 'true'
+        // -Pshots.vulkan: an OpenGL 26.3 client on this PC often dies natively while it loads.
+        if (providers.gradleProperty('shots.vulkan').isPresent()) {
+            programArguments.addAll('--graphicsBackend', 'vulkan')
+        }
     }
 }
 
