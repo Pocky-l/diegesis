@@ -52,6 +52,7 @@ import com.pockyl.diegesis.api.state.ItemPose;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
 import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.ClientStations;
+import com.pockyl.diegesis.impl.client.compat.Gfx;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
 import com.pockyl.diegesis.impl.client.fx.LiquidRenderer;
 import com.pockyl.diegesis.impl.client.fx.SceneParticles;
@@ -298,7 +299,8 @@ public final class SceneRenderer {
      * outline colour, which the game turns into a line round its edge and lays over the frame as it does for glowing entities.
      */
     private static void drawOutlines(SubmitNodeCollector collector) {
-        if (Minecraft.getInstance().gameRenderer.getMainCamera().isPanoramicMode()) {
+        if (Minecraft.getInstance().gameRenderer.getMainCamera().isPanoramicMode()
+                || !Gfx.drawsOutlines()) {
             return;
         }
         int color = 0xFF000000 | outlineColor;
