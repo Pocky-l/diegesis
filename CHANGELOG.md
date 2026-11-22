@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A door or lid lit as a block no longer flickers as the camera moves, and a swinging door is lit by the room it faces.
 - A shallow liquid seen from low down no longer shows dark wedges over its far half, and no dark lines run down the front of a pan or along a vessel's walls.
 - Many smaller fixes of free placing with physics.
+- The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
 ### Not on 26.3 yet
 - NeoForge.
 - Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
