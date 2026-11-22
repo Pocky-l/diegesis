@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-beta.17.1+26.3] - Unreleased
 ### Added
+- NeoForge is supported on 26.3 (NeoForge 26.3.0.84 or newer), with the same features as Fabric. On NeoForge the HUD parts other mods add slide away too.
 - `Diegesis.addListener` and `DiegesisClient.addBehavior`: a mod can watch any station, refuse what players do there and add client code beside the station's own.
 - Effect and particle style files (`diegesis/effects/*.json`, `diegesis/particles/*.json`), played by id anywhere.
 - Scene option `feedback`: swap or silence the library's sounds, play effects when something happens in the scene, and mark nodes as fire or liquid for carried things.
@@ -33,8 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Many smaller fixes of free placing with physics.
 - The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
 ### Not on 26.3 yet
-- NeoForge.
-- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away on Fabric, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
 
 ## [1.0.0-beta.13.2+26.3] - 2026-11-22
 ### Added
