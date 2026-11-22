@@ -224,7 +224,7 @@ public final class DiegesisClient {
     private static final java.util.Set<String> OPAQUE_ENTITY_NAMES = java.util.Set.of("entity_solid", "entity_solid_z_offset_forward",
             "entity_cutout", "entity_cutout_cull", "entity_cutout_z_offset");
     private static final java.util.regex.Pattern ENTITY_TEXTURE = java.util.regex.Pattern.compile(
-            "Sampler0=TextureBinding\[location=([a-z0-9_.-]+:[a-z0-9_/.-]+)");
+            "Sampler0=TextureBinding\\[location=([a-z0-9_.-]+:[a-z0-9_/.-]+)");
     private static final java.util.Map<net.minecraft.client.renderer.rendertype.RenderType, net.minecraft.client.renderer.rendertype.RenderType>
             OPAQUE_ENTITY = new java.util.concurrent.ConcurrentHashMap<>();
 

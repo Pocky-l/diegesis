@@ -248,9 +248,9 @@ public final class SceneRenderer {
         RenderType translucent = DiegesisRenderTypes.translucentCullBlockSheet();
         SceneBuffers scene = type -> type != translucent ? SCENE_BUFFERS.getBuffer(type) : CLEAR_BUFFERS.getBuffer(CLEAR);
         sceneSource = scene;
-        // The camera's turn is in the model view here, not in the level pose: the view is both together, as for the cursor.
-        Frustum view = new Frustum(new Matrix4f(modelView).mul(poseStack.last().pose()), projection);
-        view.prepare(cameraPos.x, cameraPos.y, cameraPos.z);
+        // The frustum the game culls this frame with: Minecraft 26.x keeps it on the camera, made with a projection for culling
+        // (the frame's own has its depth reversed and no far side).
+        Frustum view = camera.getCullFrustum();
         for (ClientStation station : stations) {
             // A neighbour in the camera's way at another station is left out with its block (ClearBlocks): its scene would hang
             // in the air before the camera, where the block it stands in for is gone.

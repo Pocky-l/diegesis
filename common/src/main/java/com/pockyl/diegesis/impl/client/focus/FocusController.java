@@ -277,7 +277,7 @@ public final class FocusController {
         float[] look = confirmed || flightFrom != null ? null : lookBefore;
         exit(true);
         Minecraft minecraft = Minecraft.getInstance();
-        minecraft.options.hideGui = savedHideGui;
+        setHudHidden(minecraft, savedHideGui);
         HudSlide.reset();
         LocalPlayer player = minecraft.player;
         if (look != null && player != null) {

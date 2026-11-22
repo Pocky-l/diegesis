@@ -55,7 +55,7 @@ final class SlotGhosts {
             if (tag) {
                 stacks.addAll(tagged(TagKey.create(Registries.ITEM, id)));
             } else {
-                Item item = BuiltInRegistries.ITEM.get(id);
+                Item item = BuiltInRegistries.ITEM.getValue(id);
                 if (item == Items.AIR) {
                     // Another mod's item that is not installed: left out quietly, as a tag of nothing is.
                     continue;

@@ -40,7 +40,7 @@ public sealed interface StationAction {
             case 7 -> new Pour(buf.readUtf(MAX_NAME), buf.readUtf(MAX_NAME), buf.readVarInt());
             case 8 -> new Place(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf), Math.max(0, buf.readVarInt()));
             case 9 -> new Pose(new SlotRef(buf.readUtf(MAX_NAME), buf.readVarInt()), ItemPose.read(buf));
-            case 10 -> new Effect(buf.readResourceLocation(), buf.readUtf(MAX_NAME), Objects.requireNonNullElseGet(buf.readNbt(), CompoundTag::new));
+            case 10 -> new Effect(buf.readIdentifier(), buf.readUtf(MAX_NAME), Objects.requireNonNullElseGet(buf.readNbt(), CompoundTag::new));
             default -> throw new IllegalArgumentException("Unknown station action " + kind);
         };
     }
@@ -199,7 +199,7 @@ public sealed interface StationAction {
         @Override
         public void write(FriendlyByteBuf buf) {
             buf.writeByte(10);
-            buf.writeResourceLocation(effect);
+            buf.writeIdentifier(effect);
             buf.writeUtf(node, MAX_NAME);
             buf.writeNbt(data);
         }

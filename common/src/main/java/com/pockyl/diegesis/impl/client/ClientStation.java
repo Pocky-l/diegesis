@@ -978,7 +978,7 @@ public final class ClientStation implements StationView, StationContext {
         if (handler.isPresent()) {
             fire(() -> handler.get().play(this, node, data));
         } else if (com.pockyl.diegesis.impl.client.fx.FxLibrary.particle(effect) != null) {
-            spawnParticles(effect, node, data.contains("count") ? data.getInt("count") : 12, data.getInt("color"));
+            spawnParticles(effect, node, data.getIntOr("count", 12), data.getIntOr("color", 0));
         }
     }
 

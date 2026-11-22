@@ -58,9 +58,9 @@ public final class EffectPlayer {
         if (station.scene() == null) {
             return;
         }
-        String other = data.contains(OTHER, Tag.TAG_STRING) ? data.getString(OTHER) : null;
-        Vector3f point = data.contains(X, Tag.TAG_ANY_NUMERIC) ? new Vector3f(data.getFloat(X), data.getFloat(Y), data.getFloat(Z)) : null;
-        float speed = data.getFloat(SPEED);
+        String other = data.getString(OTHER).orElse(null);
+        Vector3f point = data.getFloat(X).isPresent() ? new Vector3f(data.getFloatOr(X, 0.0F), data.getFloatOr(Y, 0.0F), data.getFloatOr(Z, 0.0F)) : null;
+        float speed = data.getFloatOr(SPEED, 0.0F);
         for (EffectStep step : effect.steps()) {
             String target = target(step, node, other);
             if (step instanceof EffectStep.Particles particles) {
@@ -124,7 +124,7 @@ public final class EffectPlayer {
     }
 
     private static void particles(ClientStation station, EffectStep.Particles step, String target, Vector3fc point, CompoundTag data) {
-        int color = step.color().orElse(data.contains("color", Tag.TAG_ANY_NUMERIC) ? data.getInt("color") : 0);
+        int color = step.color().orElse(data.getIntOr("color", 0));
         Vector3f velocity = step.velocity().map(Vector3f::new).orElse(null);
         switch (step.where()) {
             case IN_LIQUID -> station.spawnInLiquid(step.style(), target, step.count(), color, velocity != null ? velocity : new Vector3f());
