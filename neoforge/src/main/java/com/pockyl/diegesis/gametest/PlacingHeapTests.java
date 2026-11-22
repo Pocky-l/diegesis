@@ -1,17 +1,13 @@
 package com.pockyl.diegesis.gametest;
 
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.PlaceSurface;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.PlacingPhysics;
@@ -31,8 +27,6 @@ import static com.pockyl.diegesis.gametest.PlacingGameTests.check;
  * 2026-11-21: "thrown into a heap, they jump, turn and move about". A heap comes to rest, stays at rest, and putting one more
  * thing in moves only what it touches. Also: things fall as fast as real ones do.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingHeapTests {
     private static final float FRAME = 1.0F / 60.0F;
     private static final Quaternionf LYING = new Quaternionf().rotateX((float) Math.PI / 2.0F);

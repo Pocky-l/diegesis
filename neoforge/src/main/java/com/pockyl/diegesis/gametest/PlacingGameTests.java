@@ -1,15 +1,11 @@
 package com.pockyl.diegesis.gametest;
 
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.PlaceSurface;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.PlacingPhysics;
@@ -26,8 +22,6 @@ import java.util.List;
  * Free placing without a client: the geometry of where things go ({@code Placing}) and the physics core run against a
  * scene stand-in. Only classes free of the client are touched here.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingGameTests {
     private static final float FRAME = 1.0F / 60.0F;
     /** A block's hit box as the shapes measure one: half a block in the model, 0.8 of the item's size along its sides. */

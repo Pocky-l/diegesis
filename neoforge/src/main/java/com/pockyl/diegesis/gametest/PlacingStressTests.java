@@ -1,15 +1,11 @@
 package com.pockyl.diegesis.gametest;
 
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Quaternionf;
 
-import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.PlacingPhysics;
 import com.pockyl.diegesis.api.state.ItemPose;
@@ -26,8 +22,6 @@ import static com.pockyl.diegesis.gametest.PlacingGameTests.check;
  * The physics left alone and worked hard: full shelves stay still, piles stay piles, drags never leave things inside each
  * other. Each test is a case the owner saw go wrong in a playtest.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingStressTests {
     private static final float FRAME = 1.0F / 60.0F;
 

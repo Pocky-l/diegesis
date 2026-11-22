@@ -2,63 +2,72 @@ package com.pockyl.diegesis.neoforge;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.block.BlockModelShaper;
-import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
 import net.minecraft.commands.Commands;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.TriState;
 import net.minecraft.world.InteractionResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import net.neoforged.neoforge.client.model.standalone.SimpleUnbakedStandaloneModel;
+import net.neoforged.neoforge.client.model.standalone.StandaloneModelKey;
+import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 import com.pockyl.diegesis.api.Diegesis;
-import com.pockyl.diegesis.api.station.StationType;
-import com.pockyl.diegesis.impl.StationRegistry;
 import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 import com.pockyl.diegesis.impl.client.hud.HudSlide;
-import com.pockyl.diegesis.impl.client.render.SceneRenderer;
 import com.pockyl.diegesis.impl.client.scene.SceneLibrary;
+import com.pockyl.diegesis.impl.network.DiegesisNetwork;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
-/** Client wiring on NeoForge; only constructed on clients. */
+/**
+ * Client wiring on NeoForge; only constructed on clients. The scene is drawn from {@code mixin.LevelRendererSubmitMixin}, with
+ * what the level submits for the frame.
+ */
 @Mod(value = Diegesis.MOD_ID, dist = Dist.CLIENT)
 public final class NeoForgeClient {
     /** The layers this frame begun to slide and not yet ended, and whether what mods draw after the HUD is. */
-    private static final Set<ResourceLocation> slid = new HashSet<>();
+    private static final Set<Identifier> slid = new HashSet<>();
     private static boolean slidAfter;
+    /** The scene models the last resource load baked, by the id a scene names them with. */
+    private static volatile Map<Identifier, StandaloneModelKey<BlockStateModel>> sceneModels = Map.of();
 
     public NeoForgeClient(IEventBus modBus) {
         DiegesisClientRuntime.init();
-        modBus.addListener(RegisterClientReloadListenersEvent.class, event -> event.registerReloadListener(SceneLibrary.INSTANCE));
-        modBus.addListener(ModelEvent.RegisterAdditional.class, event -> SceneLibrary.modelsToLoad(Minecraft.getInstance()
-                .getResourceManager()).forEach(id -> event.register(ModelResourceLocation.standalone(id))));
-        modBus.addListener(ModelEvent.ModifyBakingResult.class, event -> {
-            for (StationType type : StationRegistry.all()) {
-                if (type.hidesBlock()) {
-                    Stream.concat(type.blocks().stream(), type.lateBlocks().stream())
-                            .flatMap(block -> block.getStateDefinition().getPossibleStates().stream())
-                            .map(BlockModelShaper::stateToModelLocation)
-                            .forEach(location -> event.getModels().computeIfPresent(location, (key, model) -> new HideableModel(model)));
-                }
+        modBus.addListener(AddClientReloadListenersEvent.class, event -> event.addListener(SceneLibrary.ID, SceneLibrary.INSTANCE));
+        // Asked on every model load, off the main thread, after the resource packs of that load are in place.
+        modBus.addListener(ModelEvent.RegisterStandalone.class, event -> {
+            Map<Identifier, StandaloneModelKey<BlockStateModel>> keys = new HashMap<>();
+            for (Identifier model : SceneLibrary.modelsToLoad(Minecraft.getInstance().getResourceManager())) {
+                StandaloneModelKey<BlockStateModel> key = new StandaloneModelKey<>(model::toString);
+                event.register(key, SimpleUnbakedStandaloneModel.blockStateModel(model));
+                keys.put(model, key);
             }
+            sceneModels = Map.copyOf(keys);
         });
+        modBus.addListener(RegisterClientPayloadHandlersEvent.class, event -> event.register(DiegesisNetwork.ToClient.TYPE,
+                (payload, context) -> {
+                    if (payload.packet() != null) {
+                        DiegesisNetwork.receiveOnClient(payload.packet());
+                    }
+                }));
 
         IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener(RegisterClientCommandsEvent.class, event -> event.getDispatcher().register(
@@ -79,12 +88,24 @@ public final class NeoForgeClient {
                 event.setCanceled(true);
             }
         });
-        // While the player works at a station its interface replaces the HUD: every layer slides off to its nearest edge, then is
-        // not drawn (the chat is hidden by a mixin on both loaders). Last of all listeners, so a layer another mod cancels is never
-        // begun, and every begun one ends in its Post.
+        registerHud(bus);
+    }
+
+    /** The key a scene model was baked under; null when no scene names it. */
+    static StandaloneModelKey<BlockStateModel> sceneModel(Identifier id) {
+        return sceneModels.get(id);
+    }
+
+    /**
+     * While the player works at a station its interface replaces the HUD (when the scene says so): every layer slides off to its
+     * nearest edge, then is not drawn. The chat slides by a common mixin on both loaders ({@code ChatComponentMixin}) when the
+     * scene keeps it; its layer is only hidden here.
+     */
+    private static void registerHud(IEventBus bus) {
+        // Last of all listeners, so a layer another mod cancels is never begun, and every begun one ends in its Post.
         bus.addListener(EventPriority.LOWEST, RenderGuiLayerEvent.Pre.class, event -> {
             FocusController focus = FocusController.get();
-            ResourceLocation id = event.getName();
+            Identifier id = event.getName();
             boolean chat = id.equals(VanillaGuiLayers.CHAT);
             boolean hides = focus.isActive() && focus.options().hideHud() && !chat;
             // The crosshair is where the player aims, and the player no longer aims.
@@ -92,11 +113,11 @@ public final class NeoForgeClient {
                 event.setCanceled(true);
                 return;
             }
-            if (chat && focus.isActive() && !focus.options().hideChat()) {
+            if (chat) {
                 return;
             }
             slid.add(id);
-            HudSlide.begin(chat ? HudSlide.CHAT : id.equals(VanillaGuiLayers.HOTBAR) ? HudSlide.HOTBAR : id.toString(), event.getGuiGraphics());
+            HudSlide.begin(id.equals(VanillaGuiLayers.HOTBAR) ? HudSlide.HOTBAR : id.toString(), event.getGuiGraphics());
         });
         bus.addListener(EventPriority.LOWEST, RenderGuiLayerEvent.Post.class, event -> {
             if (slid.remove(event.getName())) {
@@ -117,13 +138,6 @@ public final class NeoForgeClient {
             if (slidAfter) {
                 slidAfter = false;
                 HudSlide.end(event.getGuiGraphics());
-            }
-        });
-        bus.addListener(RenderLevelStageEvent.class, event -> {
-            if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
-                SceneRenderer.render(event.getPoseStack(), event.getModelViewMatrix(), event.getProjectionMatrix(), event.getCamera());
-            } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
-                SceneRenderer.renderCounts();
             }
         });
     }

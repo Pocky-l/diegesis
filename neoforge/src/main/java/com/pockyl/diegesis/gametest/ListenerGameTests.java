@@ -2,12 +2,11 @@ package com.pockyl.diegesis.gametest;
 
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
@@ -17,8 +16,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import com.pockyl.diegesis.DiegesisMod;
 import com.pockyl.diegesis.api.Diegesis;
@@ -41,8 +38,6 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Listeners added to a station from outside: their order, deny-only refusals, failures and effects. */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class ListenerGameTests {
     private static final String GRID = "grid";
     private static final String BELL = "bell";
@@ -58,7 +53,7 @@ public final class ListenerGameTests {
      */
     private static synchronized StationType station() {
         if (station == null) {
-            ResourceLocation id = DiegesisMod.id("listener_station");
+            Identifier id = DiegesisMod.id("listener_station");
             station = Diegesis.station(id)
                     .blocks(Blocks.CRYING_OBSIDIAN)
                     .schema(StationSchema.builder().slots(GRID, 2).control(BELL, ControlSpec.button()).build())
@@ -89,7 +84,7 @@ public final class ListenerGameTests {
                 }
 
                 @Override
-                public void onEffect(StationContext context, ResourceLocation effect, String node, CompoundTag data) {
+                public void onEffect(StationContext context, Identifier effect, String node, CompoundTag data) {
                     CALLS.add("a:effect:" + effect.getPath() + ":" + node);
                 }
             });
@@ -173,13 +168,13 @@ public final class ListenerGameTests {
             ActionHandler.apply(context, StationLogic.NONE, player, new StationAction.Press(BELL));
             check(helper, CALLS.isEmpty(), "listeners heard a prediction: " + CALLS);
 
-            context.effect(ResourceLocation.withDefaultNamespace("flame"), "burner", new CompoundTag());
-            context.effect(ResourceLocation.withDefaultNamespace("flame"), null, new CompoundTag());
+            context.effect(Identifier.withDefaultNamespace("flame"), "burner", new CompoundTag());
+            context.effect(Identifier.withDefaultNamespace("flame"), null, new CompoundTag());
             check(helper, CALLS.equals(List.of("a:effect:flame:burner", "a:effect:flame:null")), "effects heard: " + CALLS);
 
             // A client shares an effect: passed on (the listeners hear it), at most 10 a second, small data only.
             CALLS.clear();
-            ResourceLocation clatter = ResourceLocation.fromNamespaceAndPath("mymod", "clatter");
+            Identifier clatter = Identifier.fromNamespaceAndPath("mymod", "clatter");
             for (int i = 0; i < 15; i++) {
                 manager.handle(player, new Packets.Action(at, new StationAction.Effect(clatter, "pot", new CompoundTag())));
             }

@@ -4,11 +4,10 @@ import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
@@ -24,8 +23,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.CameraRig;
@@ -46,8 +43,6 @@ import java.util.UUID;
  * Menu-backed stations: the clicks the client makes for each hand move, fed to real vanilla menus on the server, must
  * leave the inventories as the vanilla screen would.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class MenuGameTests {
     private static final MenuBinding TABLE = MenuBinding.of(MenuType.CRAFTING).output("result", 0).slots("grid", 1, 9).build();
     private static final MenuBinding FURNACE = MenuBinding.of(MenuType.FURNACE).slots("input", 0, 1).slots("fuel", 1, 1)
@@ -171,7 +166,7 @@ public final class MenuGameTests {
         ServerPlayer player = mockPlayer(helper);
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.getLevel().setBlockAndUpdate(pos, Blocks.FURNACE.defaultBlockState());
-        player.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
+        player.snapTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
         net.minecraft.world.level.block.entity.FurnaceBlockEntity furnace =
                 (net.minecraft.world.level.block.entity.FurnaceBlockEntity) helper.getLevel().getBlockEntity(pos);
         AbstractContainerMenu menu = furnace.createMenu(9, player.getInventory(), player);
@@ -211,12 +206,12 @@ public final class MenuGameTests {
     @GameTest(template = "empty")
     public static void menuStationsCheckTheirBinding(GameTestHelper helper) {
         StationSchema schema = StationSchema.builder().slots("grid", 9).output("result").build();
-        StationType type = StationType.builder(ResourceLocation.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_table")).blocks(Blocks.CRAFTING_TABLE)
+        StationType type = StationType.builder(Identifier.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_table")).blocks(Blocks.CRAFTING_TABLE)
                 .schema(schema).menu(TABLE).build();
         check(helper, type.authority() == Authority.MENU && type.menuBinding() == TABLE, "a menu station");
         boolean refused;
         try {
-            StationType wrong = StationType.builder(ResourceLocation.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_wrong")).blocks(Blocks.CRAFTING_TABLE)
+            StationType wrong = StationType.builder(Identifier.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_wrong")).blocks(Blocks.CRAFTING_TABLE)
                     .schema(StationSchema.builder().slots("grid", 4).output("result").build()).menu(TABLE).build();
             refused = wrong == null;
         } catch (IllegalStateException e) {
@@ -232,7 +227,7 @@ public final class MenuGameTests {
     private static CraftingMenu table(GameTestHelper helper, ServerPlayer player) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.getLevel().setBlockAndUpdate(pos, Blocks.CRAFTING_TABLE.defaultBlockState());
-        player.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
+        player.snapTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
         CraftingMenu menu = new CraftingMenu(7, player.getInventory(), ContainerLevelAccess.create(helper.getLevel(), pos));
         player.containerMenu = menu;
         return menu;

@@ -24,13 +24,12 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
@@ -43,8 +42,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Vector3f;
 
 import com.pockyl.diegesis.DiegesisMod;
@@ -79,8 +76,6 @@ import java.util.UUID;
  * In-game tests, run headless by {@code gradlew runGameTestServer}: the server half of the library - action checks
  * (no duplication, no items where they do not belong), state saving and syncing, scene files, sessions and their load.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class ModGameTests {
     private static final String GRID = "grid";
     private static final String FUEL = "fuel";
@@ -91,9 +86,9 @@ public final class ModGameTests {
     private static final String STATUS = "status";
     private static final String SHELF = "shelf";
 
-    private static final ResourceLocation WATER = ResourceLocation.withDefaultNamespace("water");
-    private static final ResourceLocation OIL = ResourceLocation.fromNamespaceAndPath("diegesis", "test_oil");
-    private static final ResourceLocation ACID = ResourceLocation.fromNamespaceAndPath("diegesis", "test_acid");
+    private static final Identifier WATER = Identifier.withDefaultNamespace("water");
+    private static final Identifier OIL = Identifier.fromNamespaceAndPath("diegesis", "test_oil");
+    private static final Identifier ACID = Identifier.fromNamespaceAndPath("diegesis", "test_acid");
 
     /** Grid of 4 any-item slots, a fuel slot for coal only (max 16), an output, a stepped dial, a lever and a button. */
     static final StationSchema SCHEMA = StationSchema.builder()
@@ -223,7 +218,7 @@ public final class ModGameTests {
         check(helper, station.state.takeChanges().slots().contains(SlotRef.of(GRID, 1)), "a change in the storage is noticed");
         station.state.pollStorages();
         check(helper, station.state.takeChanges().isEmpty(), "and only once");
-        check(helper, !station.state.save(registries(helper)).getCompound("slots").contains(GRID), "the owner saves bound slots");
+        check(helper, !station.state.save(registries(helper)).getCompoundOrEmpty("slots").contains(GRID), "the owner saves bound slots");
         helper.succeed();
     }
 
@@ -528,7 +523,7 @@ public final class ModGameTests {
         data.putString("fen", "8/8/8/8/8/8/8/8");
         state.setData(data);
         data.putString("fen", "changed afterwards");
-        check(helper, state.data().getString("fen").startsWith("8/"), "setData keeps its own copy");
+        check(helper, state.data().getStringOr("fen", "").startsWith("8/"), "setData keeps its own copy");
         StationState loaded = new StationState(SCHEMA);
         loaded.load(state.save(registries(helper)), registries(helper));
         check(helper, loaded.data().equals(state.data()), "saved and loaded");
@@ -551,7 +546,7 @@ public final class ModGameTests {
         RegistryFriendlyByteBuf delta = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(delta, false);
         mirror.readChanges(delta);
-        check(helper, mirror.data().getInt("move") == 1 && mirror.takeChanges().data(), "new data arrives");
+        check(helper, mirror.data().getIntOr("move", 0) == 1 && mirror.takeChanges().data(), "new data arrives");
         helper.succeed();
     }
 
@@ -754,7 +749,7 @@ public final class ModGameTests {
 
     @GameTest(template = "empty")
     public static void nodeTemplatesExpand(GameTestHelper helper) {
-        Map<ResourceLocation, JsonObject> templates = new HashMap<>();
+        Map<Identifier, JsonObject> templates = new HashMap<>();
         for (String name : List.of("lever", "switch", "button", "knob", "slider")) {
             String file = "/assets/diegesis/" + NodeTemplates.DIR + "/control/" + name + ".json";
             try (InputStream in = DiegesisMod.class.getResourceAsStream(file)) {
@@ -765,9 +760,9 @@ public final class ModGameTests {
                 throw new IllegalStateException(e);
             }
         }
-        templates.put(ResourceLocation.fromNamespaceAndPath("mymod", "big_knob"), JsonParser.parseString(
+        templates.put(Identifier.fromNamespaceAndPath("mymod", "big_knob"), JsonParser.parseString(
                 "{\"template\": \"diegesis:control/knob\", \"scale\": 2, \"control\": {\"range\": [90, -90]}}").getAsJsonObject());
-        templates.put(ResourceLocation.fromNamespaceAndPath("mymod", "loop"),
+        templates.put(Identifier.fromNamespaceAndPath("mymod", "loop"),
                 JsonParser.parseString("{\"template\": \"mymod:loop\"}").getAsJsonObject());
 
         JsonObject grid = NodeTemplates.expand(JsonParser.parseString("{\"nodes\": [{\"id\": \"mark\", \"pos\": [10, 5, 0],"
@@ -814,7 +809,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    private static DataResult<SceneDefinition> expand(String json, Map<ResourceLocation, JsonObject> templates) {
+    private static DataResult<SceneDefinition> expand(String json, Map<Identifier, JsonObject> templates) {
         return NodeTemplates.expand(JsonParser.parseString(json), templates::get)
                 .flatMap(expanded -> SceneDefinition.CODEC.parse(JsonOps.INSTANCE, expanded));
     }
@@ -1065,7 +1060,7 @@ public final class ModGameTests {
         }
 
         @Override
-        public void effect(ResourceLocation effect, String node, CompoundTag data) {
+        public void effect(Identifier effect, String node, CompoundTag data) {
         }
     }
 
