@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A lectern's book (or another station's book) behind the station being used no longer shows through the blocks in front of it.
 - With a mod that tilts the camera, leaving a station no longer levels the view and then jerks it back: the camera flies back into the tilted view, and flies out of it on the way in.
 ### Not on 26.2 yet
-- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away on Fabric (on NeoForge they slide), the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+- Smooth-pass supersampling, and fading of entities and particles in front of a station (ClearView).
+- Other mods' HUD elements sliding away on Fabric (on NeoForge they slide).
+- The outline of a part seen only from the station.
+- Sodium and AsyncParticles compatibility.
 
 ## [1.0.0-beta.17.1+26.3] - Unreleased
 ### Added
