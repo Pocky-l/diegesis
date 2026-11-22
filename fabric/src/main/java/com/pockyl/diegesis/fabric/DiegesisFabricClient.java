@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
@@ -24,6 +25,7 @@ import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.world.InteractionResult;
 
+import com.pockyl.diegesis.fabric.compat.ControlifyCompat;
 import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
@@ -61,8 +63,8 @@ public final class DiegesisFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         DiegesisClientRuntime.init();
-        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("controlify")) {
-            com.pockyl.diegesis.fabric.compat.ControlifyCompat.init();
+        if (FabricLoader.getInstance().isModLoaded("controlify")) {
+            ControlifyCompat.init();
         }
         FabricNetwork.registerClient();
         ClientTickEvents.END_CLIENT_TICK.register(client -> DiegesisClientRuntime.tick());
