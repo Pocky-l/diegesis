@@ -18,6 +18,7 @@
     "client.ItemStackRenderStateAccessor",
     "client.KeyboardInputMixin",
     "client.LevelRendererMixin",
+    "client.LevelRendererOutlineMixin",
     "client.MultiPlayerGameModeMixin",
     "client.RenderChunkRegionMixin",
     "client.RenderPipelinesAccessor",

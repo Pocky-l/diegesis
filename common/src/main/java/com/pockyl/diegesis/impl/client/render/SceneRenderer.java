@@ -296,7 +296,7 @@ public final class SceneRenderer {
      * outline colour, which the game turns into a line round its edge and lays over the frame as it does for glowing entities.
      */
     private static void drawOutlines(SubmitNodeCollector collector) {
-        if (Minecraft.getInstance().gameRenderer.isPanoramicMode()) {
+        if (Minecraft.getInstance().gameRenderer.isPanoramicMode() || !FrameView.drawsOutlines()) {
             return;
         }
         int color = 0xFF000000 | outlineColor;
