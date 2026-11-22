@@ -254,8 +254,10 @@ public final class SceneRenderer {
             // in the air before the camera, where the block it stands in for is gone.
             boolean drawn = isDrawn(station, cameraPos) && !ClearBlocks.hides(station.pos());
             // Only what is in view is drawn, and only what is in view and near moves every frame; the station worked at always does.
-            boolean seen = station.isInSession() || drawn && view.isVisible(new AABB(station.pos()).inflate(VIEW_MARGIN));
-            if (seen && (station.isInSession() || station.pos().distToCenterSqr(cameraPos) < FAR_STEP_FROM * FAR_STEP_FROM)) {
+            // Where the block is seen: on a moving structure its block is kept far away from there.
+            Vec3 center = station.center();
+            boolean seen = station.isInSession() || drawn && view.isVisible(AABB.ofSize(center, 1.0, 1.0, 1.0).inflate(VIEW_MARGIN));
+            if (seen && (station.isInSession() || center.distanceToSqr(cameraPos) < FAR_STEP_FROM * FAR_STEP_FROM)) {
                 station.frame(dt);
             } else if (seen) {
                 station.frameUnseen(dt, FAR_STEP);
@@ -421,7 +423,7 @@ public final class SceneRenderer {
         BlockPos pos = station.pos();
         int light = lightAt(level, pos);
         // How far the camera is, for the detail of what is drawn; the station worked at is always drawn in full.
-        float distance = FocusController.get().station() == station ? 0.0F : (float) Math.sqrt(pos.distToCenterSqr(camera));
+        float distance = FocusController.get().station() == station ? 0.0F : (float) Math.sqrt(station.center().distanceToSqr(camera));
         poseStack.pushPose();
         // The block's place relative to the camera, in doubles: on a moving structure its blocks are kept far away and the pose
         // brings them back, which floats would lose.
@@ -494,7 +496,8 @@ public final class SceneRenderer {
                     renderShape(node, poseStack, buffers, nodeLight);
                 }
             }
-            if (node.painter() != null && !(node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
+            // Over the frame only at the station worked at: another station's painter would show through whatever stands before it.
+            if (node.painter() != null && !(local && node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
                 node.painter().paint(poseStack, buffers, nodeLight);
             }
             if (!overAll) {

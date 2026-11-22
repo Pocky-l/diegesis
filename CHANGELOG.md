@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - For modders: `StationBehavior.onKey` gets GLFW key codes on 26.1.2 (SDL ones on 26.3). Compare them with `InputConstants.KEY_*`, which is right on both.
 ### Fixed
 - The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
+- A lectern's book (or another station's book) behind the station being used no longer shows through the blocks in front of it.
+- With a mod that tilts the camera, leaving a station no longer levels the view and then jerks it back: the camera flies back into the tilted view, and flies out of it on the way in.
 ### Not on 26.1.2 yet
 - NeoForge.
 - Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
