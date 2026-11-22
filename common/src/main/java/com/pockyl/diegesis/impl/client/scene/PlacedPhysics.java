@@ -2058,8 +2058,9 @@ public final class PlacedPhysics {
             return 1.0F;
         }
         SoundType sound = item.getBlock().defaultBlockState().getSoundType();
-        if (sound == SoundType.METAL || sound == SoundType.ANVIL || sound == SoundType.NETHERITE_BLOCK || sound == SoundType.COPPER
-                || sound == SoundType.CHAIN || sound == SoundType.LANTERN || sound == SoundType.LODESTONE) {
+        // Iron blocks and bars sound as IRON since Minecraft 1.21.9, no longer as METAL.
+        if (sound == SoundType.METAL || sound == SoundType.IRON || sound == SoundType.ANVIL || sound == SoundType.NETHERITE_BLOCK
+                || sound == SoundType.COPPER || sound == SoundType.CHAIN || sound == SoundType.LANTERN || sound == SoundType.LODESTONE) {
             return 4.0F;
         }
         if (sound == SoundType.STONE || sound == SoundType.DEEPSLATE || sound == SoundType.DEEPSLATE_BRICKS || sound == SoundType.POLISHED_DEEPSLATE
