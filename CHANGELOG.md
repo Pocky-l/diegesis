@@ -8,9 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - NeoForge is supported on 26.3 (NeoForge 26.3.0.84 or newer), with the same features as Fabric. On NeoForge the HUD parts other mods add slide away too.
 - `Diegesis.addListener` and `DiegesisClient.addBehavior`: a mod can watch any station, refuse what players do there and add client code beside the station's own.
-- Effect and particle style files (`diegesis/effects/*.json`, `diegesis/particles/*.json`), played by id anywhere.
+- Effect and particle style files (`diegesis/effects/*.json`, `diegesis/particles/*.json`), played by id anywhere; `StationView.shareEffect` shows one to everyone near the station.
 - Scene option `feedback`: swap or silence the library's sounds, play effects when something happens in the scene, and mark nodes as fire or liquid for carried things.
-- `StationView.shareEffect` and shared reactions: an effect played on one client is seen by everyone near the station.
 - Scene events from the placing physics, landing streams of liquid and things held into liquids or fire; a `switch` over `SceneEvent` needs a `default` branch.
 - Orientation `PLAYER_FREE` and `StationView.turn()`: a station's scene faces the player at their own angle round the block.
 - Slot options `ghost`, `ghost_alpha`, `ghost_period` and `NodeView.setGhostItems`: an empty slot shows what goes into it, see-through.
@@ -24,11 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The vignette, frost, a carved pumpkin's view and the portal's swirl no longer vanish at a station.
 - Stations away from the player cost far less: scenes out of view are not drawn and move in coarser steps, and far liquids and floating things are drawn in less detail.
 ### Fixed
-- Tools that take a right click on a block, such as a wrench, now work on station blocks.
-- A block that another mod opens its own screen for no longer flies the camera back behind that screen.
+- Tools that take a right click on a block, such as a wrench, work on station blocks, and a block another mod opens its own screen for no longer flies the camera back behind it.
 - A menu station used from the edge of reach no longer opens the block's vanilla screen.
-- A block taken out of the camera's way takes along what its block entity draws.
-- `DiegesisClient.tinted` fades items drawn as entity models too, so a ghost banner is see-through.
+- A block taken out of the camera's way takes along what its block entity draws, and `DiegesisClient.tinted` fades entity-model items too (a ghost banner is see-through).
 - A door or lid lit as a block no longer flickers as the camera moves, and a swinging door is lit by the room it faces.
 - A shallow liquid seen from low down no longer shows dark wedges over its far half, and no dark lines run down the front of a pan or along a vessel's walls.
 - Many smaller fixes of free placing with physics.
@@ -36,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A lectern's book (or another station's book) behind the station being used no longer shows through the blocks in front of it.
 - With a mod that tilts the camera, leaving a station no longer levels the view and then jerks it back: the camera flies back into the tilted view, and flies out of it on the way in.
 ### Not on 26.3 yet
-- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away on Fabric, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+- Smooth-pass supersampling, ClearView for entities and particles, other mods' HUD parts sliding on Fabric, the outline of a part seen only from the station, Sodium and AsyncParticles compatibility.
 
 ## [1.0.0-beta.13.2+26.3] - 2026-11-22
 ### Added
