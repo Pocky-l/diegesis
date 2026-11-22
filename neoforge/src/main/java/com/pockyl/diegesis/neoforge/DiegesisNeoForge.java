@@ -10,6 +10,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import com.pockyl.diegesis.DiegesisMod;
 import com.pockyl.diegesis.api.Diegesis;
+import com.pockyl.diegesis.gametest.GameTests;
 
 /** The NeoForge entry point on both sides. The client part is {@link NeoForgeClient}. */
 @Mod(Diegesis.MOD_ID)
@@ -17,6 +18,7 @@ public final class DiegesisNeoForge {
     public DiegesisNeoForge(IEventBus modBus) {
         DiegesisMod.init();
         modBus.addListener(NeoForgeNetwork::register);
+        GameTests.register(modBus);
         IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener(ServerTickEvent.Post.class, event -> DiegesisMod.onServerTick(event.getServer()));
         bus.addListener(PlayerEvent.PlayerLoggedInEvent.class, event -> {

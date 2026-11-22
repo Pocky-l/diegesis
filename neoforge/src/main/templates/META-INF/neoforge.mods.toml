@@ -9,7 +9,8 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
 displayURL="${mod_url}"
-logoFile="logo.png"
+# Square icon for the mod list (NeoForge 26.2+).
+iconFile="logo.png"
 description='''${mod_description}'''
 # A library: interfaces made with it work on the client alone or with the server, so either side may lack it.
 displayTest="IGNORE_ALL_VERSION"
@@ -30,3 +31,6 @@ displayTest="IGNORE_ALL_VERSION"
 
 [[mixins]]
 config="${mod_id}.mixins.json"
+
+[[mixins]]
+config="${mod_id}.neoforge.mixins.json"

@@ -3,11 +3,10 @@ package com.pockyl.diegesis.gametest;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -16,8 +15,6 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Quaternionf;
 
 import com.pockyl.diegesis.DiegesisMod;
@@ -51,8 +48,6 @@ import static com.pockyl.diegesis.gametest.PlacingGameTests.check;
  * state through the same writing and reading as the network, and the client's physics works on the client's state. What
  * the player saw at rest must stay where it is, whatever the server sends.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingSyncTests {
     private static final String ITEMS = "items";
     private static final float FRAME = 1.0F / 60.0F;
@@ -114,7 +109,7 @@ public final class PlacingSyncTests {
         }
 
         @Override
-        public void effect(ResourceLocation effect, String node, CompoundTag data) {
+        public void effect(Identifier effect, String node, CompoundTag data) {
         }
     }
 
@@ -297,7 +292,7 @@ public final class PlacingSyncTests {
                 + (1.0F - Math.abs(new Quaternionf(a.rotation()).dot(new Quaternionf(b.rotation())))) * 100.0F;
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
+    @DiegesisTest(timeoutTicks = 600)
     public static void whatRestsIsWhatTheServerHas(GameTestHelper helper) {
         RoundTrip trip = filled(helper);
         float worst = 0.0F;
@@ -314,7 +309,7 @@ public final class PlacingSyncTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
+    @DiegesisTest(timeoutTicks = 600)
     public static void takingAThingLeavesTheOthersWhereTheyRest(GameTestHelper helper) {
         RoundTrip trip = filled(helper);
         // Long after it all came to rest, past any answer of the server still expected.
@@ -342,7 +337,7 @@ public final class PlacingSyncTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
+    @DiegesisTest(timeoutTicks = 600)
     public static void aServerResendMidSettleDoesNotPullThingsBack(GameTestHelper helper) {
         RoundTrip trip = new RoundTrip(helper, shelf());
         float half = CUBE.half(2.0F).y;
@@ -360,7 +355,7 @@ public final class PlacingSyncTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 800)
+    @DiegesisTest(timeoutTicks = 800)
     public static void thingsAtRestNeverMoveByThemselves(GameTestHelper helper) {
         RoundTrip trip = filled(helper);
         trip.run(6.0F);

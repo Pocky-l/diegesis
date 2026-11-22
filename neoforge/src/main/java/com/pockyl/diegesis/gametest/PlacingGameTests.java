@@ -1,11 +1,8 @@
 package com.pockyl.diegesis.gametest;
 
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -26,8 +23,6 @@ import java.util.List;
  * Free placing without a client: the geometry of where things go ({@code Placing}) and the physics core run against a
  * scene stand-in. Only classes free of the client are touched here.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingGameTests {
     private static final float FRAME = 1.0F / 60.0F;
     /** A block's hit box as the shapes measure one: half a block in the model, 0.8 of the item's size along its sides. */
@@ -42,7 +37,7 @@ public final class PlacingGameTests {
                 .physics(PlacingPhysics.DEFAULT).build();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void physicsRestsWhereThingsArePut(GameTestHelper helper) {
         PlacingOptions options = shelf();
         Scene scene = new Scene(options, 3);
@@ -59,7 +54,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void physicsKeepsAStackStanding(GameTestHelper helper) {
         PlacingOptions options = PlacingOptions.builder("items").surface(1.0F, 4.0F, 15.0F, 15.0F, 1.0F, 16.0F, 0.0F).itemSize(4.0F)
                 .physics(PlacingPhysics.DEFAULT).build();
@@ -79,7 +74,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void stackingGoesToTheTopOfThePile(GameTestHelper helper) {
         // Planks on the shelf, a stone on them, an apple beside the pile: aimed at the planks, the apple in the hand climbs the
         // pile to the stone; the apple standing alone is no part of it.
@@ -96,7 +91,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aLowThingIsAllTopAtAnyItemSize(GameTestHelper helper) {
         PlacingOptions fridge = PlacingOptions.builder("items").surface(1.0F, 3.0F, 15.0F, 15.0F, 1.0F, 4.0F, 3.0F).itemSize(2.0F).build();
         ItemPose apple = new ItemPose(8.0F, 1.0F, 8.0F, 1.0F, new Quaternionf(), 1.0F, -1);
@@ -112,7 +107,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void pickTakesTheExactHitFirst(GameTestHelper helper) {
         // A sheet standing upright, seen past its thin side, and a block behind: the cursor a hair beside the sheet and right on
         // the block takes the block; with nothing behind it, the near miss takes the sheet.
@@ -129,7 +124,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aThinThingHasAnEdgeToHit(GameTestHelper helper) {
         // A sheet lying on a shelf at height 1, a tenth of a pixel thick, seen from the front at its height.
         Placing.Pickable sheet = pickable(new Vector3f(5.0F, 1.05F, 8.0F), new Vector3f(2.0F, 0.05F, 2.0F), 0.75F, 1.0F);
@@ -147,7 +142,7 @@ public final class PlacingGameTests {
     /** A cake 8 by 8 pixels round (8, 8), its top at 4. */
     private static final float[] CAKE = {4.0F, 12.0F, 1.0F, 4.0F, 4.0F, 12.0F};
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void stackingFollowsTheCursorOnAWideSupport(GameTestHelper helper) {
         float[] left = Placing.onTopOf(5.5F, 8.0F, CAKE, 1.0F, 1.0F, 0.3F, 0.0F);
         float[] right = Placing.onTopOf(10.5F, 9.0F, CAKE, 1.0F, 1.0F, 0.3F, 0.0F);
@@ -156,7 +151,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void stackingSnapsToTheMiddle(GameTestHelper helper) {
         float[] near = Placing.onTopOf(9.0F, 7.0F, CAKE, 1.0F, 1.0F, 0.3F, 0.0F);
         check(helper, near[0] == 8.0F && near[1] == 8.0F, "within stack_snap of the middle: on it, " + near[0] + ", " + near[1]);
@@ -165,7 +160,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aStackedThingKeepsItsMiddleOnItsSupport(GameTestHelper helper) {
         float[] past = Placing.onTopOf(20.0F, -3.0F, CAKE, 1.5F, 1.5F, 0.3F, 0.0F);
         check(helper, past[0] == 12.0F && past[1] == 4.0F, "pointed past the edge: its middle on the edge, " + past[0] + ", " + past[1]);
@@ -174,7 +169,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void theGripOffsetFadesWithTravel(GameTestHelper helper) {
         check(helper, Placing.gripShare(0.0, 12.0F) == 1.0F && Placing.gripShare(2.9, 12.0F) == 1.0F,
                 "within three GUI pixels of the take it stays where it stood");
@@ -201,7 +196,7 @@ public final class PlacingGameTests {
         return scene;
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aPileRidesItsBase(GameTestHelper helper) {
         Scene scene = tower();
         List<ItemPose> before = scene.poses();
@@ -223,7 +218,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aPileFallsWhenItsBaseTips(GameTestHelper helper) {
         Scene scene = tower();
         List<ItemPose> before = scene.poses();
@@ -239,7 +234,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void takingFromAPileLowersTheRest(GameTestHelper helper) {
         Scene scene = tower();
         ItemPose middle = scene.poses.get(1);
@@ -255,7 +250,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aDraggedThingStaysOnItsSupportsTop(GameTestHelper helper) {
         Scene scene = tower();
         ItemPose planks = scene.poses.get(0);
@@ -313,7 +308,7 @@ public final class PlacingGameTests {
         return scene;
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aBoxHalfOverAnOpenEdgeSitsFlat(GameTestHelper helper) {
         Scene scene = overTheEdge(0.5F);
         scene.run(2.0F);
@@ -325,7 +320,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aBoxPastItsMiddleFallsOff(GameTestHelper helper) {
         Scene scene = overTheEdge(-0.5F);
         scene.run(3.0F);
@@ -336,7 +331,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aFallingPileKnocksAndThenRestsQuietly(GameTestHelper helper) {
         Scene scene = tower();
         check(helper, scene.told.stream().noneMatch(line -> line.startsWith("impact")), "a standing pile knocks nothing: " + scene.told);
@@ -367,7 +362,7 @@ public final class PlacingGameTests {
                 .physics(PlacingPhysics.DEFAULT).build();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aLyingFlatThingDoesNotRock(GameTestHelper helper) {
         PlacingOptions options = fridge();
         Scene scene = new Scene(options, 2);
@@ -399,7 +394,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void flatThingsStandFlush(GameTestHelper helper) {
         PlacingOptions options = fridge();
         Scene scene = new Scene(options, 2);
@@ -451,7 +446,7 @@ public final class PlacingGameTests {
                 built.snap(), built.previewColor(), built.counts(), built.physics(), built.framePose(), built.hoverLift(), built.handling());
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void flatThingsLieOnALieSurface(GameTestHelper helper) {
         PlacingOptions options = drawer();
         PlaceSurface tray = options.surfaces().get(0);
@@ -469,7 +464,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void sameThingsShiftClickedOntoALieSurfacePileUp(GameTestHelper helper) {
         PlacingOptions options = drawer();
         float least = PlacedPhysics.flatHalf(PlacingPhysics.DEFAULT);
@@ -499,7 +494,7 @@ public final class PlacingGameTests {
     }
 
     /** A microwave's plate: things that come without a place go to its middle, then round it. */
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aMiddleSurfaceFillsFromItsMiddle(GameTestHelper helper) {
         PlacingOptions built = PlacingOptions.builder("items").surface(7.0F, 6.0F, 13.0F, 12.0F, 2.0F, 6.0F, 2.0F).itemSize(2.5F).build();
         PlaceSurface square = built.surfaces().get(0);
@@ -519,7 +514,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void stackingShrinksAtMostAQuarter(GameTestHelper helper) {
         PlacingOptions options = fridge();
         check(helper, Placing.stackFloor(options, 1.0F) == 0.75F, "a thing of size 1 goes on top down to 0.75");
@@ -532,7 +527,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aPutDownSoundsOnceAsItLands(GameTestHelper helper) {
         Scene scene = tower();
         scene.landings.clear();
@@ -562,7 +557,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void heldPosesAreSentInSteps(GameTestHelper helper) {
         Scene scene = tower();
         scene.sent.clear();
@@ -586,7 +581,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aTurnNearSquareSettlesOnIt(GameTestHelper helper) {
         Quaternionf near = new Quaternionf().rotateY((float) Math.toRadians(93.0));
         Quaternionf square = Placing.detent(near, 45.0F, 5.0F);
@@ -604,7 +599,7 @@ public final class PlacingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aNearMissLandsFlush(GameTestHelper helper) {
         PlacingOptions options = shelf();
         Scene scene = new Scene(options, 1);

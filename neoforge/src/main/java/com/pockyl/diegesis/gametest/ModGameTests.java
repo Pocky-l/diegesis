@@ -24,13 +24,12 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
@@ -43,8 +42,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Vector3f;
 
 import com.pockyl.diegesis.DiegesisMod;
@@ -79,8 +76,6 @@ import java.util.UUID;
  * In-game tests, run headless by {@code gradlew runGameTestServer}: the server half of the library - action checks
  * (no duplication, no items where they do not belong), state saving and syncing, scene files, sessions and their load.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class ModGameTests {
     private static final String GRID = "grid";
     private static final String FUEL = "fuel";
@@ -91,9 +86,9 @@ public final class ModGameTests {
     private static final String STATUS = "status";
     private static final String SHELF = "shelf";
 
-    private static final ResourceLocation WATER = ResourceLocation.withDefaultNamespace("water");
-    private static final ResourceLocation OIL = ResourceLocation.fromNamespaceAndPath("diegesis", "test_oil");
-    private static final ResourceLocation ACID = ResourceLocation.fromNamespaceAndPath("diegesis", "test_acid");
+    private static final Identifier WATER = Identifier.withDefaultNamespace("water");
+    private static final Identifier OIL = Identifier.fromNamespaceAndPath("diegesis", "test_oil");
+    private static final Identifier ACID = Identifier.fromNamespaceAndPath("diegesis", "test_acid");
 
     /** Grid of 4 any-item slots, a fuel slot for coal only (max 16), an output, a stepped dial, a lever and a button. */
     static final StationSchema SCHEMA = StationSchema.builder()
@@ -143,7 +138,7 @@ public final class ModGameTests {
         return testStation;
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void modLoads(GameTestHelper helper) {
         helper.succeed();
     }
@@ -152,7 +147,7 @@ public final class ModGameTests {
     // Actions
     // ---------------------------------------------------------------------------------------------------------------
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void clicksMoveStacksLikeVanilla(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -181,7 +176,7 @@ public final class ModGameTests {
     }
 
     /** A right click nothing takes puts the cursor's stack away: back to its slot while that is free, else where it fits. */
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aRightClickPutsTheHandAway(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -203,7 +198,7 @@ public final class ModGameTests {
     }
 
     /** A bound group is a window: the storage is the truth both ways, and changes made behind the state's back are noticed. */
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void boundSlotsAreAWindowOnTheirStorage(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -223,11 +218,11 @@ public final class ModGameTests {
         check(helper, station.state.takeChanges().slots().contains(SlotRef.of(GRID, 1)), "a change in the storage is noticed");
         station.state.pollStorages();
         check(helper, station.state.takeChanges().isEmpty(), "and only once");
-        check(helper, !station.state.save(registries(helper)).getCompound("slots").contains(GRID), "the owner saves bound slots");
+        check(helper, !station.state.save(registries(helper)).getCompoundOrEmpty("slots").contains(GRID), "the owner saves bound slots");
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void clicksRespectSlotRules(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -249,7 +244,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void shiftDoubleClickAndSpread(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -275,7 +270,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void outputsComeFromTheLogic(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         TestLogic logic = new TestLogic();
@@ -295,7 +290,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void controlsStayInRange(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -327,7 +322,7 @@ public final class ModGameTests {
         return tallStation;
     }
 
-    @GameTest(template = "box")
+    @DiegesisTest(structure = "box")
     public static void multiblocksOpenAtTheirMainBlock(GameTestHelper helper) {
         tallStation();
         BlockPos lower = new BlockPos(3, 1, 3);
@@ -345,7 +340,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void pouringKeepsTheVolume(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -371,7 +366,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "box")
+    @DiegesisTest(structure = "box")
     public static void theServerPacesPouring(GameTestHelper helper) {
         testStation();
         BlockPos pos = new BlockPos(3, 1, 3);
@@ -400,7 +395,7 @@ public final class ModGameTests {
     // State and messages
     // ---------------------------------------------------------------------------------------------------------------
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void placedItemsStandWhereTheyArePut(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -447,7 +442,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void aSqueezedThingRemembersItsSize(GameTestHelper helper) {
         TestContext station = new TestContext(helper.getLevel());
         Player player = helper.makeMockPlayer(GameType.CREATIVE);
@@ -477,7 +472,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void strokesAreForNodesWithoutARole(GameTestHelper helper) {
         check(helper, NodeDefinition.builder("zone").strokes().build().strokes(), "a role-less node takes strokes");
         boolean refused = false;
@@ -494,7 +489,7 @@ public final class ModGameTests {
         return ActionHandler.apply(station, StationLogic.NONE, player, new StationAction.Place(slot, pose));
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void stateSavesAndSyncs(GameTestHelper helper) {
         StationState state = new StationState(SCHEMA);
         state.setItem(SlotRef.of(GRID, 3), new ItemStack(Items.BOOK, 2));
@@ -521,14 +516,14 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void stationDataSavesAndSyncs(GameTestHelper helper) {
         StationState state = new StationState(SCHEMA);
         CompoundTag data = new CompoundTag();
         data.putString("fen", "8/8/8/8/8/8/8/8");
         state.setData(data);
         data.putString("fen", "changed afterwards");
-        check(helper, state.data().getString("fen").startsWith("8/"), "setData keeps its own copy");
+        check(helper, state.data().getStringOr("fen", "").startsWith("8/"), "setData keeps its own copy");
         StationState loaded = new StationState(SCHEMA);
         loaded.load(state.save(registries(helper)), registries(helper));
         check(helper, loaded.data().equals(state.data()), "saved and loaded");
@@ -551,11 +546,11 @@ public final class ModGameTests {
         RegistryFriendlyByteBuf delta = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries(helper));
         state.writeChanges(delta, false);
         mirror.readChanges(delta);
-        check(helper, mirror.data().getInt("move") == 1 && mirror.takeChanges().data(), "new data arrives");
+        check(helper, mirror.data().getIntOr("move", 0) == 1 && mirror.takeChanges().data(), "new data arrives");
         helper.succeed();
     }
 
-    @GameTest(template = "box")
+    @DiegesisTest(structure = "box")
     public static void playersTakeTheNearestFreeSeatAndSit(GameTestHelper helper) {
         seatStation();
         BlockPos pos = new BlockPos(3, 1, 3);
@@ -596,7 +591,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void messagesRoundTrip(GameTestHelper helper) {
         List<Packets.ClientPacket> client = List.of(
                 new Packets.Open(new BlockPos(1, 2, 3)),
@@ -621,7 +616,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void scenesParseAndReportErrors(GameTestHelper helper) {
         String good = """
                 {"camera": {"position": [8, 30, -4], "fov": 50},
@@ -730,7 +725,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void tippingKeepsTheLiquid(GameTestHelper helper) {
         check(helper, LiquidVolume.level(3, 5, 3, 0, 1, 0, 0.5F) == 0.0F, "half full upright: the middle");
         check(helper, LiquidVolume.level(3, 5, 3, 0, 1, 0, 1.0F) == 5.0F, "full upright: the top");
@@ -752,9 +747,9 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @DiegesisTest
     public static void nodeTemplatesExpand(GameTestHelper helper) {
-        Map<ResourceLocation, JsonObject> templates = new HashMap<>();
+        Map<Identifier, JsonObject> templates = new HashMap<>();
         for (String name : List.of("lever", "switch", "button", "knob", "slider")) {
             String file = "/assets/diegesis/" + NodeTemplates.DIR + "/control/" + name + ".json";
             try (InputStream in = DiegesisMod.class.getResourceAsStream(file)) {
@@ -765,9 +760,9 @@ public final class ModGameTests {
                 throw new IllegalStateException(e);
             }
         }
-        templates.put(ResourceLocation.fromNamespaceAndPath("mymod", "big_knob"), JsonParser.parseString(
+        templates.put(Identifier.fromNamespaceAndPath("mymod", "big_knob"), JsonParser.parseString(
                 "{\"template\": \"diegesis:control/knob\", \"scale\": 2, \"control\": {\"range\": [90, -90]}}").getAsJsonObject());
-        templates.put(ResourceLocation.fromNamespaceAndPath("mymod", "loop"),
+        templates.put(Identifier.fromNamespaceAndPath("mymod", "loop"),
                 JsonParser.parseString("{\"template\": \"mymod:loop\"}").getAsJsonObject());
 
         JsonObject grid = NodeTemplates.expand(JsonParser.parseString("{\"nodes\": [{\"id\": \"mark\", \"pos\": [10, 5, 0],"
@@ -814,7 +809,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    private static DataResult<SceneDefinition> expand(String json, Map<ResourceLocation, JsonObject> templates) {
+    private static DataResult<SceneDefinition> expand(String json, Map<Identifier, JsonObject> templates) {
         return NodeTemplates.expand(JsonParser.parseString(json), templates::get)
                 .flatMap(expanded -> SceneDefinition.CODEC.parse(JsonOps.INSTANCE, expanded));
     }
@@ -823,7 +818,7 @@ public final class ModGameTests {
     // Sessions
     // ---------------------------------------------------------------------------------------------------------------
 
-    @GameTest(template = "box")
+    @DiegesisTest(structure = "box")
     public static void sessionReturnsItemsOnClose(GameTestHelper helper) {
         testStation();
         BlockPos pos = new BlockPos(3, 1, 3);
@@ -855,7 +850,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "box")
+    @DiegesisTest(structure = "box")
     public static void walkingAwayOrLoggingOutGivesItemsBack(GameTestHelper helper) {
         testStation();
         BlockPos pos = new BlockPos(3, 1, 3);
@@ -883,7 +878,7 @@ public final class ModGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "box", timeoutTicks = 200)
+    @DiegesisTest(structure = "box", timeoutTicks = 200)
     public static void manyStationsStayCheap(GameTestHelper helper) {
         testStation();
         StationManager manager = StationManager.get(helper.getLevel().getServer());
@@ -1065,7 +1060,7 @@ public final class ModGameTests {
         }
 
         @Override
-        public void effect(ResourceLocation effect, String node, CompoundTag data) {
+        public void effect(Identifier effect, String node, CompoundTag data) {
         }
     }
 

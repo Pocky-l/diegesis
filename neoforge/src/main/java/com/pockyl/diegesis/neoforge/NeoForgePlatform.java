@@ -6,8 +6,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.common.CommonHooks;
 
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.Platform;
