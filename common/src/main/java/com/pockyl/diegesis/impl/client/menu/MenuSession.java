@@ -66,6 +66,8 @@ public final class MenuSession implements MenuAccess {
     private ClientStation station;
     private MenuBinding binding;
     private AbstractContainerMenu menu;
+    /** Whether the open menu was already found shorter than the server's (logged once a menu). */
+    private boolean shortLogged;
     /**
      * The server is done with the menu: it closed it, or opened another one (which closes it there). The client's open
      * menu tells nothing: a screen with a recipe book (the inventory) makes the inventory menu the open one by itself.
@@ -182,6 +184,7 @@ public final class MenuSession implements MenuAccess {
         }
         menu = type.create(containerId, player.getInventory());
         serverDone = false;
+        shortLogged = false;
         player.containerMenu = menu;
         station = wanted.station();
         binding = wanted.binding();
@@ -227,6 +230,48 @@ public final class MenuSession implements MenuAccess {
     public void onServerClose() {
         if (menu != null) {
             serverDone = true;
+        }
+    }
+
+    /**
+     * Whether the server's update of {@code slot} in container {@code containerId} lies beyond the station's menu: it is left
+     * out then. The server's menu can be longer than the one taken here: a mod that adds slots to a menu when its screen opens
+     * (Satchels' satchel row) adds them on the server too, while a station's menu never gets a screen.
+     */
+    public boolean beyondMenu(int containerId, int slot) {
+        AbstractContainerMenu open = takenMenu(containerId);
+        if (open == null || slot < open.slots.size()) {
+            return false;
+        }
+        noteShort(open, slot + 1);
+        return true;
+    }
+
+    /**
+     * The server's whole contents of container {@code containerId}. True when they are longer than the station's menu: the
+     * part that fits has gone in here, and vanilla must not fill the menu.
+     */
+    public boolean fitContents(int containerId, int stateId, List<ItemStack> items, ItemStack carried) {
+        AbstractContainerMenu open = takenMenu(containerId);
+        if (open == null || items.size() <= open.slots.size()) {
+            return false;
+        }
+        noteShort(open, items.size());
+        open.initializeContents(stateId, items.subList(0, open.slots.size()), carried);
+        return true;
+    }
+
+    /** The station's menu when it is the open one and has this container id. */
+    private AbstractContainerMenu takenMenu(int containerId) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        return menu != null && player != null && player.containerMenu == menu && menu.containerId == containerId ? menu : null;
+    }
+
+    private void noteShort(AbstractContainerMenu open, int serverSlots) {
+        if (!shortLogged) {
+            shortLogged = true;
+            DiegesisMod.LOGGER.info("Station {}: the server's menu has at least {} slots, this one {}; another mod adds slots "
+                    + "with the menu's screen, and the extra ones are left out", station.type().id(), serverSlots, open.slots.size());
         }
     }
 

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0-beta.17.1+1.20.1] - Unreleased
 ### Fixed
 - A shallow liquid seen from low down no longer shows dark wedges over its far half, and no dark lines run down the front of a pan or along a vessel's walls.
+- The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
 
 ## [1.0.0-beta.17+1.20.1] - 2026-11-22
 ### Fixed
