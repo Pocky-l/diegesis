@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minecraft 1.21.11, on Fabric: the library as 1.0.0-beta.17.1 has it on 1.21.1 and 26.3, with the same scenes, stations and network format.
 ### Changed
 - For addon authors, what Minecraft 1.21.11 changes in the API: ids are `Identifier`; `ScreenOverlay.render` takes `GuiGraphics` and `MenuAccess.click` a `ClickType`, as on 1.21.1; node painters and `DiegesisClient.items` / `tinted` take `SceneBuffers`, as on 26.3; `StationBehavior.onKey` gets GLFW key codes, as on 1.21.1 (compare with `InputConstants.KEY_*` to work on every version).
+### Fixed
+- The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
 ### Not on 1.21.11 yet
 - NeoForge.
 - Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
