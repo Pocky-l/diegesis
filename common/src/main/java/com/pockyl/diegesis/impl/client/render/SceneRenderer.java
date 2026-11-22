@@ -455,7 +455,8 @@ public final class SceneRenderer {
                     renderShape(node, poseStack, buffers, nodeLight);
                 }
             }
-            if (node.painter() != null && !(node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
+            // Over the frame only at the station worked at: another station's painter would show through whatever stands before it.
+            if (node.painter() != null && !(local && node.painter().smooth() && SmoothPass.defer(node.painter(), poseStack, nodeLight))) {
                 node.painter().paint(poseStack, buffers, nodeLight);
             }
             if (!overAll) {
@@ -1243,7 +1244,9 @@ public final class SceneRenderer {
             return buffers;
         }
         return type -> {
-            if (type != Sheets.translucentCullBlockSheet()) {
+            // A faded block item asks for the item sheet (DiegesisClient.tinted): in the shared buffer it went out before the
+            // block it lies in, and its depth cut that block away, so what stood behind showed through it.
+            if (type != Sheets.translucentCullBlockSheet() && type != Sheets.translucentItemSheet()) {
                 return buffers.getBuffer(type);
             }
             KeptTypes.keep(sceneBuffers, type);
