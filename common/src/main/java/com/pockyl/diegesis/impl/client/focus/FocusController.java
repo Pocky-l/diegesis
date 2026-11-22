@@ -529,6 +529,17 @@ public final class FocusController {
     }
 
     /**
+     * How much of the player's own view the camera still has this frame: 1 at the eye, falling over the flight in, rising again
+     * over the flight back; 0 at the station and while going over to a neighbour.
+     */
+    public float eyeShare() {
+        if (phase == Phase.IDLE || station == null) {
+            return 1.0F;
+        }
+        return flightFrom != null ? 0.0F : 1.0F - blend();
+    }
+
+    /**
      * How far the camera has come from the player's view to the station worked at, eased: rising while it flies in, falling while
      * it flies back, 1 at the station and while going over to a neighbour, 0 when nobody works at one. What comes with the
      * station (the inventory, an addon's book) shows by it, in step with the camera.
