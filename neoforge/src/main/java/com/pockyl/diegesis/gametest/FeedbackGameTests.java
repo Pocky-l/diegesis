@@ -4,13 +4,9 @@ import com.google.gson.JsonParser;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.minecraft.resources.Identifier;
 
-import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.client.ParticleStyle;
 import com.pockyl.diegesis.api.scene.NodeDefinition;
 import com.pockyl.diegesis.api.scene.SceneDefinition;
@@ -25,13 +21,10 @@ import com.pockyl.diegesis.impl.client.fx.FxLibrary;
 import java.util.List;
 
 /** Effect, particle and feedback files: what parses, what is an error, and that old scenes stay as they were. */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class FeedbackGameTests {
     private FeedbackGameTests() {
     }
 
-    @GameTest(template = "empty")
     public static void effectsAndParticleStylesParse(GameTestHelper helper) {
         DataResult<EffectDefinition> effect = parse(EffectDefinition.CODEC, """
                 {"steps": [
@@ -59,14 +52,13 @@ public final class FeedbackGameTests {
         check(helper, style.result().map(s -> s.emissive() && s.fade() && s.color() == 0xFFFF9040).orElse(false), "style fields and defaults");
         DataResult<ParticleStyle> frames = parse(FxLibrary.PARTICLE_CODEC, "{\"sprites\": {\"base\": \"minecraft:spark\", \"count\": 8}}");
         check(helper, frames.result().map(s -> s.sprites().size() == 8
-                && s.sprites().get(7).equals(ResourceLocation.fromNamespaceAndPath("minecraft", "spark_7"))).orElse(false), "frames expand");
+                && s.sprites().get(7).equals(Identifier.fromNamespaceAndPath("minecraft", "spark_7"))).orElse(false), "frames expand");
         check(helper, parse(FxLibrary.PARTICLE_CODEC, "{\"sprites\": [], \"gravity\": 1}").error().isPresent(), "no sprites");
         check(helper, parse(FxLibrary.PARTICLE_CODEC, "{\"sprites\": [\"minecraft:flame\"], \"glow\": true}").error().isPresent(),
                 "unknown style field");
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
     public static void feedbackParsesAndChangesNothingByDefault(GameTestHelper helper) {
         SceneDefinition old = parse(SceneDefinition.CODEC, "{\"nodes\": [{\"id\": \"a\"}]}").result().orElseThrow();
         check(helper, old.feedback().equals(FeedbackOptions.DEFAULT), "a scene without feedback has the defaults");
@@ -87,7 +79,7 @@ public final class FeedbackGameTests {
         FeedbackOptions feedback = scene.result().orElseThrow().feedback();
         check(helper, feedback.sounds().get(FeedbackOptions.Cue.LANDING).silent(), "false silences");
         check(helper, feedback.sounds().get(FeedbackOptions.Cue.PUT_DOWN).sound()
-                .filter(ResourceLocation.fromNamespaceAndPath("mymod", "station.clink")::equals).isPresent(), "a sound id swaps");
+                .filter(Identifier.fromNamespaceAndPath("mymod", "station.clink")::equals).isPresent(), "a sound id swaps");
         SoundCue pour = feedback.sounds().get(FeedbackOptions.Cue.POUR);
         check(helper, pour.sound().isEmpty() && pour.pitch() == 0.8F && pour.volume() == 1.0F, "an object without id only changes it");
         check(helper, feedback.impactMinSpeed() == 30.0F, "impact threshold");
@@ -112,7 +104,6 @@ public final class FeedbackGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
     public static void marksComeFromTheNodeAndItsLiquid(GameTestHelper helper) {
         SceneDefinition scene = parse(SceneDefinition.CODEC, """
                 {"nodes": [
@@ -124,9 +115,9 @@ public final class FeedbackGameTests {
         NodeDefinition flame = scene.nodes().get(0);
         NodeDefinition flask = scene.nodes().get(1);
         NodeDefinition plain = scene.nodes().get(2);
-        ResourceLocation lava = ResourceLocation.fromNamespaceAndPath("minecraft", "lava");
-        ResourceLocation water = ResourceLocation.fromNamespaceAndPath("minecraft", "water");
-        check(helper, Marks.of(flame, null).equals(java.util.Set.of(Marks.FIRE, ResourceLocation.fromNamespaceAndPath("mymod", "blessed"))), "own marks");
+        Identifier lava = Identifier.fromNamespaceAndPath("minecraft", "lava");
+        Identifier water = Identifier.fromNamespaceAndPath("minecraft", "water");
+        check(helper, Marks.of(flame, null).equals(java.util.Set.of(Marks.FIRE, Identifier.fromNamespaceAndPath("mymod", "blessed"))), "own marks");
         check(helper, Marks.of(flask, com.pockyl.diegesis.api.state.TankContents.EMPTY).equals(java.util.Set.of(Marks.HOT)),
                 "an empty tank is not wet");
         check(helper, Marks.of(flask, com.pockyl.diegesis.api.state.TankContents.of(water, 100).plus(

@@ -6,14 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-beta.17.1+26.2] - Unreleased
 ### Added
-- Minecraft 26.2, on Fabric, with everything of 1.0.0-beta.17.1+26.3.
+- Minecraft 26.2, on NeoForge and Fabric, with everything of 1.0.0-beta.17.1+26.3.
 ### Changed
 - On 26.2 `StationBehavior.onKey` gets GLFW key codes, as Minecraft 26.2 numbers keys (26.3 gives SDL scancodes): compare them with `InputConstants.KEY_*`.
 ### Fixed
 - The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
 ### Not on 26.2 yet
-- NeoForge.
-- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away on Fabric (on NeoForge they slide), the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
 
 ## [1.0.0-beta.17.1+26.3] - Unreleased
 ### Added
