@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A shallow liquid seen from low down no longer shows dark wedges over its far half, and no dark lines run down the front of a pan or along a vessel's walls.
 - Many smaller fixes of free placing with physics.
 - The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
+- A lectern's book (or another station's book) behind the station being used no longer shows through the blocks in front of it.
+- With a mod that tilts the camera, leaving a station no longer levels the view and then jerks it back: the camera flies back into the tilted view, and flies out of it on the way in.
 ### Not on 26.3 yet
 - Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away on Fabric, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
 
