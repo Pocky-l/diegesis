@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minecraft 26.1.2, on Fabric: everything Diegesis 1.0.0-beta.17.1 does on Minecraft 26.3, with the same modding API.
 ### Changed
 - For modders: `StationBehavior.onKey` gets GLFW key codes on 26.1.2 (SDL ones on 26.3). Compare them with `InputConstants.KEY_*`, which is right on both.
+### Fixed
+- The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
 ### Not on 26.1.2 yet
 - NeoForge.
 - Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
