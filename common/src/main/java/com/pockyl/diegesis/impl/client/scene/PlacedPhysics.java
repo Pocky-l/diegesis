@@ -2058,7 +2058,7 @@ public final class PlacedPhysics {
             return 1.0F;
         }
         SoundType sound = item.getBlock().defaultBlockState().getSoundType();
-        if (sound == SoundType.METAL || sound == SoundType.ANVIL || sound == SoundType.NETHERITE_BLOCK || sound == SoundType.COPPER
+        if (sound == SoundType.METAL || sound == SoundType.IRON || sound == SoundType.ANVIL || sound == SoundType.NETHERITE_BLOCK || sound == SoundType.COPPER
                 || sound == SoundType.CHAIN || sound == SoundType.LANTERN || sound == SoundType.LODESTONE) {
             return 4.0F;
         }
