@@ -4,6 +4,37 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.17.1+26.3] - Unreleased
+### Added
+- `Diegesis.addListener` and `DiegesisClient.addBehavior`: a mod can watch any station, refuse what players do there and add client code beside the station's own.
+- Effect and particle style files (`diegesis/effects/*.json`, `diegesis/particles/*.json`), played by id anywhere.
+- Scene option `feedback`: swap or silence the library's sounds, play effects when something happens in the scene, and mark nodes as fire or liquid for carried things.
+- `StationView.shareEffect` and shared reactions: an effect played on one client is seen by everyone near the station.
+- Scene events from the placing physics, landing streams of liquid and things held into liquids or fire; a `switch` over `SceneEvent` needs a `default` branch.
+- Orientation `PLAYER_FREE` and `StationView.turn()`: a station's scene faces the player at their own angle round the block.
+- Slot options `ghost`, `ghost_alpha`, `ghost_period` and `NodeView.setGhostItems`: an empty slot shows what goes into it, see-through.
+- Free placing: `right_puts_one`, surface options `fill: "middle"` and `flat_rest: "lie"`, and `stack_*`, `turn_detent*`, `pick_min`, `grip_blend`, `physics.*` for the old behaviour.
+- Scene options `clear_view.surface: "placing"` and `hud.keep_vignette`.
+### Changed
+- The network format changed: client and server need the same Diegesis.
+- Free placing is calmer: piles move as one, things stack where the cursor points and never pass through each other.
+- With physics, heaps of placed things come to rest and stay there, flat things rest at any angle, and things fall at real speed (`placing.physics.gravity: 200` gives the old fall).
+- A placed item is picked by its pixels and stays under the cursor when dragged, and a shadow marks where it will land.
+- The vignette, frost, a carved pumpkin's view and the portal's swirl no longer vanish at a station.
+- Stations away from the player cost far less: scenes out of view are not drawn and move in coarser steps, and far liquids and floating things are drawn in less detail.
+### Fixed
+- Tools that take a right click on a block, such as a wrench, now work on station blocks.
+- A block that another mod opens its own screen for no longer flies the camera back behind that screen.
+- A menu station used from the edge of reach no longer opens the block's vanilla screen.
+- A block taken out of the camera's way takes along what its block entity draws.
+- `DiegesisClient.tinted` fades items drawn as entity models too, so a ghost banner is see-through.
+- A door or lid lit as a block no longer flickers as the camera moves, and a swinging door is lit by the room it faces.
+- A shallow liquid seen from low down no longer shows dark wedges over its far half, and no dark lines run down the front of a pan or along a vessel's walls.
+- Many smaller fixes of free placing with physics.
+### Not on 26.3 yet
+- NeoForge.
+- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+
 ## [1.0.0-beta.13.2+26.3] - 2026-11-22
 ### Added
 - Gamepad support with [Controlify](https://modrinth.com/mod/controlify): its virtual cursor works at a station and snaps to the inventory slots and the station's parts. Contributed by rubenbarreroa ([#12](https://github.com/Pocky-l/diegesis/pull/12)).
