@@ -1,11 +1,11 @@
 package com.pockyl.diegesis.impl.client.render;
 
-import com.mojang.renderpearl.api.pipeline.BlendFactor;
-import com.mojang.renderpearl.api.pipeline.BlendFunction;
-import com.mojang.renderpearl.api.pipeline.ColorTargetState;
-import com.mojang.renderpearl.api.pipeline.CompareOp;
-import com.mojang.renderpearl.api.pipeline.DepthStencilState;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.BlendFactor;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
@@ -24,8 +24,7 @@ import java.util.function.Function;
 /**
  * The library's own render types, and the game's it draws scenes with. Since Minecraft 26.x a render type is a pipeline (shaders,
  * blending, depth) and a setup (textures, lightmap, layering); the library's pipelines are the game's entity pipelines with a
- * change or two. Each see-through type names the game's matching pipelines for improved transparency, which draws them without
- * sorting: a type without them cannot be drawn while that option is on.
+ * change or two. Minecraft 26.2 has no improved transparency (order-independent pipelines), so see-through types are sorted.
  */
 public final class DiegesisRenderTypes {
     /** The entity pipelines' depth test (Minecraft 26.x keeps depth reversed: nearer is greater). */
@@ -65,21 +64,31 @@ public final class DiegesisRenderTypes {
 
     private static final Function<Identifier, RenderType> LIGHT_POOL_TYPE = Util.memoize(texture -> create("diegesis_light_pool",
             RenderSetup.builder(LIGHT_POOL)
-                    .setOitPipelines(RenderPipelines.OIT_ENTITY_EMISSIVE)
                     .withTexture("Sampler0", texture)
                     .useOverlay()
                     .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
                     .createRenderSetup()));
     private static final Function<Identifier, RenderType> GHOST_TYPE = Util.memoize(texture -> create("diegesis_ghost",
             RenderSetup.builder(TRANSLUCENT_NO_DEPTH)
-                    .setOitPipelines(RenderPipelines.OIT_ENTITY)
                     .withTexture("Sampler0", texture)
                     .useLightmap()
                     .useOverlay()
                     .sortOnUpload()
                     .createRenderSetup()));
+    /**
+     * The game's culled see-through entity type, drawn to the main target. Minecraft 26.2 has it only as
+     * {@code entityTranslucentCullItemTarget}, which goes to the item-entity target with Fabulous graphics.
+     */
+    private static final Function<Identifier, RenderType> TRANSLUCENT_CULL_TYPE = Util.memoize(texture -> create(
+            "diegesis_entity_translucent_cull", RenderSetup.builder(RenderPipelines.ENTITY_TRANSLUCENT_CULL)
+                    .withTexture("Sampler0", texture)
+                    .useLightmap()
+                    .useOverlay()
+                    .affectsCrumbling()
+                    .sortOnUpload()
+                    .setOutline(RenderSetup.OutlineProperty.AFFECTS_OUTLINE)
+                    .createRenderSetup()));
     private static final RenderType ITEM = create("diegesis_item", RenderSetup.builder(RenderPipelines.ENTITY_TRANSLUCENT_CULL)
-            .setOitPipelines(RenderPipelines.OIT_ENTITY_CULL)
             .withTexture("Sampler0", TextureAtlas.LOCATION_BLOCKS)
             .useLightmap()
             .useOverlay()
@@ -87,7 +96,6 @@ public final class DiegesisRenderTypes {
             .setOutline(RenderSetup.OutlineProperty.AFFECTS_OUTLINE)
             .createRenderSetup());
     private static final RenderType CLEAR = create("diegesis_clear", RenderSetup.builder(TRANSLUCENT_CULL_NO_DEPTH)
-            .setOitPipelines(RenderPipelines.OIT_ENTITY_CULL)
             .withTexture("Sampler0", TextureAtlas.LOCATION_BLOCKS)
             .useLightmap()
             .useOverlay()
@@ -148,7 +156,12 @@ public final class DiegesisRenderTypes {
 
     /** Block-atlas geometry drawn like an entity, see-through and culled: {@code Sheets.translucentCullBlockSheet()} before 26.x. */
     public static RenderType translucentCullBlockSheet() {
-        return RenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
+        return entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
+    }
+
+    /** {@code texture} drawn like an entity, see-through and culled, into the main target. */
+    public static RenderType entityTranslucentCull(Identifier texture) {
+        return TRANSLUCENT_CULL_TYPE.apply(texture);
     }
 
     /** Block-atlas geometry drawn like an entity, solid: {@code Sheets.solidBlockSheet()} before Minecraft 26.x. */

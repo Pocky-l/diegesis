@@ -1,8 +1,8 @@
 package com.pockyl.diegesis.mixin.client;
 
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import com.mojang.renderpearl.api.textures.GpuSampler;
-import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.textures.GpuSampler;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -24,8 +24,8 @@ import com.pockyl.diegesis.impl.client.hud.HudSlide;
  */
 @Mixin(GuiGraphicsExtractor.class)
 abstract class GuiGraphicsMixin {
-    @Inject(method = "innerBlit(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lcom/mojang/renderpearl/api/textures/GpuTextureView;"
-            + "Lcom/mojang/renderpearl/api/textures/GpuSampler;IIIIFFFFI)V", at = @At("HEAD"), require = 0)
+    @Inject(method = "innerBlit(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lcom/mojang/blaze3d/textures/GpuTextureView;"
+            + "Lcom/mojang/blaze3d/textures/GpuSampler;IIIIFFFFI)V", at = @At("HEAD"), require = 0)
     private void diegesis$blit(RenderPipeline pipeline, GpuTextureView textureView, GpuSampler sampler, int x0, int y0, int x1, int y1,
             float u0, float u1, float v0, float v1, int color, CallbackInfo ci) {
         HudSlide.include(self().pose(), x0, y0, x1, y1);

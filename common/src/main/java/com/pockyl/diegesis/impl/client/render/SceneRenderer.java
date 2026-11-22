@@ -95,18 +95,17 @@ public final class SceneRenderer {
     private static final double FAR_STEP_FROM = 24.0;
     private static final float FAR_STEP = 1.0F / 30.0F;
     /** Shadows and highlights: block-atlas geometry, see-through, back faces culled (no double layers in a shadow). */
-    private static final RenderType OVERLAY = net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
+    private static final RenderType OVERLAY = DiegesisRenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
     /**
      * Shadows of item-atlas geometry. Since Minecraft 26.x items have an atlas of their own: drawn into {@link #OVERLAY}, an item's
      * shape was read from the block atlas and its shadow came out as a dark rectangle.
      */
-    private static final RenderType ITEM_OVERLAY = net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_ITEMS);
+    private static final RenderType ITEM_OVERLAY = DiegesisRenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_ITEMS);
     /** The render types that draw from the item atlas: the game's item sheets and the entity types {@code SceneDraw.sheet} gives. */
     private static final java.util.Set<RenderType> ITEM_ATLAS_TYPES = java.util.Set.of(Sheets.cutoutItemSheet(),
-            Sheets.cutoutItemGlintSheet(), Sheets.cutoutItemGlintSpecialSheet(), Sheets.translucentItemSheet(),
-            Sheets.translucentItemGlintSheet(), Sheets.translucentItemGlintSpecialSheet(),
+            Sheets.translucentItemSheet(),
             net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(TextureAtlas.LOCATION_ITEMS),
-            net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_ITEMS));
+            DiegesisRenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_ITEMS));
     /** Everything see-through of the scene goes here, in a buffer of its own: it stays one sorted batch. */
     private static final RenderType CLEAR = DiegesisRenderTypes.clearBlockSheet();
     /** Pixels between an item's right side and its count. */
@@ -114,14 +113,11 @@ public final class SceneRenderer {
     /** Opaque items of the scene, drawn after the opaque parts and before CLEAR, with depth: see {@link #solidItems}. */
     private static final RenderType ITEMS = DiegesisRenderTypes.itemSheet();
     /**
-     * The game's item types (each atlas, cut out and see-through, with glints): items write depth, so they go in before what is
-     * see-through, which would otherwise be drawn over by an item behind it.
+     * The game's item types (each atlas, cut out and see-through): items write depth, so they go in before what is see-through,
+     * which would otherwise be drawn over by an item behind it. Minecraft 26.2 draws glints as a type of their own, with the rest.
      */
-    private static final List<RenderType> ITEM_TYPES = List.of(Sheets.cutoutBlockItemSheet(), Sheets.cutoutBlockItemGlintSheet(),
-            Sheets.cutoutBlockItemGlintSpecialSheet(), Sheets.translucentBlockItemSheet(), Sheets.translucentBlockItemGlintSheet(),
-            Sheets.translucentBlockItemGlintSpecialSheet(), Sheets.cutoutItemSheet(), Sheets.cutoutItemGlintSheet(),
-            Sheets.cutoutItemGlintSpecialSheet(), Sheets.translucentItemSheet(), Sheets.translucentItemGlintSheet(),
-            Sheets.translucentItemGlintSpecialSheet());
+    private static final List<RenderType> ITEM_TYPES = List.of(Sheets.cutoutBlockItemSheet(), Sheets.translucentBlockItemSheet(),
+            Sheets.cutoutItemSheet(), Sheets.translucentItemSheet());
     /**
      * Where the scene's batches go among the game's submits: after the entities' (order 0), one order per batch, so that the
      * game draws them in the library's order. Solid geometry goes to the game's solid pass whatever its order; of what is
@@ -380,11 +376,6 @@ public final class SceneRenderer {
 
         @Override
         public VertexConsumer setLineWidth(float width) {
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
             return this;
         }
     }
@@ -1096,20 +1087,20 @@ public final class SceneRenderer {
             case FLAT -> {
                 if (block) {
                     poseStack.translate(0.0F, size * 0.25F, 0.0F);
-                    poseStack.rotate(Axis.YP.rotationDegrees(180.0F + jitter));
+                    poseStack.mulPose(Axis.YP.rotationDegrees(180.0F + jitter));
                 } else {
                     poseStack.translate(0.0F, 0.07F, 0.0F);
-                    poseStack.rotate(Axis.YP.rotationDegrees(180.0F + jitter));
-                    poseStack.rotate(Axis.XP.rotationDegrees(-90.0F));
+                    poseStack.mulPose(Axis.YP.rotationDegrees(180.0F + jitter));
+                    poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
                 }
             }
             case UPRIGHT -> {
                 poseStack.translate(0.0F, block ? size * 0.25F : size * 0.5F, 0.0F);
-                poseStack.rotate(Axis.YP.rotationDegrees(180.0F));
+                poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
             }
             case FLOATING -> {
                 poseStack.translate(0.0F, size * 0.55F + (float) Math.sin(age * 2.2F) * 0.35F, 0.0F);
-                poseStack.rotate(Axis.YP.rotationDegrees(age * 40.0F));
+                poseStack.mulPose(Axis.YP.rotationDegrees(age * 40.0F));
             }
             case HIDDEN -> {
                 poseStack.popPose();
@@ -1149,12 +1140,12 @@ public final class SceneRenderer {
         boolean block = isBlockLike(stack, level);
         Runnable place = () -> {
             poseStack.translate(at.x(), at.y(), at.z());
-            poseStack.rotate(Axis.XP.rotationDegrees(lean.x()));
-            poseStack.rotate(Axis.ZP.rotationDegrees(lean.z()));
-            poseStack.rotate(Axis.YP.rotationDegrees(180.0F));
+            poseStack.mulPose(Axis.XP.rotationDegrees(lean.x()));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(lean.z()));
+            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
             if (!block) {
                 // Tipped towards the camera, so it reads as held above the table rather than lying on it.
-                poseStack.rotate(Axis.XP.rotationDegrees(-62.0F));
+                poseStack.mulPose(Axis.XP.rotationDegrees(-62.0F));
             }
             float scale = size * 1.08F;
             poseStack.scale(scale, scale, scale);
@@ -1506,11 +1497,6 @@ public final class SceneRenderer {
 
         @Override
         public VertexConsumer setLineWidth(float width) {
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
             return this;
         }
 

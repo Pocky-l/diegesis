@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  * Everything here is in view space (the camera at the origin); entities and particles arrive relative to the camera but not yet
  * turned to it (the level's view rotation is in the model-view matrix), so their vertices are turned here.
  *
- * <p>Minecraft 26.3: not hooked in yet. Entities and particles are drawn from render states the game extracts and submits, and the
+ * <p>Minecraft 26.x: not hooked in yet. Entities and particles are drawn from render states the game extracts and submits, and the
  * hooks this was fed by (an entity's buffers, a particle's own drawing) are gone: until they are fed from the submits, entities and
  * particles in the camera's way do not fade. The blocks in its way still go ({@link ClearBlocks}).
  */
@@ -296,12 +296,6 @@ public final class ClearView {
         @Override
         public VertexConsumer setLineWidth(float width) {
             delegate.setLineWidth(width);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
-            delegate.setUv3(u, v);
             return this;
         }
 

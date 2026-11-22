@@ -222,19 +222,17 @@ public final class FocusScreen extends Screen {
     protected void init() {
         layout();
         heldKeys.clear();
-        // Since Minecraft 26.x characters come only while text input is on, and the game turns it on for a focused text field
-        // alone. A station types without one (a recipe book's search): the screen holds text input for as long as it is open.
-        Minecraft.getInstance().onTextInputFocusChange(this, true);
+        // Minecraft 26.2 still reads GLFW: characters come without text input switched on (26.3's SDL input needs it).
         var options = Minecraft.getInstance().options;
         List<Integer> keys = new ArrayList<>(List.of(InputConstants.KEY_LEFT, InputConstants.KEY_RIGHT, InputConstants.KEY_UP, InputConstants.KEY_DOWN));
         for (var mapping : List.of(options.keyLeft, options.keyRight, options.keyUp, options.keyDown)) {
             InputConstants.Key bound = InputConstants.getKey(mapping.saveString());
-            if (bound.getType() == InputConstants.Type.KEYBOARD && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
+            if (bound.getType() == InputConstants.Type.KEYSYM && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
                 keys.add(bound.getValue());
             }
         }
         for (int key : keys) {
-            if (InputConstants.isKeyDown(key)) {
+            if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key)) {
                 heldKeys.add(key);
             }
         }
@@ -729,7 +727,8 @@ public final class FocusScreen extends Screen {
 
     /**
      * The button of a click as container clicks number it (0 left, 1 right, 2 middle), as vanilla's container screen turns it:
-     * the library and its stations count buttons this way, while Minecraft 26.x's input names SDL's buttons (1 left, 3 right).
+     * the library and its stations count buttons this way. Minecraft 26.2 numbers them so itself (GLFW); 26.3's SDL input names
+     * them 1 left, 3 right, so the mapping is kept for the lines to share this code.
      */
     static int containerButton(MouseButtonEvent event) {
         return switch (event.button()) {
@@ -802,7 +801,7 @@ public final class FocusScreen extends Screen {
         }
         // The station's own keys come first (a field it types into), then the library's.
         ClientStation keyed = FocusController.get().station();
-        if (overlay == null && keyed != null && keyed.key(keyCode, event.keycode(), event.modifiers())) {
+        if (overlay == null && keyed != null && keyed.key(keyCode, event.scancode(), event.modifiers())) {
             return true;
         }
         if (inventoryKey) {
@@ -880,7 +879,6 @@ public final class FocusScreen extends Screen {
 
     @Override
     public void removed() {
-        Minecraft.getInstance().onTextInputFocusChange(this, false);
         SmoothPass.release();
         showOverlay(null);
         panelLeft = NO_PANEL;

@@ -67,7 +67,7 @@ public final class SceneDraw {
         if (atlas.equals(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS)) {
             return translucent ? DiegesisRenderTypes.translucentCullBlockSheet() : DiegesisRenderTypes.cutoutBlockSheet();
         }
-        return translucent ? net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucentCull(atlas)
+        return translucent ? DiegesisRenderTypes.entityTranslucentCull(atlas)
                 : net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(atlas);
     }
 

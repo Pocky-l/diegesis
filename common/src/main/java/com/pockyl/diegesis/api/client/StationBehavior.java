@@ -84,9 +84,9 @@ public interface StationBehavior {
      * drop keys). Return true to take it: the library then does nothing with it. Repeats of a held key come too. Take only what
      * the station needs at that moment (typing into a field it shows), or the player loses the library's keys.
      *
-     * @param keyCode   the key, as {@code InputConstants} numbers it ({@code InputConstants.KEY_*}; since Minecraft 26.x an SDL
-     *                  scancode, no longer a GLFW key code)
-     * @param scanCode  the key as the keyboard layout names it (SDL keycode)
+     * @param keyCode   the key, as {@code InputConstants} numbers it ({@code InputConstants.KEY_*}; a GLFW key code on Minecraft
+     *                  26.2 and older, an SDL scancode on 26.3: compare with {@code InputConstants.KEY_*}, never with raw numbers)
+     * @param scanCode  the platform-specific scancode of the key (GLFW on 26.2)
      * @param modifiers the modifier bits (shift, control, alt)
      */
     default boolean onKey(StationView view, int keyCode, int scanCode, int modifiers) {

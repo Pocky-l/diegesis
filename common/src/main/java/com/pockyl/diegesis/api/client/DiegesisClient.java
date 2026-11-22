@@ -208,14 +208,8 @@ public final class DiegesisClient {
                 || type == net.minecraft.client.renderer.Sheets.cutoutBlockItemSheet()) {
             return net.minecraft.client.renderer.Sheets.translucentBlockItemSheet();
         }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutBlockItemGlintSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentBlockItemGlintSheet();
-        }
         if (type == net.minecraft.client.renderer.Sheets.cutoutItemSheet()) {
             return net.minecraft.client.renderer.Sheets.translucentItemSheet();
-        }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutItemGlintSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentItemGlintSheet();
         }
         return OPAQUE_ENTITY.computeIfAbsent(type, DiegesisClient::seeThroughEntity);
     }

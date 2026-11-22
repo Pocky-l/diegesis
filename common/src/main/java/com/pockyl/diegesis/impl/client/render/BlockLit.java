@@ -96,7 +96,7 @@ final class BlockLit {
                 for (BakedQuad quad : part.getQuads(side)) {
                     Vector3f normal = world.transformDirection(new Vector3f(quad.direction().getUnitVec3f())).normalize();
                     // A face that is not shaded by the way it faces (shade: false) is shaded as one facing up.
-                    Direction shadeOverride = quad.materialInfo().shadeDirectionOverride();
+                    Direction shadeOverride = quad.materialInfo().shade() ? null : Direction.UP;
                     float shade = diffuse(shadeOverride == null ? normal
                             : world.transformDirection(new Vector3f(shadeOverride.getUnitVec3f())).normalize());
                     instance.setLightCoords(faceLight(level, quad, world, camera, normal, pos));

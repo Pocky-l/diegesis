@@ -258,11 +258,6 @@ public final class PlacedShape implements Placing.Shape {
         public VertexConsumer setLineWidth(float width) {
             return this;
         }
-
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
-            return this;
-        }
     }
 
     /**

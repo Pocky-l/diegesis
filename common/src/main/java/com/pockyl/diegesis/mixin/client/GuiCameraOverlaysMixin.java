@@ -15,7 +15,7 @@ import com.pockyl.diegesis.impl.client.focus.FocusController;
  * Keeps the vignette, frost, a carved pumpkin's view and the portal's swirl while the player works at a station
  * ({@code hud.keep_vignette}). The game draws them in the same group as the HUD and skips the whole group once the HUD is
  * hidden, so they are drawn here first, under everything else, while the station keeps the HUD hidden. One hook for both
- * loaders. Since Minecraft 26.3 the HUD is its own class, {@link Hud}.
+ * loaders. Since Minecraft 26.2 the HUD is its own class, {@link Hud}.
  */
 @Mixin(Hud.class)
 abstract class GuiCameraOverlaysMixin {

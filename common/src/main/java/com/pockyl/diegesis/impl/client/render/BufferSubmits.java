@@ -16,11 +16,11 @@ import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.QuadParticleRenderState;
-import net.minecraft.client.renderer.texture.UvMapping;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
-import net.minecraft.client.resources.model.geometry.ItemQuads;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.ARGB;
@@ -79,13 +79,6 @@ public final class BufferSubmits implements SubmitNodeCollector {
         }
     }
 
-    @Override
-    public void submitTextBackground(PoseStack poseStack, float x0, float y0, float x1, float y1, int color, Font.DisplayMode displayMode,
-            int lightCoords) {
-        glyphs(new Matrix4f(poseStack.last().pose()), displayMode, lightCoords)
-                .acceptRenderable(Minecraft.getInstance().font.prepareBackground(x0, y0, x1, y1, color));
-    }
-
     private Font.GlyphVisitor glyphs(Matrix4fc pose, Font.DisplayMode displayMode, int lightCoords) {
         return new Font.GlyphVisitor() {
             @Override
@@ -105,18 +98,14 @@ public final class BufferSubmits implements SubmitNodeCollector {
 
     @Override
     public <S> void submitModel(Model<? super S> model, S state, PoseStack poseStack, RenderType renderType, int lightCoords,
-            int overlayCoords, int tintedColor, @Nullable UvMapping uvMapping, int outlineColor) {
+            int overlayCoords, int tintedColor, @Nullable TextureAtlasSprite sprite, int outlineColor,
+            ModelFeatureRenderer.@Nullable CrumblingOverlay crumblingOverlay) {
         VertexConsumer buffer = buffers.getBuffer(renderType);
-        if (uvMapping != null) {
-            buffer = uvMapping.wrap(buffer);
+        if (sprite != null) {
+            buffer = sprite.wrap(buffer);
         }
         model.setupAnim(state);
         model.renderToBuffer(poseStack, buffer, lightCoords, overlayCoords, tintedColor);
-    }
-
-    @Override
-    public <S> void submitCrumblingOverlay(Model<? super S> model, S state, PoseStack poseStack, RenderType renderType, int lightCoords,
-            int overlayCoords, int tintedColor, ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
     }
 
     @Override
@@ -156,7 +145,7 @@ public final class BufferSubmits implements SubmitNodeCollector {
     }
 
     @Override
-    public void submitBreakingBlockModel(PoseStack poseStack, List<BlockStateModelPart> parts, int progress, boolean isBlockTranslucent) {
+    public void submitBreakingBlockModel(PoseStack poseStack, List<BlockStateModelPart> parts, int progress) {
     }
 
     @Override
@@ -166,21 +155,23 @@ public final class BufferSubmits implements SubmitNodeCollector {
 
     @Override
     public void submitItem(PoseStack poseStack, ItemDisplayContext displayContext, int lightCoords, int overlayCoords, int outlineColor,
-            int[] tintLayers, ItemQuads quads, ItemStackRenderState.FoilType foilType) {
+            int[] tintLayers, List<BakedQuad> quads, ItemStackRenderState.FoilType foilType) {
         // As the game's item feature draws one, glint and all; only the special glint's own decal pose is left out.
         PoseStack.Pose pose = poseStack.last();
         quad.setLightCoords(lightCoords);
         quad.setOverlayCoords(overlayCoords);
-        for (BakedQuad baked : quads.all()) {
+        for (BakedQuad baked : quads) {
             BakedQuad.MaterialInfo material = baked.materialInfo();
-            RenderType renderType = switch (foilType) {
-                case NONE -> material.itemRenderType();
-                case STANDARD -> material.itemGlintRenderType();
-                case SPECIAL -> material.itemGlintSpecialRenderType();
-            };
             int tintIndex = material.tintIndex();
             quad.setColor(material.isTinted() && tintIndex < tintLayers.length ? tintLayers[tintIndex] : -1);
-            buffers.getBuffer(renderType).putBakedQuad(pose, baked, quad);
+            buffers.getBuffer(material.itemRenderType()).putBakedQuad(pose, baked, quad);
+        }
+        if (foilType != ItemStackRenderState.FoilType.NONE) {
+            // Minecraft 26.2 lays the glint over the quads as a type of its own (the game's item feature does the same).
+            VertexConsumer glint = buffers.getBuffer(RenderTypes.glint());
+            for (BakedQuad baked : quads) {
+                glint.putBakedQuad(pose, baked, quad);
+            }
         }
     }
 
