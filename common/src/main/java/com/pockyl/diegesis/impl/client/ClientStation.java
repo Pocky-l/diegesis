@@ -88,8 +88,12 @@ public final class ClientStation implements StationView, StationContext {
     private final PourStreams pourStreams = new PourStreams();
     private final Map<String, com.pockyl.diegesis.impl.client.fx.StationLoop> loops = new HashMap<>();
     private static final java.util.Set<Identifier> WARNED_PARTICLES = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** The longest step one frame advances by, as the frames' own time is capped. */
+    private static final float LONGEST_FRAME = 0.1F;
     private final Matrix4f toWorldMatrix = new Matrix4f();
     private float age;
+    /** Time not yet advanced while the station was out of view ({@link #frameUnseen}). */
+    private float unseen;
     private boolean focused;
     /** Whether the local player came by using the block, not over from a neighbour. */
     private boolean openedByUse;
@@ -718,8 +722,21 @@ public final class ClientStation implements StationView, StationContext {
         fire(() -> behavior.tick(this));
     }
 
-    /** Advances animations by {@code dt} seconds; called once per frame before drawing. */
-    public void frame(float dt) {
+    /**
+     * Advances a station out of view or far away: the time is kept until it reaches {@code step} seconds, then advanced at once, so
+     * that the station goes on as in a slower game at a part of the cost. What is left is advanced with the next full frame.
+     */
+    public void frameUnseen(float dt, float step) {
+        unseen += dt;
+        if (unseen >= step) {
+            frame(0.0F);
+        }
+    }
+
+    /** Advances animations by {@code frameTime} seconds and what was kept while out of view; called once per frame before drawing. */
+    public void frame(float frameTime) {
+        float dt = Math.min(frameTime + unseen, LONGEST_FRAME);
+        unseen = 0.0F;
         age += dt;
         StationState.Changes changes = state.takeChanges();
         if (!changes.isEmpty()) {

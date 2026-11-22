@@ -14,6 +14,7 @@ import net.minecraft.util.LightCoordsUtil;
 import com.pockyl.diegesis.api.client.SceneBuffers;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.Sheets;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -26,6 +27,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix3f;
 import org.joml.Matrix4d;
@@ -76,6 +78,22 @@ import java.util.function.Consumer;
 public final class SceneRenderer {
     /** Stations farther than this (blocks) are not drawn. */
     private static final double RENDER_RANGE = 40.0;
+    /**
+     * How far (blocks) a station's scene may reach out of its block and still count as in view: a multiblock's other blocks, a
+     * spoon or a lid standing up, steam over a pot.
+     */
+    private static final double VIEW_MARGIN = 2.0;
+    /**
+     * Stations out of view advance in steps this long (seconds), as in a game at 20 frames a second: what nobody sees needs no
+     * smoother motion, and a street of idle stations cost every frame as much as the one at hand.
+     */
+    private static final float UNSEEN_STEP = 0.05F;
+    /**
+     * Stations in view but farther than this (blocks) advance in steps of {@link #FAR_STEP} (seconds): there what moves in a scene
+     * moves by a pixel or less a step, and a town's pots in view cost more in motion than in drawing.
+     */
+    private static final double FAR_STEP_FROM = 24.0;
+    private static final float FAR_STEP = 1.0F / 30.0F;
     /** Shadows and highlights: block-atlas geometry, see-through, back faces culled (no double layers in a shadow). */
     private static final RenderType OVERLAY = net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
     /**
@@ -230,11 +248,23 @@ public final class SceneRenderer {
         RenderType translucent = DiegesisRenderTypes.translucentCullBlockSheet();
         SceneBuffers scene = type -> type != translucent ? SCENE_BUFFERS.getBuffer(type) : CLEAR_BUFFERS.getBuffer(CLEAR);
         sceneSource = scene;
+        // The camera's turn is in the model view here, not in the level pose: the view is both together, as for the cursor.
+        Frustum view = new Frustum(new Matrix4f(modelView).mul(poseStack.last().pose()), projection);
+        view.prepare(cameraPos.x, cameraPos.y, cameraPos.z);
         for (ClientStation station : stations) {
-            station.frame(dt);
             // A neighbour in the camera's way at another station is left out with its block (ClearBlocks): its scene would hang
             // in the air before the camera, where the block it stands in for is gone.
-            if (!isDrawn(station, cameraPos) || ClearBlocks.hides(station.pos())) {
+            boolean drawn = isDrawn(station, cameraPos) && !ClearBlocks.hides(station.pos());
+            // Only what is in view is drawn, and only what is in view and near moves every frame; the station worked at always does.
+            boolean seen = station.isInSession() || drawn && view.isVisible(new AABB(station.pos()).inflate(VIEW_MARGIN));
+            if (seen && (station.isInSession() || station.pos().distToCenterSqr(cameraPos) < FAR_STEP_FROM * FAR_STEP_FROM)) {
+                station.frame(dt);
+            } else if (seen) {
+                station.frameUnseen(dt, FAR_STEP);
+            } else {
+                station.frameUnseen(dt, UNSEEN_STEP);
+            }
+            if (!drawn || !seen) {
                 continue;
             }
             // Each station draws on its own copy of the pose stack: a failure halfway can never leave the level's stack
@@ -396,6 +426,8 @@ public final class SceneRenderer {
         drawnCamera = camera;
         BlockPos pos = station.pos();
         int light = lightAt(level, pos);
+        // How far the camera is, for the detail of what is drawn; the station worked at is always drawn in full.
+        float distance = FocusController.get().station() == station ? 0.0F : (float) Math.sqrt(pos.distToCenterSqr(camera));
         poseStack.pushPose();
         // The block's place relative to the camera, in doubles: on a moving structure its blocks are kept far away and the pose
         // brings them back, which floats would lose.
@@ -472,7 +504,7 @@ public final class SceneRenderer {
                 node.painter().paint(poseStack, buffers, nodeLight);
             }
             if (!overAll) {
-                definition.tank().ifPresent(binding -> renderTank(node, binding, poseStack, buffers, nodeLight));
+                definition.tank().ifPresent(binding -> renderTank(node, binding, poseStack, buffers, nodeLight, distance));
             }
             definition.slot().ifPresent(slot -> {
                 boolean marked = local && (node.isHovered() || input.isSpreadTarget(new Target.Station(slot.slot())));
@@ -799,15 +831,16 @@ public final class SceneRenderer {
 
     /** A shape made by code: like a mesh, its texture from the node. */
     /** The liquid in a node's tank, and what floats on it; the pose stack is at the node. */
-    private static void renderTank(NodeInstance node, TankBinding binding, PoseStack poseStack, SceneBuffers buffers, int light) {
+    private static void renderTank(NodeInstance node, TankBinding binding, PoseStack poseStack, SceneBuffers buffers, int light,
+            float distance) {
         // The world's up (tipped by sloshing) as the node sees it: the liquid's surface stays level.
         Vector3fc slosh = node.liquid().slosh();
         Matrix4f toNode = node.matrix().invert(new Matrix4f());
         Vector3f up = toNode.transformDirection(new Vector3f(slosh.x(), 1.0F, slosh.z()).normalize()).normalize();
         Vector3f sun = toNode.transformDirection(new Vector3f(LIGHT_DIRECTION)).normalize();
-        LiquidRenderer.render(binding, node.liquid(), up, sun, poseStack, buffers, light);
+        LiquidRenderer.render(binding, node.liquid(), up, sun, poseStack, buffers, light, distance);
         if (node.floating() != null) {
-            node.floating().render(binding.inner(), node.liquid(), poseStack, buffers, light);
+            node.floating().render(binding.inner(), node.liquid(), poseStack, buffers, light, distance);
         }
     }
 
@@ -823,7 +856,8 @@ public final class SceneRenderer {
                 if (node.shape() != null) {
                     renderShape(node, poseStack, buffers, light);
                 }
-                node.definition().tank().ifPresent(binding -> renderTank(node, binding, poseStack, buffers, light));
+                // Only the station worked at draws over everything: always near, in full.
+                node.definition().tank().ifPresent(binding -> renderTank(node, binding, poseStack, buffers, light, 0.0F));
             }
 
             @Override

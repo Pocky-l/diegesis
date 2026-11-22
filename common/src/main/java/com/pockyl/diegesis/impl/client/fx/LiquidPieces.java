@@ -65,6 +65,11 @@ public final class LiquidPieces {
     private static final float TUMBLE_RATE = 0.3F;
     private static final float TUMBLE_TIME = 0.6F;
     private static final float TUMBLE_HOP = 0.45F;
+    /**
+     * Farther than this (blocks) a solid piece is a flat slice, its top and its underside: its voxels are smaller than a pixel
+     * there, and a street of cooking soups wrote a thousand corners for every piece every frame.
+     */
+    private static final float FLAT_FROM = 16.0F;
     /** The side that is under, in shade. */
     private static final float UNDERSIDE = 0.8F;
     /** Sides lie in their own shade, as the faces of a block do. */
@@ -153,8 +158,17 @@ public final class LiquidPieces {
         }
     }
 
-    /** Draws the pieces; the pose stack is in the node's pixels. */
+    /** Draws the pieces in full detail; the pose stack is in the node's pixels. */
     public void render(Box inner, LiquidSim sim, PoseStack poseStack, SceneBuffers buffers, int light) {
+        render(inner, sim, poseStack, buffers, light, 0.0F);
+    }
+
+    /**
+     * Draws the pieces; the pose stack is in the node's pixels.
+     *
+     * @param distance how far the camera is from the vessel, blocks: far pieces are flat slices
+     */
+    public void render(Box inner, LiquidSim sim, PoseStack poseStack, SceneBuffers buffers, int light, float distance) {
         if (pieces.isEmpty()) {
             return;
         }
@@ -182,6 +196,7 @@ public final class LiquidPieces {
             separate(centerX, centerZ, halfX, halfZ);
         }
         Quaternionf turn = new Quaternionf();
+        boolean flat = distance >= FLAT_FROM;
         for (Piece piece : pieces) {
             piece.pushX = piece.x - piece.wayX;
             piece.pushZ = piece.z - piece.wayZ;
@@ -202,14 +217,16 @@ public final class LiquidPieces {
             poseStack.translate(piece.x, surface + LIFT + piece.floater.size() * 0.1F + hop - below - sim.height(waveU, waveV), piece.z);
             turn.rotationY(piece.yaw).rotateX(rock + (piece.over ? Mth.PI : 0.0F) + eased * Mth.PI);
             poseStack.rotate(turn);
-            piece.draw(consumer, poseStack.last(), com.pockyl.diegesis.impl.client.render.SceneDraw.blockSprite(piece.floater.sprite()), size, light);
+            piece.draw(consumer, poseStack.last(), com.pockyl.diegesis.impl.client.render.SceneDraw.blockSprite(piece.floater.sprite()), size, light, flat);
             poseStack.popPose();
         }
     }
 
     /** A piece going through the liquid draws a trail, the faster the clearer; one lying on calm water leaves none. */
     private void leaveWake(Piece piece, LiquidSim sim, float centerX, float centerZ, float halfX, float halfZ) {
-        float travelled = (float) Math.hypot(piece.x - piece.wakeX, piece.z - piece.wakeZ);
+        float wentX = piece.x - piece.wakeX;
+        float wentZ = piece.z - piece.wakeZ;
+        float travelled = Mth.sqrt(wentX * wentX + wentZ * wentZ);
         if (travelled < WAKE_STEP) {
             return;
         }
@@ -232,8 +249,10 @@ public final class LiquidPieces {
                 float dx = other.x - one.x;
                 float dz = other.z - one.z;
                 float clear = one.radius + other.radius;
-                float apart = (float) Math.hypot(dx, dz);
-                if (apart < clear) {
+                float squared = dx * dx + dz * dz;
+                // Most pairs lie apart: the root is taken only for those that touch.
+                if (squared < clear * clear) {
+                    float apart = Mth.sqrt(squared);
                     // Pieces exactly on each other part along a way of their own.
                     float nx = apart > 0.001F ? dx / apart : Mth.cos(i + j);
                     float nz = apart > 0.001F ? dz / apart : Mth.sin(i + j);
@@ -250,8 +269,9 @@ public final class LiquidPieces {
                 float dx = one.x - obstacles[o];
                 float dz = one.z - obstacles[o + 1];
                 float clear = obstacles[o + 2] + one.radius;
-                float apart = (float) Math.hypot(dx, dz);
-                if (apart < clear) {
+                float squared = dx * dx + dz * dz;
+                if (squared < clear * clear) {
+                    float apart = Mth.sqrt(squared);
                     float out = clear / Math.max(apart, 0.01F);
                     one.x = obstacles[o] + dx * out;
                     one.z = obstacles[o + 1] + dz * out;
@@ -330,26 +350,31 @@ public final class LiquidPieces {
             mirrored = random.nextBoolean();
         }
 
-        void draw(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, float size, int light) {
+        void draw(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, float size, int light, boolean flat) {
             float red = (floater.color() >> 16 & 0xFF) / 255.0F * shade;
             float green = (floater.color() >> 8 & 0xFF) / 255.0F * shade;
             float blue = (floater.color() & 0xFF) / 255.0F * shade;
-            if (floater.solid()) {
+            if (floater.solid() && flat) {
+                slice(consumer, pose, sprite, size, red, green, blue, light);
+            } else if (floater.solid()) {
                 voxels(consumer, pose, sprite, size, red, green, blue, light);
             } else {
                 quad(consumer, pose, sprite, size, 0.0F, 0.0F, 0.0F, red, green, blue, light);
             }
         }
 
-        /** A box for every pixel, in the pixel's own colour; only the faces that can be seen. */
+        /**
+         * A box for every pixel, in the pixel's own colour; only the faces that can be seen. The tops of all boxes lie in one plane,
+         * and so do their undersides: each is one quad with the whole sprite, its see-through pixels cut out, which looks the same
+         * as a face for every pixel at a part of the corners. Only the sides are drawn box by box, where the outline is.
+         */
         private void voxels(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, float size, float red, float green, float blue, int light) {
             int[][] steps = shape(floater.sprite(), sprite);
             int width = steps.length;
             float cell = size / width;
             float rise = cell * THICKNESS;
             float half = rise / 2.0F;
-            Vector3f down = pose.normal().transform(new Vector3f(0.0F, -1.0F, 0.0F));
-            Vector3f up = pose.normal().transform(new Vector3f(0.0F, 1.0F, 0.0F));
+            slice(consumer, pose, sprite, size, red, green, blue, light);
             Vector3f east = pose.normal().transform(new Vector3f(1.0F, 0.0F, 0.0F));
             Vector3f west = new Vector3f(east).negate();
             Vector3f south = pose.normal().transform(new Vector3f(0.0F, 0.0F, 1.0F));
@@ -374,16 +399,7 @@ public final class LiquidPieces {
                     float z0 = (py - steps[px].length / 2.0F) * cell;
                     float z1 = z0 + cell;
                     float top = half;
-                    float under = -half;
-                    corner(consumer, pose, x1, under, z0, u, v, red * UNDERSIDE, green * UNDERSIDE, blue * UNDERSIDE, light, down);
-                    corner(consumer, pose, x1, under, z1, u, v, red * UNDERSIDE, green * UNDERSIDE, blue * UNDERSIDE, light, down);
-                    corner(consumer, pose, x0, under, z1, u, v, red * UNDERSIDE, green * UNDERSIDE, blue * UNDERSIDE, light, down);
-                    corner(consumer, pose, x0, under, z0, u, v, red * UNDERSIDE, green * UNDERSIDE, blue * UNDERSIDE, light, down);
-                    corner(consumer, pose, x0, top, z0, u, v, red, green, blue, light, up);
-                    corner(consumer, pose, x0, top, z1, u, v, red, green, blue, light, up);
-                    corner(consumer, pose, x1, top, z1, u, v, red, green, blue, light, up);
-                    corner(consumer, pose, x1, top, z0, u, v, red, green, blue, light, up);
-                    float low = under;
+                    float low = -half;
                     if (at(steps, px + 1, py) == 0) {
                         corner(consumer, pose, x1, low, z1, u, v, sideXr, sideXg, sideXb, light, east);
                         corner(consumer, pose, x1, low, z0, u, v, sideXr, sideXg, sideXb, light, east);
@@ -410,6 +426,36 @@ public final class LiquidPieces {
                     }
                 }
             }
+        }
+
+        /**
+         * The voxels' top and, in shade, their underside, as thick apart as the voxels are: the sprite's see-through pixels cut the
+         * outline. Alone it is a piece seen from afar, where the sides are thinner than a pixel.
+         */
+        private void slice(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, float size, float red, float green, float blue,
+                int light) {
+            int[][] steps = shape(floater.sprite(), sprite);
+            float cell = size / steps.length;
+            float half = cell * THICKNESS / 2.0F;
+            float hx = size / 2.0F;
+            float hz = steps[0].length * cell / 2.0F;
+            float u0 = mirrored ? sprite.getU1() : sprite.getU0();
+            float u1 = mirrored ? sprite.getU0() : sprite.getU1();
+            float v0 = sprite.getV0();
+            float v1 = sprite.getV1();
+            Vector3f up = pose.normal().transform(new Vector3f(0.0F, 1.0F, 0.0F));
+            corner(consumer, pose, -hx, half, -hz, u0, v0, red, green, blue, light, up);
+            corner(consumer, pose, -hx, half, hz, u0, v1, red, green, blue, light, up);
+            corner(consumer, pose, hx, half, hz, u1, v1, red, green, blue, light, up);
+            corner(consumer, pose, hx, half, -hz, u1, v0, red, green, blue, light, up);
+            Vector3f down = pose.normal().transform(new Vector3f(0.0F, -1.0F, 0.0F));
+            float r = red * UNDERSIDE;
+            float g = green * UNDERSIDE;
+            float b = blue * UNDERSIDE;
+            corner(consumer, pose, hx, -half, -hz, u1, v0, r, g, b, light, down);
+            corner(consumer, pose, hx, -half, hz, u1, v1, r, g, b, light, down);
+            corner(consumer, pose, -hx, -half, hz, u0, v1, r, g, b, light, down);
+            corner(consumer, pose, -hx, -half, -hz, u0, v0, r, g, b, light, down);
         }
 
         private void quad(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, float size, float x, float y, float z, float red,

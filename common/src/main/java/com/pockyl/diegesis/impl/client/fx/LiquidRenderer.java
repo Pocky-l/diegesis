@@ -58,6 +58,12 @@ public final class LiquidRenderer {
     private static final float SPRITE_INSET = 0.02F;
     /** An uneven surface is one sheet of cells, so nothing has to sort against it: how many along a side, how level it must lie. */
     private static final int MOTTLE_CELLS = LiquidSim.WAKE_CELLS;
+    /**
+     * Farther than this (blocks) the sheet has half as many cells along a side, and farther than the second a quarter: there a
+     * cell is smaller than a pixel of the vessel's texture, and a street of pots wrote a thousand corners each every frame.
+     */
+    private static final float HALF_CELLS_FROM = 16.0F;
+    private static final float QUARTER_CELLS_FROM = 28.0F;
     private static final float MOTTLE_UPRIGHT = 0.985F;
     /** The patches: how big, and how many steps of shade, for the look of a texture rather than of a blur. */
     private static final float MOTTLE_SCALE = 0.6F;
@@ -108,6 +114,12 @@ public final class LiquidRenderer {
      */
     public static void render(TankBinding binding, LiquidSim sim, Vector3fc up, Vector3fc lightDir, PoseStack poseStack,
             SceneBuffers buffers, int light) {
+        render(binding, sim, up, lightDir, poseStack, buffers, light, 0.0F);
+    }
+
+    /** @param distance how far the camera is from the vessel, blocks: a far surface is drawn with bigger cells */
+    public static void render(TankBinding binding, LiquidSim sim, Vector3fc up, Vector3fc lightDir, PoseStack poseStack,
+            SceneBuffers buffers, int light, float distance) {
         LiquidLook look = sim.look();
         float fraction = sim.fraction();
         if (look == null || fraction < 0.002F) {
@@ -169,7 +181,8 @@ public final class LiquidRenderer {
         if (cuts >= 3) {
             boolean waves = sim.isRippling() && Math.min(hx, hz) * 2.0F >= MIN_WAVE_SIZE;
             if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.foam() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
-                pass.mottled(hx, hz, sim, lightDir);
+                int cells = distance < HALF_CELLS_FROM ? MOTTLE_CELLS : distance < QUARTER_CELLS_FROM ? MOTTLE_CELLS / 2 : MOTTLE_CELLS / 4;
+                pass.mottled(hx, hz, sim, lightDir, cells);
             } else {
                 pass.surface(cuts, sim, lightDir, waves);
             }
@@ -349,8 +362,13 @@ public final class LiquidRenderer {
          * The surface of a liquid that is not one colour: a sheet of cells, each lighter or darker by where it lies in patches that turn
          * with the liquid. Cells next to the wall are the meniscus, and it is brightest in the middle, where the light falls in.
          */
-        void mottled(float hx, float hz, LiquidSim sim, Vector3fc lightDir) {
-            int cells = MOTTLE_CELLS;
+        void mottled(float hx, float hz, LiquidSim sim, Vector3fc lightDir, int cells) {
+            // A coarser sheet reads the trails at its cells' middles, and its foam reaches as deep into the liquid.
+            int span = MOTTLE_CELLS / cells;
+            int seethe = Math.max(1, SEETHE_CELLS / span);
+            // The meniscus stays one fine cell wide: a coarse cell by the wall takes that part of its light.
+            float rimLight = 0.2F / span;
+            float rimAlpha = 0.15F / span;
             boolean waves = sim.isRippling();
             float cos = Mth.cos(sim.turned());
             float sin = Mth.sin(sim.turned());
@@ -376,12 +394,12 @@ public final class LiquidRenderer {
                     float g = green * body;
                     float b = blue * body;
                     if (rim) {
-                        r += (1.0F - r) * 0.2F;
-                        g += (1.0F - g) * 0.2F;
-                        b += (1.0F - b) * 0.2F;
+                        r += (1.0F - r) * rimLight;
+                        g += (1.0F - g) * rimLight;
+                        b += (1.0F - b) * rimLight;
                     }
                     int fromWall = Math.min(Math.min(row, column), Math.min(cells - 1 - row, cells - 1 - column));
-                    if (fromWall < SEETHE_CELLS && sim.edgeBoil() > 0.01F) {
+                    if (fromWall < seethe && sim.edgeBoil() > 0.01F) {
                         // Every cell keeps its own beat, so the foam shivers instead of blinking all at once.
                         int spot = row * cells + column;
                         int beat = Mth.floor(sim.clock() * SEETHE_BEAT + hash(spot, 5) * 7.0F);
@@ -392,7 +410,7 @@ public final class LiquidRenderer {
                             b += (1.0F - b) * SEETHE_LIGHT;
                         }
                     }
-                    float alpha = rim ? a + 0.15F : a;
+                    float alpha = rim ? a + rimAlpha : a;
                     if (sim.foam() > 0.01F) {
                         // Foam holds to the walls first, then lies in patches that turn with the liquid; its thin edge lets the colour through.
                         float inward = fromWall / Math.max(1.0F, (cells - 1) / 2.0F);
@@ -422,7 +440,7 @@ public final class LiquidRenderer {
                         g = g * (1.0F + Math.min(0.0F, lit)) + (1.0F - g) * Math.max(0.0F, lit);
                         b = b * (1.0F + Math.min(0.0F, lit)) + (1.0F - b) * Math.max(0.0F, lit);
                     }
-                    float wake = Math.round(sim.wakeShade(column, row) * WAKE_STEPS) / WAKE_STEPS;
+                    float wake = Math.round(sim.wakeShade(column * span + span / 2, row * span + span / 2) * WAKE_STEPS) / WAKE_STEPS;
                     float gloss = Math.max(0.0F, wake) * WAKE_GLOSS;
                     r = r * (1.0F + wake) + (1.0F - r) * gloss;
                     g = g * (1.0F + wake) + (1.0F - g) * gloss;

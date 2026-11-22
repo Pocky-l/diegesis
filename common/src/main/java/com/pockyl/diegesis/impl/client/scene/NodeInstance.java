@@ -857,10 +857,10 @@ public final class NodeInstance implements NodeView {
         if (live && lift && hoverAmount > 0.001F && definition.isInteractive() && definition.control().isEmpty()) {
             dest.translate(0.0F, 0.6F * hoverAmount, 0.0F);
         }
-        dest.rotate(Transform.toQuaternion(transform.rotation(), scratchRotation));
-        dest.rotate(Transform.toQuaternion(rotation.value(), scratchRotation));
+        rotateBy(dest, transform.rotation());
+        rotateBy(dest, rotation.value());
         if (live) {
-            dest.rotate(Transform.toQuaternion(spinAngle, scratchRotation));
+            rotateBy(dest, spinAngle);
         }
         Vector3fc base = transform.scale();
         Vector3fc extra = scale.value();
@@ -868,6 +868,13 @@ public final class NodeInstance implements NodeView {
         // In the node's own space: a scaled control travels and pivots with its model.
         if (live && control) {
             definition.control().ifPresent(binding -> applyControl(dest, binding));
+        }
+    }
+
+    /** Turns {@code dest} by angles in degrees; most nodes are not turned, and a full turn of the matrix is spent for nothing. */
+    private void rotateBy(Matrix4f dest, Vector3fc degrees) {
+        if (degrees.x() != 0.0F || degrees.y() != 0.0F || degrees.z() != 0.0F) {
+            dest.rotate(Transform.toQuaternion(degrees, scratchRotation));
         }
     }
 
