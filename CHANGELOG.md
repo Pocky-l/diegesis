@@ -4,6 +4,10 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.17.1+1.21.1] - Unreleased
+### Fixed
+- The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
+
 ## [1.0.0-beta.17+1.21.1] - 2026-11-22
 ### Fixed
 - Stations no longer show from far away when a zoom or FOV mod is installed: the station keeps its own field of view at any FOV setting.
