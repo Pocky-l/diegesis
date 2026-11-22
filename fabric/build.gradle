@@ -9,8 +9,6 @@ dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
-    // Sable's companion API, as compiled by common (see gradle.properties: no 26.3 build yet).
-    compileOnly "dev.ryanhcode.sable-companion:sable-companion-common-${sable_companion_minecraft_version}:${sable_companion_version}"
     compileOnly "maven.modrinth:controlify:3.5.3+mc26.3"
 }
 

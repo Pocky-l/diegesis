@@ -12,7 +12,8 @@ import com.pockyl.diegesis.DiegesisMod;
  * Blocks that move: physics mods such as Sable (Create Aeronautics' ships) keep a moving structure's blocks in a far area of the
  * same level and draw them where the structure is. A station on one has its block there, so every distance to it and every
  * place drawn or heard at it goes through here: from the level's coordinates of its block to where it is in the world. Without
- * such a mod both are the same.
+ * such a mod both are the same. No such mod has a build for this Minecraft version yet, so nothing plugs in here: the bridge
+ * for Sable ({@code SableSubLevels} on the 1.21.1 line) comes back with its build.
  */
 public final class SubLevels {
     /** What a loader plugs in when a mod with moving structures is there. */
