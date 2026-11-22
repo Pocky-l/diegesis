@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0-beta.17.1+1.21.1] - Unreleased
 ### Fixed
 - The game no longer crashes when things are moved at a furnace or another menu station while Satchels (or another mod that adds slots to a menu when its screen opens) is installed.
-- The faded items that show what goes into an empty slot no longer let the world behind the station show through them: a block such as cobblestone in a furnace now shows the furnace's back wall behind it.
+- The faded items that show what goes into an empty slot no longer let the world behind the station show through: cobblestone in a furnace now shows the furnace's back wall behind it.
 - A lectern's book (or another station's book) behind the station being used no longer shows through the blocks in front of it.
-- On a tilted [Sable](https://modrinth.com/mod/sable) ship with [Aeronautics Camera Sync](https://modrinth.com/mod/aero_cam_sync) (or another mod that tilts the camera), leaving a station no longer levels the view and then jerks it back: the camera flies back into the tilted view, and flies out of it on the way in.
+- On a tilted [Sable](https://modrinth.com/mod/sable) ship with [Aeronautics Camera Sync](https://modrinth.com/mod/aero_cam_sync) (or another mod that tilts the camera), leaving a station no longer levels the view and jerks it back.
 - A station on a Sable ship no longer disappears while the camera flies back from it, and ships' stations are drawn and animated by where they are, not by where Sable keeps their blocks.
 
 ## [1.0.0-beta.17+1.21.1] - 2026-11-22
