@@ -3,7 +3,6 @@ package com.pockyl.diegesis.impl.client.mesh;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
-import net.minecraft.client.resources.model.geometry.ItemQuads;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
@@ -49,7 +48,9 @@ public final class ItemShapes {
         Shape shape = entry.shape(stack);
         ItemStackRenderState.LayerRenderState[] layers = look.diegesis$layers();
         for (int i = firstLayer; i < look.diegesis$layerCount(); i++) {
-            layers[i].setQuads(shape.quads());
+            List<BakedQuad> quads = layers[i].prepareQuadList();
+            quads.clear();
+            quads.addAll(shape.quads());
             layers[i].setExtents(shape::extents);
             layers[i].setUsesBlockLight(true);
         }
@@ -87,7 +88,7 @@ public final class ItemShapes {
                         corners.add(quad.position(vertex));
                     }
                 }
-                found = new Shape(ItemQuads.split(quads), corners.toArray(Vector3fc[]::new));
+                found = new Shape(List.copyOf(quads), corners.toArray(Vector3fc[]::new));
                 baked.put(key, found);
             }
             return found;
@@ -95,6 +96,6 @@ public final class ItemShapes {
     }
 
     /** A shape baked for one item's data: its quads, and their corners (what the game measures an item by). */
-    private record Shape(ItemQuads quads, Vector3fc[] extents) {
+    private record Shape(List<BakedQuad> quads, Vector3fc[] extents) {
     }
 }

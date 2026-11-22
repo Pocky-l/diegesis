@@ -21,6 +21,7 @@ import com.pockyl.diegesis.api.scene.InventoryDrawer;
 import com.pockyl.diegesis.api.scene.NodeDefinition;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
 import com.pockyl.diegesis.impl.client.ClientStation;
+import com.pockyl.diegesis.impl.client.compat.Input;
 import com.pockyl.diegesis.impl.client.render.SmoothPass;
 import com.pockyl.diegesis.impl.client.scene.NodeInstance;
 
@@ -189,7 +190,7 @@ public final class FocusScreen extends Screen {
     public static ItemStack hoveredStack() {
         LocalPlayer player = Minecraft.getInstance().player;
         ClientStation station = FocusController.get().station();
-        if (player == null || station == null || !(Minecraft.getInstance().gui.screen() instanceof FocusScreen)) {
+        if (player == null || station == null || !(Minecraft.getInstance().screen instanceof FocusScreen)) {
             return ItemStack.EMPTY;
         }
         FocusInput input = FocusInput.get();
@@ -222,19 +223,19 @@ public final class FocusScreen extends Screen {
     protected void init() {
         layout();
         heldKeys.clear();
-        // Since Minecraft 26.x characters come only while text input is on, and the game turns it on for a focused text field
+        // On Minecraft 26.3 characters come only while text input is on, and the game turns it on for a focused text field
         // alone. A station types without one (a recipe book's search): the screen holds text input for as long as it is open.
-        Minecraft.getInstance().onTextInputFocusChange(this, true);
+        Input.textInput(this, true);
         var options = Minecraft.getInstance().options;
         List<Integer> keys = new ArrayList<>(List.of(InputConstants.KEY_LEFT, InputConstants.KEY_RIGHT, InputConstants.KEY_UP, InputConstants.KEY_DOWN));
         for (var mapping : List.of(options.keyLeft, options.keyRight, options.keyUp, options.keyDown)) {
             InputConstants.Key bound = InputConstants.getKey(mapping.saveString());
-            if (bound.getType() == InputConstants.Type.KEYBOARD && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
+            if (bound.getType() == InputConstants.Type.KEYSYM && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
                 keys.add(bound.getValue());
             }
         }
         for (int key : keys) {
-            if (InputConstants.isKeyDown(key)) {
+            if (Input.isKeyDown(key)) {
                 heldKeys.add(key);
             }
         }
@@ -729,7 +730,8 @@ public final class FocusScreen extends Screen {
 
     /**
      * The button of a click as container clicks number it (0 left, 1 right, 2 middle), as vanilla's container screen turns it:
-     * the library and its stations count buttons this way, while Minecraft 26.x's input names SDL's buttons (1 left, 3 right).
+     * the library and its stations count buttons this way, while Minecraft 26.3's input names SDL's buttons (1 left, 3 right);
+     * on 26.1.2 (GLFW) the two agree.
      */
     static int containerButton(MouseButtonEvent event) {
         return switch (event.button()) {
@@ -802,7 +804,7 @@ public final class FocusScreen extends Screen {
         }
         // The station's own keys come first (a field it types into), then the library's.
         ClientStation keyed = FocusController.get().station();
-        if (overlay == null && keyed != null && keyed.key(keyCode, event.keycode(), event.modifiers())) {
+        if (overlay == null && keyed != null && keyed.key(keyCode, Input.scanCode(event), event.modifiers())) {
             return true;
         }
         if (inventoryKey) {
@@ -868,7 +870,7 @@ public final class FocusScreen extends Screen {
             FocusController.get().requestExit();
         } else {
             // No station behind this screen any more (another mod's screen gave it back): it just closes.
-            Minecraft.getInstance().gui.setScreen(null);
+            Minecraft.getInstance().setScreen(null);
         }
     }
 
@@ -880,7 +882,7 @@ public final class FocusScreen extends Screen {
 
     @Override
     public void removed() {
-        Minecraft.getInstance().onTextInputFocusChange(this, false);
+        Input.textInput(this, false);
         SmoothPass.release();
         showOverlay(null);
         panelLeft = NO_PANEL;

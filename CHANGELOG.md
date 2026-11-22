@@ -4,6 +4,15 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.17.1+26.1.2] - Unreleased
+### Added
+- Minecraft 26.1.2, on Fabric: everything Diegesis 1.0.0-beta.17.1 does on Minecraft 26.3, with the same modding API.
+### Changed
+- For modders: `StationBehavior.onKey` gets GLFW key codes on 26.1.2 (SDL ones on 26.3). Compare them with `InputConstants.KEY_*`, which is right on both.
+### Not on 26.1.2 yet
+- NeoForge.
+- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+
 ## [1.0.0-beta.17.1+26.3] - Unreleased
 ### Added
 - `Diegesis.addListener` and `DiegesisClient.addBehavior`: a mod can watch any station, refuse what players do there and add client code beside the station's own.

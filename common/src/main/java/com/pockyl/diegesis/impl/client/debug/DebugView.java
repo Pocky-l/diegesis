@@ -162,7 +162,7 @@ public final class DebugView {
         Font font = Minecraft.getInstance().font;
         levelPose.pushPose();
         levelPose.translate(at.x - cameraPos.x, at.y - cameraPos.y, at.z - cameraPos.z);
-        levelPose.rotate(camera.rotation());
+        levelPose.mulPose(camera.rotation());
         float scale = LABEL_SCALE * (float) Math.max(1.0, cameraPos.distanceTo(at) * 0.5);
         levelPose.scale(-scale, -scale, scale);
         Matrix4f matrix = levelPose.last().pose();

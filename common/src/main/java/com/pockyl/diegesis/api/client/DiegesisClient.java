@@ -208,14 +208,8 @@ public final class DiegesisClient {
                 || type == net.minecraft.client.renderer.Sheets.cutoutBlockItemSheet()) {
             return net.minecraft.client.renderer.Sheets.translucentBlockItemSheet();
         }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutBlockItemGlintSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentBlockItemGlintSheet();
-        }
         if (type == net.minecraft.client.renderer.Sheets.cutoutItemSheet()) {
             return net.minecraft.client.renderer.Sheets.translucentItemSheet();
-        }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutItemGlintSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentItemGlintSheet();
         }
         return OPAQUE_ENTITY.computeIfAbsent(type, DiegesisClient::seeThroughEntity);
     }
@@ -256,6 +250,6 @@ public final class DiegesisClient {
      */
     public static boolean isSceneDrawn(BlockPos pos) {
         ClientStation station = ClientStations.get().at(pos);
-        return station != null && SceneRenderer.isDrawn(station, Minecraft.getInstance().gameRenderer.mainCamera().position());
+        return station != null && SceneRenderer.isDrawn(station, Minecraft.getInstance().gameRenderer.getMainCamera().position());
     }
 }

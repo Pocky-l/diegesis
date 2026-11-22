@@ -115,7 +115,7 @@ public final class Mesh {
         List<BakedQuad> quads = new ArrayList<>(faces());
         // Drawn as an item of the block atlas, cut out, untinted, shaded by the way each face looks.
         BakedQuad.MaterialInfo material = new BakedQuad.MaterialInfo(sprite, ChunkSectionLayer.CUTOUT, Sheets.cutoutBlockItemSheet(),
-                Sheets.cutoutBlockItemGlintSheet(), Sheets.cutoutBlockItemGlintSpecialSheet(), -1, null, 0);
+                -1, true, 0);
         for (int face = 0; face < vertices.length; face += 4 * STRIDE) {
             Vector3f[] corners = new Vector3f[4];
             long[] uvs = new long[4];

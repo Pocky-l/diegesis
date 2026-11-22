@@ -1,7 +1,6 @@
 package com.pockyl.diegesis.impl.action;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Prediction;
 import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -350,7 +349,7 @@ public final class ActionHandler {
                 ItemStack rest = result.copy();
                 player.getInventory().add(rest);
                 if (!rest.isEmpty()) {
-                    player.drop(rest, false, Prediction.SERVER_ONLY);
+                    player.drop(rest, false);
                 }
                 logic.updateOutputs(station);
                 if (!ItemStack.isSameItemSameComponents(state.getOutput(output), shown)) {
@@ -561,7 +560,7 @@ public final class ActionHandler {
 
     private static void give(StationContext station, Player player, ItemStack stack, boolean present) {
         if (present) {
-            player.getInventory().placeItemBackInInventory(stack, Prediction.SERVER_ONLY);
+            player.getInventory().placeItemBackInInventory(stack);
         } else {
             Containers.dropItemStack(station.level(), station.pos().getX() + 0.5, station.pos().getY() + 1.0,
                     station.pos().getZ() + 0.5, stack);

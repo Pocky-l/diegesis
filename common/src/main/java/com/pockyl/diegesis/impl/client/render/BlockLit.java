@@ -96,9 +96,8 @@ final class BlockLit {
                 for (BakedQuad quad : part.getQuads(side)) {
                     Vector3f normal = world.transformDirection(new Vector3f(quad.direction().getUnitVec3f())).normalize();
                     // A face that is not shaded by the way it faces (shade: false) is shaded as one facing up.
-                    Direction shadeOverride = quad.materialInfo().shadeDirectionOverride();
-                    float shade = diffuse(shadeOverride == null ? normal
-                            : world.transformDirection(new Vector3f(shadeOverride.getUnitVec3f())).normalize());
+                    float shade = diffuse(quad.materialInfo().shade() ? normal
+                            : world.transformDirection(new Vector3f(Direction.UP.getUnitVec3f())).normalize());
                     instance.setLightCoords(faceLight(level, quad, world, camera, normal, pos));
                     int grey = Math.round(shade * 255.0F);
                     instance.setColor(0xFF000000 | grey << 16 | grey << 8 | grey);
@@ -132,11 +131,11 @@ final class BlockLit {
             BlockPos front = BlockPos.containing(camera.x + middle.x + normal.x * IN_FRONT, camera.y + middle.y + normal.y * IN_FRONT,
                     camera.z + middle.z + normal.z * IN_FRONT);
             if (!level.getBlockState(front).isSolidRender()) {
-                return LightCoordsUtil.getLightCoords(level, front);
+                return net.minecraft.client.renderer.LevelRenderer.getLightCoords(level, front);
             }
         }
         BlockPos lit = pos.relative(Direction.getApproximateNearest(normal.x, normal.y, normal.z));
-        return LightCoordsUtil.getLightCoords(level, level.getBlockState(lit).isSolidRender() ? pos : lit);
+        return net.minecraft.client.renderer.LevelRenderer.getLightCoords(level, level.getBlockState(lit).isSolidRender() ? pos : lit);
     }
 
     private static final Direction[] SIDES = {Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST,

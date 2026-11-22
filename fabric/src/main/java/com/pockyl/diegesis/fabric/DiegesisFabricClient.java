@@ -87,7 +87,7 @@ public final class DiegesisFabricClient implements ClientModInitializer {
         LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
             CameraRenderState camera = context.levelState().cameraRenderState;
             SceneRenderer.render(context.submitNodeCollector(), context.poseStack(), camera.viewRotationMatrix, camera.projectionMatrix,
-                    Minecraft.getInstance().gameRenderer.mainCamera());
+                    Minecraft.getInstance().gameRenderer.getMainCamera());
         });
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(SceneLibrary.ID, SceneLibrary.INSTANCE);
         PreparableModelLoadingPlugin.register(

@@ -216,7 +216,7 @@ public final class LiquidPieces {
             poseStack.pushPose();
             poseStack.translate(piece.x, surface + LIFT + piece.floater.size() * 0.1F + hop - below - sim.height(waveU, waveV), piece.z);
             turn.rotationY(piece.yaw).rotateX(rock + (piece.over ? Mth.PI : 0.0F) + eased * Mth.PI);
-            poseStack.rotate(turn);
+            poseStack.mulPose(turn);
             piece.draw(consumer, poseStack.last(), com.pockyl.diegesis.impl.client.render.SceneDraw.blockSprite(piece.floater.sprite()), size, light, flat);
             poseStack.popPose();
         }
