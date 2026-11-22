@@ -4,6 +4,15 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.17.1+1.21.11] - Unreleased
+### Added
+- Minecraft 1.21.11, on Fabric: the library as 1.0.0-beta.17.1 has it on 1.21.1 and 26.3, with the same scenes, stations and network format.
+### Changed
+- For addon authors, what Minecraft 1.21.11 changes in the API: ids are `Identifier`; `ScreenOverlay.render` takes `GuiGraphics` and `MenuAccess.click` a `ClickType`, as on 1.21.1; node painters and `DiegesisClient.items` / `tinted` take `SceneBuffers`, as on 26.3; `StationBehavior.onKey` gets GLFW key codes, as on 1.21.1 (compare with `InputConstants.KEY_*` to work on every version).
+### Not on 1.21.11 yet
+- NeoForge.
+- Smooth-pass supersampling, fading of entities and particles in front of a station (ClearView), other mods' HUD elements sliding away, the outline of a part seen only from the station, and Sodium and AsyncParticles compatibility.
+
 ## [1.0.0-beta.17.1+26.3] - Unreleased
 ### Added
 - `Diegesis.addListener` and `DiegesisClient.addBehavior`: a mod can watch any station, refuse what players do there and add client code beside the station's own.
