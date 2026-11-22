@@ -29,6 +29,11 @@ import com.pockyl.diegesis.impl.liquid.LiquidVolume;
  * depth below the surface; the surface reflects the sky at a grazing angle and catches a highlight on its waves, and
  * a bright line runs where it meets the glass. Everything is vertex colour in the block atlas' translucent type, so it
  * sorts with the glass round it and works under shader packs.
+ *
+ * <p>The far side of the volume is not drawn as faces of its own: every face the eye meets first (the surface, a near wall)
+ * carries the colour of the far side behind it, mixed in where the line of sight leaves the liquid. Drawn as faces, the far
+ * walls and the bottom were sorted against the surface by the middles of their quads, and in a shallow liquid seen from low
+ * down the bottom came out on top of the far half of the surface, as dark wedges.
  */
 public final class LiquidRenderer {
     private static final int SEGMENTS = 14;
@@ -103,6 +108,15 @@ public final class LiquidRenderer {
     private static final float[] COLORS = new float[MAX_VERTICES * 4];
     private static final Vector3f POINT = new Vector3f();
     private static final Vector3f NORMAL = new Vector3f();
+    private static final float[] MIXED = new float[4];
+    /** The far side of the tank being drawn, by the depth at which a line of sight leaves its liquid, in this many steps. */
+    private static final int FAR_STEPS = 32;
+    private static final float[] FAR_SHADE = new float[FAR_STEPS + 1];
+    private static final float[] FAR_OPACITY = new float[FAR_STEPS + 1];
+    /** A face this opaque hides what lies behind it. */
+    private static final float OPAQUE = 0.985F;
+    /** A wall is drawn when the eye stands this far out from its plane, as a share of its distance: the sine of 3 degrees. */
+    private static final float GRAZING = 0.052F;
 
     private LiquidRenderer() {
     }
@@ -153,8 +167,12 @@ public final class LiquidRenderer {
                 Math.max(SPRITE_SIZE, (hx + hz / 2.0F) * 2.0F), Math.max(SPRITE_SIZE, (hz + hy) * 2.0F));
         pass.eye = poseStack.last().pose().invert(new Matrix4f()).transformPosition(new Vector3f()).sub(cx, cy, cz);
         pass.sheen = 1.0F - 0.75F * look.viscosity();
+        pass.hx = hx;
+        pass.hy = hy;
+        pass.hz = hz;
+        pass.round = binding.round();
 
-        // Far walls first in thought (the buffer sorts them): the inside of the volume, seen through its near side.
+        // The walls the eye meets; the far ones behind them are mixed into their colour.
         for (int i = 0; i < count; i++) {
             int j = (i + 1) % count;
             set(POLY_A, 0, RING_X[i], -hy, RING_Z[i]);
@@ -165,6 +183,15 @@ public final class LiquidRenderer {
             float nx = (RING_X[i] + RING_X[j]) / 2.0F;
             float nz = (RING_Z[i] + RING_Z[j]) / 2.0F;
             float length = Math.max(1.0e-4F, (float) Math.hypot(nx, nz));
+            // How far the eye stands out from the wall's plane, against how far it is from the wall. A wall turned away is never
+            // seen, and one seen all but edge-on shows nothing of itself: but the layer offset of the see-through sheet grows with
+            // a face's slope, and drew such a wall as a dark line over what stands before it, down the front of a pan.
+            float out = ((pass.eye.x - nx) * nx + (pass.eye.z - nz) * nz) / length;
+            float reach = (float) Math.sqrt((pass.eye.x - nx) * (pass.eye.x - nx) + pass.eye.y * pass.eye.y
+                    + (pass.eye.z - nz) * (pass.eye.z - nz));
+            if (out <= GRAZING * reach) {
+                continue;
+            }
             pass.wall(POLY_B, points, nx / length, 0.0F, nz / length);
         }
         for (int i = 0; i < count; i++) {
@@ -287,6 +314,15 @@ public final class LiquidRenderer {
         private Vector3f eye;
         /** How much of the light a wave catches: a thick liquid shows its waves softly. */
         private float sheen = 1.0F;
+        /** Half the inner box, and whether the tank is round: where a line of sight leaves the liquid. */
+        private float hx;
+        private float hy;
+        private float hz;
+        private boolean round;
+        /** The colour and opacity {@link #behind} worked out last. */
+        private final float[] mixed = MIXED;
+        /** The deepest a point of the volume lies under the surface, once {@link #farSide} has filled its tables for this tank. */
+        private float farDeepest = -1.0F;
 
         Pass(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, int light, int color, float cx, float cy, float cz,
                 float depthScale, Vector3fc up, float level, float spriteWidth, float spriteHeight) {
@@ -311,7 +347,7 @@ public final class LiquidRenderer {
             this.spriteHeight = spriteHeight;
         }
 
-        /** A wall of the volume: its outside, and its inside for when the far side shows through. */
+        /** A wall of the volume, seen from outside: the far side shows through it. */
         void wall(float[] points, int count, float nx, float ny, float nz) {
             if (count < 3) {
                 return;
@@ -319,32 +355,121 @@ public final class LiquidRenderer {
             for (int first = 1; first < count - 1; first += 2) {
                 int second = Math.min(first + 1, count - 1);
                 int third = Math.min(first + 2, count - 1);
-                vertexOf(points, 0, nx, ny, nz, false);
-                vertexOf(points, first, nx, ny, nz, false);
-                vertexOf(points, second, nx, ny, nz, false);
-                vertexOf(points, third, nx, ny, nz, false);
-                vertexOf(points, third, -nx, -ny, -nz, true);
-                vertexOf(points, second, -nx, -ny, -nz, true);
-                vertexOf(points, first, -nx, -ny, -nz, true);
-                vertexOf(points, 0, -nx, -ny, -nz, true);
+                vertexOf(points, 0, nx, ny, nz);
+                vertexOf(points, first, nx, ny, nz);
+                vertexOf(points, second, nx, ny, nz);
+                vertexOf(points, third, nx, ny, nz);
             }
         }
 
-        private void vertexOf(float[] points, int index, float nx, float ny, float nz, boolean inside) {
+        private void vertexOf(float[] points, int index, float nx, float ny, float nz) {
             float x = points[index * 3];
             float y = points[index * 3 + 1];
             float z = points[index * 3 + 2];
             // Light fades with depth: the liquid thickens and darkens towards the bottom, measured from the surface.
+            float deep = deepAt(x, y, z);
+            float shade = 1.0F - 0.42F * deep;
+            behind(x, y, z, red * shade, green * shade, blue * shade, thickness(NEAR_PATH + NEAR_PATH_DEEP * deep));
+            emit(x, y, z, nx, ny, nz, mixed[0], mixed[1], mixed[2], mixed[3]);
+        }
+
+        /** How deep under the surface a point lies, 0 at the surface towards 1 far below it. */
+        private float deepAt(float x, float y, float z) {
             float depth = Math.max(0.0F, level - (up.x() * x + up.y() * y + up.z() * z));
-            float deep = 1.0F - (float) Math.exp(-depth / (depthScale * 1.1F));
-            float shade = inside ? 0.8F - 0.3F * deep : 1.0F - 0.42F * deep;
-            float a = inside ? thickness(FAR_PATH + FAR_PATH_DEEP * deep) : thickness(NEAR_PATH + NEAR_PATH_DEEP * deep);
-            emit(x, y, z, nx, ny, nz, red * shade, green * shade, blue * shade, a);
+            return 1.0F - (float) Math.exp(-depth / (depthScale * 1.1F));
         }
 
         /** Opacity of a layer of liquid: light falls off exponentially with the path through it. */
         private float thickness(float path) {
             return 1.0F - (float) Math.exp(clearness * path);
+        }
+
+        /**
+         * Lays a face the eye meets first, in colour {@code r, g, b} and opacity {@code a} at the point {@code x, y, z}, over the far
+         * side of the volume as seen through that point, into {@link #mixed}: the inside of the wall or the bottom where the line of
+         * sight leaves the liquid, darker and thicker the deeper that is. A line that leaves through the surface has nothing of the
+         * liquid behind it, and the face stays as it is.
+         */
+        private void behind(float x, float y, float z, float r, float g, float b, float a) {
+            float front = Mth.clamp(a, 0.0F, 1.0F);
+            if (front >= OPAQUE) {
+                mixed[0] = r;
+                mixed[1] = g;
+                mixed[2] = b;
+                mixed[3] = front;
+                return;
+            }
+            float dx = x - eye.x;
+            float dy = y - eye.y;
+            float dz = z - eye.z;
+            float leaves = Float.MAX_VALUE;
+            if (dy < 0.0F) {
+                leaves = (-hy - y) / dy;
+            }
+            if (round) {
+                // The ellipse of the wall: (x + s dx)^2 / hx^2 + (z + s dz)^2 / hz^2 = 1, its far root.
+                float qa = dx * dx / (hx * hx) + dz * dz / (hz * hz);
+                float qb = 2.0F * (x * dx / (hx * hx) + z * dz / (hz * hz));
+                float qc = x * x / (hx * hx) + z * z / (hz * hz) - 1.0F;
+                float under = qb * qb - 4.0F * qa * qc;
+                if (qa > 1.0e-9F && under >= 0.0F) {
+                    leaves = Math.min(leaves, Math.max(0.0F, (-qb + (float) Math.sqrt(under)) / (2.0F * qa)));
+                }
+            } else {
+                if (dx > 1.0e-6F) {
+                    leaves = Math.min(leaves, (hx - x) / dx);
+                } else if (dx < -1.0e-6F) {
+                    leaves = Math.min(leaves, (-hx - x) / dx);
+                }
+                if (dz > 1.0e-6F) {
+                    leaves = Math.min(leaves, (hz - z) / dz);
+                } else if (dz < -1.0e-6F) {
+                    leaves = Math.min(leaves, (-hz - z) / dz);
+                }
+            }
+            float rise = up.x() * dx + up.y() * dy + up.z() * dz;
+            float below = level - (up.x() * x + up.y() * y + up.z() * z);
+            boolean throughSurface = rise > 1.0e-6F && below / rise < leaves;
+            if (throughSurface || leaves == Float.MAX_VALUE || leaves < 0.0F) {
+                mixed[0] = r;
+                mixed[1] = g;
+                mixed[2] = b;
+                mixed[3] = front;
+                return;
+            }
+            if (farDeepest < 0.0F) {
+                farSide();
+            }
+            float depth = level - (up.x() * (x + dx * leaves) + up.y() * (y + dy * leaves) + up.z() * (z + dz * leaves));
+            float at = Mth.clamp(depth / farDeepest, 0.0F, 1.0F) * FAR_STEPS;
+            int step = Math.min((int) at, FAR_STEPS - 1);
+            float shade = Mth.lerp(at - step, FAR_SHADE[step], FAR_SHADE[step + 1]);
+            float back = Mth.lerp(at - step, FAR_OPACITY[step], FAR_OPACITY[step + 1]) * (1.0F - front);
+            float both = front + back;
+            if (both < 1.0e-4F) {
+                mixed[0] = r;
+                mixed[1] = g;
+                mixed[2] = b;
+                mixed[3] = front;
+                return;
+            }
+            mixed[0] = (r * front + red * shade * back) / both;
+            mixed[1] = (g * front + green * shade * back) / both;
+            mixed[2] = (b * front + blue * shade * back) / both;
+            mixed[3] = both;
+        }
+
+        /**
+         * The far side by the depth at which a line of sight leaves the liquid, into {@link #FAR_SHADE} and {@link #FAR_OPACITY}: a
+         * sheet of cells asks for it thousands of times a frame, and an exponent each would cost a street of pots dearly.
+         */
+        private void farSide() {
+            farDeepest = Math.max(1.0e-3F, level + Math.abs(up.x()) * hx + Math.abs(up.y()) * hy + Math.abs(up.z()) * hz);
+            for (int step = 0; step <= FAR_STEPS; step++) {
+                float deep = 1.0F - (float) Math.exp(-farDeepest * step / FAR_STEPS / (depthScale * 1.1F));
+                FAR_SHADE[step] = 0.8F - 0.3F * deep;
+                FAR_OPACITY[step] = thickness(FAR_PATH + FAR_PATH_DEEP * deep);
+            }
         }
 
         private void emit(float x, float y, float z, float nx, float ny, float nz, float r, float g, float b, float a) {
@@ -444,6 +569,12 @@ public final class LiquidRenderer {
                     r = r * (1.0F + wake) + (1.0F - r) * gloss;
                     g = g * (1.0F + wake) + (1.0F - g) * gloss;
                     b = b * (1.0F + wake) + (1.0F - b) * gloss;
+                    // One colour a cell: what lies behind it is taken through its middle.
+                    behind(mx, (level - up.x() * mx - up.z() * mz) / up.y(), mz, r, g, b, alpha);
+                    r = mixed[0];
+                    g = mixed[1];
+                    b = mixed[2];
+                    alpha = mixed[3];
                     cell(x0, z0, sim, hx, hz, r, g, b, alpha);
                     cell(x0, z1, sim, hx, hz, r, g, b, alpha);
                     cell(x1, z1, sim, hx, hz, r, g, b, alpha);
@@ -590,6 +721,13 @@ public final class LiquidRenderer {
                         g += (1.0F - g) * 0.45F;
                         b += (1.0F - b) * 0.45F;
                         a += 0.22F;
+                    }
+                    if (above) {
+                        behind(x, y, z, r, g, b, a);
+                        r = mixed[0];
+                        g = mixed[1];
+                        b = mixed[2];
+                        a = mixed[3];
                     }
                     COLORS[at * 4] = r;
                     COLORS[at * 4 + 1] = g;
