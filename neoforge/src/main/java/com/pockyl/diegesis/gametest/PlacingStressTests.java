@@ -1,15 +1,11 @@
 package com.pockyl.diegesis.gametest;
 
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Quaternionf;
 
-import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.PlacingPhysics;
 import com.pockyl.diegesis.api.state.ItemPose;
@@ -26,8 +22,6 @@ import static com.pockyl.diegesis.gametest.PlacingGameTests.check;
  * The physics left alone and worked hard: full shelves stay still, piles stay piles, drags never leave things inside each
  * other. Each test is a case the owner saw go wrong in a playtest.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingStressTests {
     private static final float FRAME = 1.0F / 60.0F;
 
@@ -102,12 +96,10 @@ public final class PlacingStressTests {
         return text.toString();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aFullShelfLeftAloneStaysStill(GameTestHelper helper) {
         shelfStill(helper, false);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aShelfSetOutBeforeSettlesWithoutFlinging(GameTestHelper helper) {
         shelfStill(helper, true);
     }
@@ -146,7 +138,6 @@ public final class PlacingStressTests {
         scene.physics.release(index);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aFastDragNeverLeavesThingsInsideEachOther(GameTestHelper helper) {
         PlacingGameTests.Scene scene = fullShelf(27, false);
         scene.run(1.0F);
@@ -158,7 +149,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aPilePushedIntoAnotherDoesNotPassThroughIt(GameTestHelper helper) {
         PlacingOptions options = cabinet();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 6);
@@ -181,7 +171,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aTowerStaysStillWhileSomethingElseIsDragged(GameTestHelper helper) {
         PlacingGameTests.Scene scene = fullShelf(27, false);
         scene.run(2.0F);
@@ -199,7 +188,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aTowerBuiltByHandStandsStill(GameTestHelper helper) {
         PlacingOptions options = cabinet();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 4);
@@ -224,7 +212,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aStackSqueezedUnderTheShelfAboveStaysStill(GameTestHelper helper) {
         // A kitchen cabinet's shelf: room 6 high, things 4 big. A block, and one on it made as small as it must be to fit.
         PlacingOptions options = PlacingOptions.builder("items").surface(1.0F, 4.0F, 15.0F, 15.0F, 1.0F, 6.0F, 4.0F).itemSize(4.0F)
@@ -251,7 +238,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aRiderCarriedIntoAnotherRiderPushesIt(GameTestHelper helper) {
         // A low pile (planks, a stone on them overhanging to the right) dragged towards a tall pile against the right wall: the
         // overhanging stone meets the tall pile's upper block before the bases meet.
@@ -271,7 +257,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void blocksLetGoOfMidSwingStackAndStandStill(GameTestHelper helper) {
         PlacingOptions options = cabinet();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 4);
@@ -299,7 +284,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aBlockLetGoOfLeaningUnderTheShelfAboveStandsStill(GameTestHelper helper) {
         PlacingOptions options = PlacingOptions.builder("items").surface(1.0F, 4.0F, 15.0F, 15.0F, 1.0F, 6.0F, 4.0F).itemSize(4.0F)
                 .physics(PlacingPhysics.DEFAULT).build();
@@ -321,7 +305,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aDragFollowsTheCursorDiagonally(GameTestHelper helper) {
         PlacingOptions options = cabinet();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 1);
@@ -356,7 +339,6 @@ public final class PlacingStressTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 400)
     public static void aFlatThingLetGoOfAtALeanRestsAsItFalls(GameTestHelper helper) {
         PlacingOptions options = cabinet();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 2);

@@ -4,11 +4,10 @@ import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.BlockPos;
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
@@ -24,8 +23,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.CameraRig;
@@ -46,8 +43,6 @@ import java.util.UUID;
  * Menu-backed stations: the clicks the client makes for each hand move, fed to real vanilla menus on the server, must
  * leave the inventories as the vanilla screen would.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class MenuGameTests {
     private static final MenuBinding TABLE = MenuBinding.of(MenuType.CRAFTING).output("result", 0).slots("grid", 1, 9).build();
     private static final MenuBinding FURNACE = MenuBinding.of(MenuType.FURNACE).slots("input", 0, 1).slots("fuel", 1, 1)
@@ -56,7 +51,6 @@ public final class MenuGameTests {
     private MenuGameTests() {
     }
 
-    @GameTest(template = "box")
     public static void menuClicksCraftAPickaxe(GameTestHelper helper) {
         ServerPlayer player = mockPlayer(helper);
         CraftingMenu menu = table(helper, player);
@@ -77,7 +71,6 @@ public final class MenuGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "box")
     public static void menuClicksBulkCraftAndSpread(GameTestHelper helper) {
         ServerPlayer player = mockPlayer(helper);
         CraftingMenu menu = table(helper, player);
@@ -89,7 +82,7 @@ public final class MenuGameTests {
         check(helper, count(player.getInventory(), Items.OAK_PLANKS) == 64 && gridEmpty(menu), "64 planks, the grid empty");
         // A drag with the left button shares evenly, with the right one puts one into each.
         int planks = MenuClicks.inventorySlot(menu, player.getInventory(), slotOf(player.getInventory(), Items.OAK_PLANKS));
-        menu.clicked(planks, 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
+        menu.clicked(planks, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
         act(menu, player, new StationAction.Spread(List.of(grid(0), grid(1), grid(2)), 0));
         check(helper, menu.getSlot(1).getItem().getCount() == 21 && menu.getSlot(3).getItem().getCount() == 21
                 && menu.getCarried().getCount() == 1, "64 shared over three cells, one left in the hand");
@@ -102,7 +95,6 @@ public final class MenuGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "box")
     public static void menuKeysSwapThrowAndPutAway(GameTestHelper helper) {
         ServerPlayer player = mockPlayer(helper);
         CraftingMenu menu = table(helper, player);
@@ -111,22 +103,22 @@ public final class MenuGameTests {
         int cell = MenuClicks.slotOf(menu, TABLE, player.getInventory(), grid(0));
         check(helper, cell == 1 && menu.getSlot(1).getItem().getCount() == 10, "shift moved the stack to the first cell");
         // A number key over a cell swaps it with that hotbar slot.
-        menu.clicked(cell, 3, net.minecraft.world.inventory.ClickType.SWAP, player);
+        menu.clicked(cell, 3, net.minecraft.world.inventory.ContainerInput.SWAP, player);
         check(helper, player.getInventory().getItem(3).getCount() == 10 && menu.getSlot(1).getItem().isEmpty(), "swapped to hotbar 4");
         // Q throws one, Ctrl+Q the stack.
         int hotbar = MenuClicks.inventorySlot(menu, player.getInventory(), 3);
         check(helper, hotbar == 40, "hotbar slot 4 is menu slot 40");
-        menu.clicked(hotbar, 0, net.minecraft.world.inventory.ClickType.THROW, player);
+        menu.clicked(hotbar, 0, net.minecraft.world.inventory.ContainerInput.THROW, player);
         check(helper, player.getInventory().getItem(3).getCount() == 9, "one thrown");
         // A stack in the hand nothing takes goes back to the inventory.
-        menu.clicked(hotbar, 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
+        menu.clicked(hotbar, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
         for (MenuClicks.Click click : MenuClicks.putAway(menu, player.getInventory())) {
             menu.clicked(click.slot(), click.button(), click.type(), player);
         }
         check(helper, menu.getCarried().isEmpty() && count(player.getInventory(), Items.COBBLESTONE) == 9, "put away");
         // Outside the screen: the stack in the hand is dropped.
-        menu.clicked(MenuClicks.inventorySlot(menu, player.getInventory(), 0), 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
-        menu.clicked(MenuClicks.OUTSIDE, 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
+        menu.clicked(MenuClicks.inventorySlot(menu, player.getInventory(), 0), 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
+        menu.clicked(MenuClicks.OUTSIDE, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
         check(helper, menu.getCarried().isEmpty() && count(player.getInventory(), Items.COBBLESTONE) == 0, "dropped");
         helper.runAfterDelay(2, () -> {
             int thrown = helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(player.blockPosition()).inflate(4.0))
@@ -136,7 +128,6 @@ public final class MenuGameTests {
         });
     }
 
-    @GameTest(template = "box")
     public static void theOffHandMovesThroughVanillaSwaps(GameTestHelper helper) {
         ServerPlayer player = mockPlayer(helper);
         CraftingMenu menu = table(helper, player);
@@ -149,7 +140,7 @@ public final class MenuGameTests {
                 && player.getInventory().getItem(Inventory.SLOT_OFFHAND).isEmpty(), "the torches are in the hand");
         act(menu, player, click(offhand, 0, ClickKind.PICKUP));
         check(helper, menu.getCarried().isEmpty() && player.getInventory().getItem(Inventory.SLOT_OFFHAND).getCount() == 5, "put back");
-        menu.clicked(MenuClicks.inventorySlot(menu, player.getInventory(), 0), 0, net.minecraft.world.inventory.ClickType.PICKUP, player);
+        menu.clicked(MenuClicks.inventorySlot(menu, player.getInventory(), 0), 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
         act(menu, player, click(offhand, 0, ClickKind.PICKUP));
         check(helper, menu.getCarried().is(Items.TORCH) && player.getInventory().getItem(Inventory.SLOT_OFFHAND).is(Items.STICK),
                 "sticks and torches changed places");
@@ -166,12 +157,11 @@ public final class MenuGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "box")
     public static void furnaceShiftClicksRouteAsVanilla(GameTestHelper helper) {
         ServerPlayer player = mockPlayer(helper);
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.getLevel().setBlockAndUpdate(pos, Blocks.FURNACE.defaultBlockState());
-        player.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
+        player.snapTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
         net.minecraft.world.level.block.entity.FurnaceBlockEntity furnace =
                 (net.minecraft.world.level.block.entity.FurnaceBlockEntity) helper.getLevel().getBlockEntity(pos);
         AbstractContainerMenu menu = furnace.createMenu(9, player.getInventory(), player);
@@ -208,15 +198,14 @@ public final class MenuGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
     public static void menuStationsCheckTheirBinding(GameTestHelper helper) {
         StationSchema schema = StationSchema.builder().slots("grid", 9).output("result").build();
-        StationType type = StationType.builder(ResourceLocation.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_table")).blocks(Blocks.CRAFTING_TABLE)
+        StationType type = StationType.builder(Identifier.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_table")).blocks(Blocks.CRAFTING_TABLE)
                 .schema(schema).menu(TABLE).build();
         check(helper, type.authority() == Authority.MENU && type.menuBinding() == TABLE, "a menu station");
         boolean refused;
         try {
-            StationType wrong = StationType.builder(ResourceLocation.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_wrong")).blocks(Blocks.CRAFTING_TABLE)
+            StationType wrong = StationType.builder(Identifier.fromNamespaceAndPath(Diegesis.MOD_ID, "test_menu_wrong")).blocks(Blocks.CRAFTING_TABLE)
                     .schema(StationSchema.builder().slots("grid", 4).output("result").build()).menu(TABLE).build();
             refused = wrong == null;
         } catch (IllegalStateException e) {
@@ -232,7 +221,7 @@ public final class MenuGameTests {
     private static CraftingMenu table(GameTestHelper helper, ServerPlayer player) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.getLevel().setBlockAndUpdate(pos, Blocks.CRAFTING_TABLE.defaultBlockState());
-        player.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
+        player.snapTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() - 1.0);
         CraftingMenu menu = new CraftingMenu(7, player.getInventory(), ContainerLevelAccess.create(helper.getLevel(), pos));
         player.containerMenu = menu;
         return menu;

@@ -3,6 +3,8 @@ package com.pockyl.diegesis.neoforge;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -12,7 +14,8 @@ import com.pockyl.diegesis.impl.network.Packets;
 
 /**
  * The library's payloads on NeoForge, optional on both sides: a vanilla client or server simply lacks them, and blocks keep
- * their vanilla behaviour there. NeoForge runs the handlers on the main thread.
+ * their vanilla behaviour there. NeoForge runs the handlers on the main thread; it takes the client's handler only from the
+ * client side ({@link #registerClient}).
  */
 final class NeoForgeNetwork {
     private NeoForgeNetwork() {
@@ -25,7 +28,12 @@ final class NeoForgeNetwork {
                 DiegesisNetwork.receiveOnServer(player, payload.packet());
             }
         });
-        registrar.playToClient(DiegesisNetwork.ToClient.TYPE, DiegesisNetwork.ToClient.STREAM_CODEC, (payload, context) -> {
+        registrar.playToClient(DiegesisNetwork.ToClient.TYPE, DiegesisNetwork.ToClient.STREAM_CODEC);
+    }
+
+    /** Client side; only called on clients. */
+    static void registerClient(RegisterClientPayloadHandlersEvent event) {
+        event.register(DiegesisNetwork.ToClient.TYPE, (payload, context) -> {
             if (payload.packet() != null) {
                 DiegesisNetwork.receiveOnClient(payload.packet());
             }
@@ -50,6 +58,6 @@ final class NeoForgeNetwork {
 
     /** Client side; only called on clients. */
     static void sendToServer(Packets.ClientPacket packet) {
-        PacketDistributor.sendToServer(new DiegesisNetwork.ToServer(packet));
+        ClientPacketDistributor.sendToServer(new DiegesisNetwork.ToServer(packet));
     }
 }

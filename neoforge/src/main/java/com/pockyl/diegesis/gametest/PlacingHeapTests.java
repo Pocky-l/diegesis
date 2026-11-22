@@ -1,17 +1,13 @@
 package com.pockyl.diegesis.gametest;
 
-import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.scene.PlaceSurface;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.PlacingPhysics;
@@ -31,8 +27,6 @@ import static com.pockyl.diegesis.gametest.PlacingGameTests.check;
  * 2026-11-21: "thrown into a heap, they jump, turn and move about". A heap comes to rest, stays at rest, and putting one more
  * thing in moves only what it touches. Also: things fall as fast as real ones do.
  */
-@GameTestHolder(Diegesis.MOD_ID)
-@PrefixGameTestTemplate(false)
 public final class PlacingHeapTests {
     private static final float FRAME = 1.0F / 60.0F;
     private static final Quaternionf LYING = new Quaternionf().rotateX((float) Math.PI / 2.0F);
@@ -249,7 +243,6 @@ public final class PlacingHeapTests {
         return PlacingStressTests.moved(scene, before);
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aHeapOfFlatThingsComesToRest(GameTestHelper helper) {
         Heap heap = throwIn(drawer(), 40, Mix.FLAT, 6, 11L);
         PlacingGameTests.Scene scene = heap.scene;
@@ -266,7 +259,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aMixedHeapComesToRest(GameTestHelper helper) {
         Heap heap = throwIn(crate(), 60, Mix.MIXED, 6, 23L);
         PlacingGameTests.Scene scene = heap.scene;
@@ -283,7 +275,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aCrowdedDrawerComesToRest(GameTestHelper helper) {
         // The drawer as it is (room 5): blocks and flat things until it is full, the upper layer against the drawer's top.
         Heap heap = throwIn(drawer(), 28, Mix.MIXED, 6, 5L, true);
@@ -299,7 +290,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aHeapOnAnOpenShelfComesToRest(GameTestHelper helper) {
         Heap heap = throwIn(PlacingStressTests.cabinet(), 45, Mix.MIXED, 6, 7L);
         PlacingGameTests.Scene scene = heap.scene;
@@ -313,7 +303,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void noThingSpinsWhileAHeapSettles(GameTestHelper helper) {
         Heap heap = throwIn(drawer(), 40, Mix.FLAT, 6, 11L);
         PlacingGameTests.Scene scene = heap.scene;
@@ -339,7 +328,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void puttingOneMoreWakesOnlyWhatItTouches(GameTestHelper helper) {
         // Two heaps of flat things in one wide drawer, 6 pixels apart; one more bread laid on the left one.
         PlacingOptions built = PlacingOptions.builder("items").surface(1.0F, -8.0F, 31.0F, 3.0F, 8.0F, 5.0F, 0.0F).itemSize(4.0F)
@@ -397,7 +385,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void wakingAHeapTenTimesMovesNothing(GameTestHelper helper) {
         PlacingOptions crate = crate();
         Heap heap = throwIn(with(crate, crate.surfaces().get(0), wakingAll(crate.physics().orElseThrow())), 30, Mix.FLAT, 6, 3L);
@@ -420,7 +407,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aHeavyBlockOnAFlatThingStandsStill(GameTestHelper helper) {
         PlacingOptions options = drawer();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 2);
@@ -455,7 +441,6 @@ public final class PlacingHeapTests {
         return movedOf(scene, rested.subList(0, 1));
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aBlockWokenAgainAndAgainNeverCreeps(GameTestHelper helper) {
         // Let go of a little leaning, at rest, then woken by things put down and taken away elsewhere, four times.
         PlacingOptions options = PlacingStressTests.cabinet();
@@ -490,7 +475,6 @@ public final class PlacingHeapTests {
                 PlacingPhysics.Wake.ALL, d.fallEase());
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void flatThingsAcrossEachOtherLieStill(GameTestHelper helper) {
         PlacingOptions options = drawer();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 3);
@@ -513,7 +497,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aThingPutInsideAnotherGlidesOut(GameTestHelper helper) {
         PlacingOptions options = crate();
         PlacingGameTests.Scene scene = new PlacingGameTests.Scene(options, 2);
@@ -540,7 +523,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aStandingFlatThingUnderALoadRests(GameTestHelper helper) {
         // A fridge shelf: bread stood up, a stone let go of leaning against it.
         PlacingOptions options = PlacingGameTests.fridge();
@@ -561,7 +543,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void thingsFallAsGravitySays(GameTestHelper helper) {
         float[] gravities = {PlacingPhysics.DEFAULT.gravity(), 200.0F, 314.0F};
         StringBuilder text = new StringBuilder();
@@ -602,7 +583,6 @@ public final class PlacingHeapTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 600)
     public static void aHeapCostsLittle(GameTestHelper helper) {
         PlacingOptions crate = crate();
         Heap heap = throwIn(with(crate, crate.surfaces().get(0), wakingAll(crate.physics().orElseThrow())), 60, Mix.MIXED, 2, 31L);

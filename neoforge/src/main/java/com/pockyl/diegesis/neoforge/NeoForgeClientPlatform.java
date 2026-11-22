@@ -1,10 +1,11 @@
 package com.pockyl.diegesis.neoforge;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.resources.Identifier;
+import net.neoforged.neoforge.client.model.standalone.StandaloneModelKey;
 
+import com.pockyl.diegesis.impl.client.render.SceneDraw;
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.ClientPlatform;
 
@@ -22,7 +23,9 @@ public final class NeoForgeClientPlatform implements ClientPlatform {
     }
 
     @Override
-    public BakedModel getModel(ResourceLocation id) {
-        return Minecraft.getInstance().getModelManager().getModel(ModelResourceLocation.standalone(id));
+    public BlockStateModel getModel(Identifier id) {
+        StandaloneModelKey<BlockStateModel> key = NeoForgeClient.sceneModel(id);
+        BlockStateModel model = key != null ? Minecraft.getInstance().getModelManager().getStandaloneModel(key) : null;
+        return model != null ? model : SceneDraw.missingModel();
     }
 }

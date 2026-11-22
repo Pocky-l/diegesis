@@ -10,6 +10,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import com.pockyl.diegesis.DiegesisMod;
 import com.pockyl.diegesis.api.Diegesis;
+import com.pockyl.diegesis.gametest.GameTests;
 
 /** The NeoForge entry point on both sides. The client part is {@link NeoForgeClient}. */
 @Mod(Diegesis.MOD_ID)
@@ -17,8 +18,10 @@ public final class DiegesisNeoForge {
     public DiegesisNeoForge(IEventBus modBus) {
         DiegesisMod.init();
         modBus.addListener(NeoForgeNetwork::register);
+        GameTests.register(modBus);
         IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener(ServerTickEvent.Post.class, event -> DiegesisMod.onServerTick(event.getServer()));
+        // The client's channels are known once it is in the game, after the configuration phase.
         bus.addListener(PlayerEvent.PlayerLoggedInEvent.class, event -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 DiegesisMod.onChannelReady(player);
