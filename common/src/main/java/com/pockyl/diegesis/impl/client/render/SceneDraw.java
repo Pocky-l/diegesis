@@ -4,16 +4,18 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.font.TextRenderable;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
-import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.jspecify.annotations.Nullable;
 
@@ -23,15 +25,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * What a scene draws that the game no longer draws into a buffer of the caller's own since Minecraft 26.x: items, block models and
- * text, written into {@link SceneBuffers} the way the game's own renderers write them.
+ * What a scene draws through the game's renderers: items, block models and text, written into {@link SceneBuffers} the way the
+ * game's own renderers write them. Kept apart, as on Minecraft 26.x, where the game no longer draws these into a caller's buffer.
  */
 public final class SceneDraw {
     private static final int[] NO_TINTS = new int[0];
     /** The item's look, filled anew for each item drawn (the render thread only). */
     private static final ItemStackRenderState ITEM = new ItemStackRenderState();
     private static final RandomSource RANDOM = RandomSource.create();
-    private static final List<BlockStateModelPart> PARTS = new ArrayList<>();
+    private static final List<BlockModelPart> PARTS = new ArrayList<>();
 
     private SceneDraw() {
     }
@@ -67,27 +69,27 @@ public final class SceneDraw {
         if (atlas.equals(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS)) {
             return translucent ? DiegesisRenderTypes.translucentCullBlockSheet() : DiegesisRenderTypes.cutoutBlockSheet();
         }
-        return translucent ? net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucentCull(atlas)
+        return translucent ? DiegesisRenderTypes.translucentCull(atlas)
                 : net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(atlas);
     }
 
     /** A block state's model, as the chunks draw it. */
     public static BlockStateModel blockModel(BlockState state) {
-        return Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
+        return Minecraft.getInstance().getModelManager().getBlockModelShaper().getBlockModel(state);
     }
 
     /** The model drawn where a model is missing. */
     public static BlockStateModel missingModel() {
-        return Minecraft.getInstance().getModelManager().getBlockStateModelSet().missingModel();
+        return Minecraft.getInstance().getModelManager().getMissingBlockStateModel();
     }
 
-    /** Whether any face of the model is see-through (the chunks would draw it with the translucent layer). */
-    public static boolean isTranslucent(BlockStateModel model) {
-        return model.hasMaterialFlag(BakedQuad.FLAG_TRANSLUCENT);
+    /** Whether the chunks draw the block with the translucent layer. */
+    public static boolean isTranslucent(BlockState state) {
+        return ItemBlockRenderTypes.getChunkRenderType(state) == ChunkSectionLayer.TRANSLUCENT;
     }
 
     /** The model's parts, as the chunks pick them (the same seed for every block: the scene's copy looks the same each frame). */
-    public static List<BlockStateModelPart> parts(BlockStateModel model) {
+    public static List<BlockModelPart> parts(BlockStateModel model) {
         PARTS.clear();
         RANDOM.setSeed(42L);
         model.collectParts(RANDOM, PARTS);
@@ -96,7 +98,7 @@ public final class SceneDraw {
 
     /** Every quad of the model's parts, each side and the rest. */
     public static void forEachQuad(BlockStateModel model, java.util.function.Consumer<BakedQuad> action) {
-        for (BlockStateModelPart part : parts(model)) {
+        for (BlockModelPart part : parts(model)) {
             for (net.minecraft.core.Direction side : net.minecraft.core.Direction.values()) {
                 part.getQuads(side).forEach(action);
             }
@@ -125,7 +127,7 @@ public final class SceneDraw {
         return ITEM;
     }
 
-    /** A line of text, as {@code Font.drawInBatch} drew it into a buffer source before Minecraft 26.x. */
+    /** A line of text, as {@code Font.drawInBatch} draws it into a buffer source. */
     public static void text(SceneBuffers buffers, String text, float x, float y, int color, Matrix4fc matrix, Font.DisplayMode mode,
             int light) {
         text(buffers, text, x, y, color, matrix, mode, 0, light);
@@ -134,11 +136,7 @@ public final class SceneDraw {
     /** A line of text over a background of {@code background} (ARGB; 0 for none), as a name tag has. */
     public static void text(SceneBuffers buffers, String text, float x, float y, int color, Matrix4fc matrix, Font.DisplayMode mode,
             int background, int light) {
-        Minecraft.getInstance().font.prepareText(text, x, y, color, false, background).visit(new Font.GlyphVisitor() {
-            @Override
-            public void acceptRenderable(TextRenderable renderable) {
-                renderable.render(matrix, buffers.getBuffer(renderable.renderType(mode)), light, false);
-            }
-        });
+        Minecraft.getInstance().font.drawInBatch(text, x, y, color, false, new Matrix4f(matrix), buffers::getBuffer, mode, background,
+                light);
     }
 }

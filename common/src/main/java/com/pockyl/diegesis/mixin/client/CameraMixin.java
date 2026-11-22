@@ -1,9 +1,9 @@
 package com.pockyl.diegesis.mixin.client;
 
 import net.minecraft.client.Camera;
-import net.minecraft.client.DeltaTracker;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,13 +13,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 
 /**
- * Moves the camera to the station while the player works at it, and gives it the station's field of view, both after vanilla
- * and other mods had their say. Neither loader has a
- * camera position event (NeoForge's ViewportEvent only turns the camera). Since Minecraft 26.x the camera is placed once a frame by
- * {@code alignWithEntity}, before the frame's culling is worked out from it. Runs after vanilla and other mods placed the camera, and only while
- * focused, so third-person and camera mods keep working the rest of the time. Its priority makes it the last hook at the
- * end of the setup: camera mods that place the camera there too (Perspective API, under Leawind's Third Person) ran after it
- * and turned the station's view away. Their pose is where the flight starts and ends.
+ * Moves the camera to the station while the player works at it (its field of view: {@code GameRendererMixin}). Neither loader has
+ * a camera position event (NeoForge's ViewportEvent only turns the camera). Runs after vanilla and other mods placed the camera,
+ * and only while focused, so third-person and camera mods keep working the rest of the time. Its priority makes it the last hook
+ * at the end of the setup: camera mods that place the camera there too (Perspective API, under Leawind's Third Person) ran after
+ * it and turned the station's view away. Their pose is where the flight starts and ends.
  */
 @Mixin(value = Camera.class, priority = 2000)
 abstract class CameraMixin {
@@ -28,9 +26,6 @@ abstract class CameraMixin {
 
     @Shadow
     private boolean detached;
-
-    @Shadow
-    private float fov;
 
     @Shadow
     protected abstract void setPosition(Vec3 pos);
@@ -47,14 +42,14 @@ abstract class CameraMixin {
     @Shadow
     public abstract float yRot();
 
-    @Inject(method = "alignWithEntity", at = @At("TAIL"))
-    private void diegesis$focusCamera(float partialTicks, CallbackInfo ci) {
+    @Inject(method = "setup", at = @At("TAIL"))
+    private void diegesis$focusCamera(Level level, Entity entity, boolean detachedView, boolean mirror, float partialTick,
+            CallbackInfo ci) {
         FocusController focus = FocusController.get();
         if (!focus.isActive()) {
             return;
         }
         focus.frame();
-        boolean detachedView = detached;
         Vec3 eye = position();
         FocusController.CameraPose pose = focus.cameraPose(eye, yRot(), xRot());
         if (pose == null) {
@@ -65,20 +60,5 @@ abstract class CameraMixin {
         // Detached draws the player's own body - but only once the camera is out of the head, never from inside it, and
         // never when the scene hides it.
         detached = !focus.options().hidePlayer() && (detachedView || pose.position().distanceToSqr(eye) > BODY_CLEARANCE * BODY_CLEARANCE);
-    }
-
-    /**
-     * The station's field of view, set where the camera stores the one it worked out, before the frame's culling and projection
-     * are made from it. A hook on what {@code calculateFov} returns was not enough: FOV and zoom mods change that value too, and
-     * whichever ran last decided, so at a station the player's FOV setting could come back (90 showed the station far away).
-     * What the game and those mods worked out is the player's own view, where flights start and end.
-     */
-    @Inject(method = "update", at = @At(value = "FIELD", target = "Lnet/minecraft/client/Camera;fov:F", opcode = Opcodes.PUTFIELD,
-            shift = At.Shift.AFTER))
-    private void diegesis$focusFov(DeltaTracker deltaTracker, CallbackInfo ci) {
-        FocusController focus = FocusController.get();
-        if (focus.isActive()) {
-            fov = (float) focus.fov(fov);
-        }
     }
 }

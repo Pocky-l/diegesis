@@ -1,10 +1,11 @@
 {
   "required": false,
   "package": "com.pockyl.diegesis.fabric.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_21",
   "plugin": "com.pockyl.diegesis.fabric.mixin.DiegesisFabricMixinPlugin",
   "client": [
-    "FocusScreenControlifyMixin"
+    "FocusScreenControlifyMixin",
+    "SodiumWorldSliceMixin"
   ],
   "injectors": {
     "defaultRequire": 1

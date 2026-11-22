@@ -2,9 +2,9 @@ package com.pockyl.diegesis.impl.client.fx;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.LightCoordsUtil;
 import com.pockyl.diegesis.api.client.SceneBuffers;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -164,7 +164,7 @@ public final class LiquidRenderer {
         }
         TextureAtlasSprite sprite = com.pockyl.diegesis.impl.client.render.SceneDraw.blockSprite(look.sprite());
         Pass pass = new Pass(buffers.getBuffer(com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.translucentCullBlockSheet()), poseStack.last(), sprite,
-                look.emissive() ? LightCoordsUtil.FULL_BRIGHT : light, sim.color(), cx, cy, cz, Math.max(hy, 0.5F), up, level,
+                look.emissive() ? LightTexture.FULL_BRIGHT : light, sim.color(), cx, cy, cz, Math.max(hy, 0.5F), up, level,
                 Math.max(SPRITE_SIZE, (hx + hz / 2.0F) * 2.0F), Math.max(SPRITE_SIZE, (hz + hy) * 2.0F));
         pass.eye = poseStack.last().pose().invert(new Matrix4f()).transformPosition(new Vector3f()).sub(cx, cy, cz);
         pass.sheen = 1.0F - 0.75F * look.viscosity();

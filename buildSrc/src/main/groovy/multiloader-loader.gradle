@@ -89,7 +89,7 @@ publishMods {
         projectId = curseforge_project_id
         accessToken = curseforgeToken
         minecraftVersions.add(minecraft_version)
-        javaVersions.add(JavaVersion.VERSION_25)
+        javaVersions.add(JavaVersion.VERSION_21)
         client = curseforge_client.toBoolean()
         server = curseforge_server.toBoolean()
         curseforge_optional.split(',')*.trim().findAll().each { optional(it) }

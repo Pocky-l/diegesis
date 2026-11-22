@@ -1,6 +1,6 @@
 package com.pockyl.diegesis.api.client;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Something flat laid over the scene for a moment, drawn by the mod: a book of recipes, a map, a letter. It takes the mouse while it
@@ -9,7 +9,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  */
 public interface ScreenOverlay {
     /** Draws it, in GUI pixels, over the scene and the inventory. */
-    void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick);
+    void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick);
 
     /** A mouse button went down; false closes the overlay, a click beside it usually. */
     default boolean mouseClicked(double mouseX, double mouseY, int button) {

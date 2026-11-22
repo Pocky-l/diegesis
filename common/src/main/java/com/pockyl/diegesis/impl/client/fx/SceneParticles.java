@@ -2,9 +2,9 @@ package com.pockyl.diegesis.impl.client.fx;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.LightCoordsUtil;
 import com.pockyl.diegesis.api.client.SceneBuffers;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -250,7 +250,7 @@ public final class SceneParticles {
                 a.set(up).mul(size);
                 b.set(right).mul(size);
             }
-            int packed = style.emissive() ? LightCoordsUtil.FULL_BRIGHT : light;
+            int packed = style.emissive() ? LightTexture.FULL_BRIGHT : light;
             int color = particle.color;
             Vector3f p = particle.pos;
             corner(consumer, pose, p.x - b.x - a.x, p.y - b.y - a.y, p.z - b.z - a.z, sprite.getU1(), sprite.getV1(), color, alpha, packed);

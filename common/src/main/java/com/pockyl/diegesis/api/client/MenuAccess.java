@@ -1,7 +1,7 @@
 package com.pockyl.diegesis.api.client;
 
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 
 /**
  * The open vanilla menu of a menu-backed station ({@code Authority.MENU}), from {@link StationView#menu()}. Everything sent
@@ -15,7 +15,7 @@ public interface MenuAccess {
     int ticksOpen();
 
     /** A click on a menu slot, as the vanilla screen makes it: predicted here, sent to the server. */
-    void click(int menuSlot, int button, ContainerInput type);
+    void click(int menuSlot, int button, ClickType type);
 
     /**
      * Shift-clicks an inventory slot into the station, the way vanilla routes it. Called before the menu is open or right
@@ -28,7 +28,7 @@ public interface MenuAccess {
 
     /**
      * Lays a recipe into the menu as the vanilla recipe book does ({@code ServerboundPlaceRecipePacket}): one set, or as many as fit
-     * with {@code all}. The server takes only recipes the player has unlocked, in menus with a recipe book. Since Minecraft 26.x a
+     * with {@code all}. The server takes only recipes the player has unlocked, in menus with a recipe book. Since Minecraft 1.21.2 a
      * client knows recipes only as the recipe book shows them: {@code recipe} is the id of one of its entries
      * ({@code RecipeDisplayEntry.id()}), no longer the recipe's own id.
      */

@@ -20,7 +20,7 @@ import com.pockyl.diegesis.impl.client.render.ClearBlocks;
 abstract class BlockEntityRenderDispatcherMixin {
     @Inject(method = "tryExtractRenderState", at = @At("HEAD"), cancellable = true)
     private void diegesis$clearBlockEntity(BlockEntity blockEntity, float partialTicks, ModelFeatureRenderer.CrumblingOverlay breakProgress,
-            boolean isGloballyRendered, CallbackInfoReturnable<BlockEntityRenderState> callback) {
+            CallbackInfoReturnable<BlockEntityRenderState> callback) {
         if (ClearBlocks.hides(blockEntity.getBlockPos())) {
             callback.setReturnValue(null);
         }

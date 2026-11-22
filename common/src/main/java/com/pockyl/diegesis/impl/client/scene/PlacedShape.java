@@ -2,12 +2,12 @@ package com.pockyl.diegesis.impl.client.scene;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.pockyl.diegesis.api.client.SceneBuffers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import com.pockyl.diegesis.api.client.SceneBuffers;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
 import net.minecraft.client.renderer.item.TrackingItemStackRenderState;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -67,7 +67,7 @@ public final class PlacedShape implements Placing.Shape {
         this.context = context;
         this.model = model;
         this.block = block;
-        this.translucent = block != null && com.pockyl.diegesis.impl.client.render.SceneDraw.isTranslucent(model);
+        this.translucent = block != null && com.pockyl.diegesis.impl.client.render.SceneDraw.isTranslucent(block);
         this.center = new Vector3f(box.min).add(box.max).mul(0.5F);
         this.half = new Vector3f(box.max).sub(box.min).mul(0.5F).max(new Vector3f(THINNEST));
         float longest = Math.max(half.x, Math.max(half.y, half.z));
@@ -259,10 +259,6 @@ public final class PlacedShape implements Placing.Shape {
             return this;
         }
 
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
-            return this;
-        }
     }
 
     /**
@@ -437,6 +433,9 @@ public final class PlacedShape implements Placing.Shape {
                 Math.abs(turn.m02()) * half.x + Math.abs(turn.m12()) * half.y + Math.abs(turn.m22()) * half.z).mul(scale);
     }
 
+    /** How many tint indices of a block's model take the block's colour (grass and leaves use the first). */
+    private static final int TINT_LAYERS = 4;
+
     /** Draws the item with its middle at the pose stack's origin; the stack is in model units. */
     public void draw(ItemStack stack, PoseStack poseStack, SceneBuffers buffers, int packedLight, ClientLevel level, int seed) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -445,8 +444,11 @@ public final class PlacedShape implements Placing.Shape {
         if (block != null) {
             VertexConsumer consumer = buffers.getBuffer(translucent ? com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.translucentCullBlockSheet() : com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.cutoutBlockSheet());
             // The block's tints as an item of it shows them (grass green, not the grass of a biome).
-            int[] tints = minecraft.getBlockColors().getTintSources(block).stream()
-                    .mapToInt(source -> source == null ? -1 : source.color(block)).toArray();
+            int[] tints = new int[TINT_LAYERS];
+            for (int i = 0; i < tints.length; i++) {
+                int color = minecraft.getBlockColors().getColor(block, null, null, i);
+                tints[i] = color == -1 ? -1 : 0xFF000000 | color;
+            }
             com.pockyl.diegesis.impl.client.render.BufferSubmits.putBlockModel(poseStack.last(), consumer,
                     com.pockyl.diegesis.impl.client.render.SceneDraw.parts(model), tints, -1, packedLight, OverlayTexture.NO_OVERLAY);
         } else {

@@ -2,7 +2,7 @@ package com.pockyl.diegesis.fabric;
 
 import net.fabricmc.fabric.api.client.model.loading.v1.ExtraModelKey;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
 import net.minecraft.resources.Identifier;
 
 import com.pockyl.diegesis.impl.client.render.SceneDraw;

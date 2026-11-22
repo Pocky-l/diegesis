@@ -1,10 +1,11 @@
 package com.pockyl.diegesis.impl.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.geom.builders.UVPair;
-import net.minecraft.client.resources.model.geometry.BakedQuad;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.util.ARGB;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -76,16 +77,16 @@ final class SceneLitConsumer implements VertexConsumer {
      * tesselator lights it: its shade and smooth lighting's corner shadows in each corner's colour, the world's light in its light.
      */
     @Override
-    public void putBakedQuad(PoseStack.Pose pose, BakedQuad quad, QuadInstance instance) {
+    public void putBulkData(PoseStack.Pose pose, BakedQuad quad, float[] brightness, float red, float green, float blue, float alpha,
+            int[] lightmap, int overlay) {
         Vector3f normal = pose.transformNormal(quad.direction().getUnitVec3f(), new Vector3f());
-        int emission = quad.materialInfo().lightEmission();
-        int overlay = instance.overlayCoords();
+        int emission = quad.lightEmission();
         float[][] corner = new float[4][];
         for (int k = 0; k < 4; k++) {
             Vector3f position = pose.pose().transformPosition(quad.position(k), new Vector3f());
-            int color = instance.getColor(k);
+            int color = ARGB.colorFromFloat(alpha, brightness[k] * red, brightness[k] * green, brightness[k] * blue);
             // A face's own light (emissive faces carry it) counts where it is brighter than the world's.
-            int light = instance.getLightCoordsWithEmission(k, emission);
+            int light = LightTexture.lightCoordsWithEmission(lightmap[k], emission);
             long uv = quad.packedUV(k);
             corner[k] = new float[] {position.x(), position.y(), position.z(), (color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
                     (color & 0xFF) / 255.0F, UVPair.unpackU(uv), UVPair.unpackV(uv), light & 0xFFFF, light >>> 16 & 0xFFFF,
@@ -203,12 +204,6 @@ final class SceneLitConsumer implements VertexConsumer {
     @Override
     public VertexConsumer setLineWidth(float width) {
         delegate.setLineWidth(width);
-        return this;
-    }
-
-    @Override
-    public VertexConsumer setUv3(float u, float v) {
-        delegate.setUv3(u, v);
         return this;
     }
 

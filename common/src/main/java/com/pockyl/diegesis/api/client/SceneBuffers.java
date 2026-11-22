@@ -7,7 +7,8 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import com.pockyl.diegesis.impl.client.render.BufferSubmits;
 
 /**
- * Where a scene is drawn: a vertex consumer per render type, as {@code MultiBufferSource} was before Minecraft 26.x. What is
+ * Where a scene is drawn: a vertex consumer per render type, as {@code MultiBufferSource} is, and the same type on every
+ * Minecraft line the library is on (26.x has no {@code MultiBufferSource}). What is
  * written here is kept and handed to the game's renderer when the scene is done, in the order the library draws a scene in
  * (solid first, then what is see-through). A lambda that hands out other consumers (tinting, lighting) is one too.
  *

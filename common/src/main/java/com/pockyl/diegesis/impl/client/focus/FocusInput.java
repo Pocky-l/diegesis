@@ -1,11 +1,11 @@
 package com.pockyl.diegesis.impl.client.focus;
 
-import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4d;
@@ -25,31 +25,31 @@ import com.pockyl.diegesis.api.scene.Grabbable;
 import com.pockyl.diegesis.api.scene.InterfaceOptions;
 import com.pockyl.diegesis.api.scene.InventoryDrawer;
 import com.pockyl.diegesis.api.scene.InventoryLayout;
+import com.pockyl.diegesis.api.scene.NodeDefinition;
 import com.pockyl.diegesis.api.scene.PlaceSurface;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
+import com.pockyl.diegesis.api.scene.SceneDefinition;
 import com.pockyl.diegesis.api.scene.SlotBinding;
 import com.pockyl.diegesis.api.scene.TankBinding;
 import com.pockyl.diegesis.api.scene.Transform;
+import com.pockyl.diegesis.api.state.ControlSpec;
 import com.pockyl.diegesis.api.state.ItemPose;
 import com.pockyl.diegesis.api.state.SlotRef;
 import com.pockyl.diegesis.api.state.StationSchema;
 import com.pockyl.diegesis.api.state.TankContents;
 import com.pockyl.diegesis.api.state.TankSpec;
-import com.pockyl.diegesis.api.scene.NodeDefinition;
-import com.pockyl.diegesis.api.scene.SceneDefinition;
-import com.pockyl.diegesis.api.state.ControlSpec;
 import com.pockyl.diegesis.api.station.Authority;
-import com.pockyl.diegesis.impl.action.StationAction;
 import com.pockyl.diegesis.impl.action.StationAction.ClickKind;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
+import com.pockyl.diegesis.impl.action.StationAction;
 import com.pockyl.diegesis.impl.client.ClientStation;
 import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.anim.Easing;
-import com.pockyl.diegesis.impl.client.scene.PlacedPhysics;
-import com.pockyl.diegesis.impl.client.scene.Placing;
 import com.pockyl.diegesis.impl.client.anim.Spring;
 import com.pockyl.diegesis.impl.client.fx.PourStreams;
 import com.pockyl.diegesis.impl.client.scene.NodeInstance;
+import com.pockyl.diegesis.impl.client.scene.PlacedPhysics;
+import com.pockyl.diegesis.impl.client.scene.Placing;
 import com.pockyl.diegesis.impl.client.scene.SceneInstance;
 import com.pockyl.diegesis.impl.liquid.LiquidVolume;
 import com.pockyl.diegesis.impl.network.Packets;
@@ -421,7 +421,7 @@ public final class FocusInput {
                 && outsideBlock(station, x, y)) {
             // As outside a vanilla screen: the stack in the hand, or one of it, is thrown.
             com.pockyl.diegesis.impl.client.menu.MenuSession.get().click(station, null, button,
-                    net.minecraft.world.inventory.ContainerInput.PICKUP);
+                    net.minecraft.world.inventory.ClickType.PICKUP);
             return;
         }
         if (button == 1 && !carriedStack().isEmpty() && station.scene().definition().putAway()) {
@@ -614,23 +614,23 @@ public final class FocusInput {
         if (carriedStack().isEmpty()) {
             if (options.keySwapOffhand.matches(event)) {
                 session.click(station, target, net.minecraft.world.entity.player.Inventory.SLOT_OFFHAND,
-                        net.minecraft.world.inventory.ContainerInput.SWAP);
+                        net.minecraft.world.inventory.ClickType.SWAP);
                 return true;
             }
             for (int i = 0; i < 9; i++) {
                 if (options.keyHotbarSlots[i].matches(event)) {
-                    session.click(station, target, i, net.minecraft.world.inventory.ContainerInput.SWAP);
+                    session.click(station, target, i, net.minecraft.world.inventory.ClickType.SWAP);
                     return true;
                 }
             }
         }
         if (!itemAt(station, target).isEmpty()) {
             if (options.keyPickItem.matches(event)) {
-                session.click(station, target, 2, net.minecraft.world.inventory.ContainerInput.CLONE);
+                session.click(station, target, 2, net.minecraft.world.inventory.ClickType.CLONE);
                 return true;
             }
             if (options.keyDrop.matches(event)) {
-                session.click(station, target, control ? 1 : 0, net.minecraft.world.inventory.ContainerInput.THROW);
+                session.click(station, target, control ? 1 : 0, net.minecraft.world.inventory.ClickType.THROW);
                 return true;
             }
         }
@@ -664,7 +664,7 @@ public final class FocusInput {
         if (!menu || target == null || itemAt(station, target).isEmpty()) {
             return false;
         }
-        com.pockyl.diegesis.impl.client.menu.MenuSession.get().click(station, target, 2, net.minecraft.world.inventory.ContainerInput.CLONE);
+        com.pockyl.diegesis.impl.client.menu.MenuSession.get().click(station, target, 2, net.minecraft.world.inventory.ClickType.CLONE);
         return true;
     }
 

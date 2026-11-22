@@ -12,7 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * A frame's scene, kept per render type until it is handed to the game's renderer. Since Minecraft 26.x the level is drawn from
+ * A frame's scene, kept per render type until it is handed to the game's renderer. Since Minecraft 1.21.9 the level is drawn from
  * what is submitted during the frame, after every submit is in: the scene writes its vertices here as it always did (in the level's
  * camera-relative space), and {@link #submit} gives each type's vertices to the game as one piece of custom geometry.
  */
@@ -60,9 +60,8 @@ final class RecordedBuffers implements SceneBuffers {
         private static final int UV2 = 1 << 3;
         private static final int NORMAL = 1 << 4;
         private static final int LINE_WIDTH = 1 << 5;
-        private static final int UV3 = 1 << 6;
-        /** Ints per vertex: flags, position (3), colour, uv (2), uv1, uv2, normal (3), line width, uv3 (2). */
-        private static final int STRIDE = 15;
+        /** Ints per vertex: flags, position (3), colour, uv (2), uv1, uv2, normal (3), line width. */
+        private static final int STRIDE = 13;
         private int[] data = new int[STRIDE * 256];
         private int count;
         private int at = -STRIDE;
@@ -130,14 +129,6 @@ final class RecordedBuffers implements SceneBuffers {
             return this;
         }
 
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
-            data[at] |= UV3;
-            data[at + 13] = Float.floatToRawIntBits(u);
-            data[at + 14] = Float.floatToRawIntBits(v);
-            return this;
-        }
-
         void submit(OrderedSubmitNodeCollector collector, RenderType type) {
             // The vertices stand where the scene put them already: the pose the game hands back is not applied.
             int[] vertices = Arrays.copyOf(data, count * STRIDE);
@@ -170,9 +161,6 @@ final class RecordedBuffers implements SceneBuffers {
                 }
                 if ((flags & LINE_WIDTH) != 0) {
                     buffer.setLineWidth(Float.intBitsToFloat(vertices[at + 12]));
-                }
-                if ((flags & UV3) != 0) {
-                    buffer.setUv3(Float.intBitsToFloat(vertices[at + 13]), Float.intBitsToFloat(vertices[at + 14]));
                 }
             }
         }

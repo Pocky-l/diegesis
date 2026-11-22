@@ -1,13 +1,9 @@
 package com.pockyl.diegesis.impl.client.render;
 
-import com.mojang.renderpearl.api.pipeline.BlendFactor;
-import com.mojang.renderpearl.api.pipeline.BlendFunction;
-import com.mojang.renderpearl.api.pipeline.ColorTargetState;
-import com.mojang.renderpearl.api.pipeline.CompareOp;
-import com.mojang.renderpearl.api.pipeline.DepthStencilState;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import net.minecraft.client.renderer.BindGroupLayouts;
-import net.minecraft.client.renderer.RenderPipelines;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DestFactor;
+import com.mojang.blaze3d.platform.SourceFactor;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -22,15 +18,11 @@ import com.pockyl.diegesis.mixin.client.RenderTypeAccessor;
 import java.util.function.Function;
 
 /**
- * The library's own render types, and the game's it draws scenes with. Since Minecraft 26.x a render type is a pipeline (shaders,
- * blending, depth) and a setup (textures, lightmap, layering); the library's pipelines are the game's entity pipelines with a
- * change or two. Each see-through type names the game's matching pipelines for improved transparency, which draws them without
- * sorting: a type without them cannot be drawn while that option is on.
+ * The library's own render types, and the game's it draws scenes with. Since Minecraft 1.21.9 a render type is a pipeline
+ * (shaders, blending, depth) and a setup (textures, lightmap, layering); the library's pipelines are the game's entity pipelines
+ * with a change or two.
  */
 public final class DiegesisRenderTypes {
-    /** The entity pipelines' depth test (Minecraft 26.x keeps depth reversed: nearer is greater). */
-    private static final CompareOp DEPTH_TEST = CompareOp.GREATER_THAN_OR_EQUAL;
-
     /**
      * Light falling on a surface: the colour drawn multiplies what is already there and adds it back
      * ({@code dst * (1 + src)}), so wood gets brighter and warmer with its grain intact instead of hazed over. Drawn on both sides,
@@ -40,54 +32,66 @@ public final class DiegesisRenderTypes {
             .withLocation(Identifier.fromNamespaceAndPath("diegesis", "pipeline/light_pool"))
             .withShaderDefine("ALPHA_CUTOUT", 0.1F)
             .withShaderDefine("PER_FACE_LIGHTING")
-            .withBindGroupLayout(BindGroupLayouts.SAMPLER1)
-            .withColorTargetState(new ColorTargetState(new BlendFunction(BlendFactor.DST_COLOR, BlendFactor.ONE)))
+            .withSampler("Sampler1")
+            .withBlend(new BlendFunction(SourceFactor.DST_COLOR, DestFactor.ONE))
             .withCull(false)
-            .withDepthStencilState(new DepthStencilState(DEPTH_TEST, false))
+            .withDepthWrite(false)
+            .build();
+    /** The translucent entity pipeline, culled, as items in a scene are drawn. */
+    private static final RenderPipeline TRANSLUCENT_CULL = RenderPipeline.builder(RenderPipelinesAccessor.diegesis$entitySnippet())
+            .withLocation(Identifier.fromNamespaceAndPath("diegesis", "pipeline/entity_translucent_cull"))
+            .withShaderDefine("ALPHA_CUTOUT", 0.1F)
+            .withSampler("Sampler1")
+            .withBlend(BlendFunction.TRANSLUCENT)
             .build();
     /** The translucent entity pipeline (culled), writing no depth. */
     private static final RenderPipeline TRANSLUCENT_CULL_NO_DEPTH = RenderPipeline.builder(RenderPipelinesAccessor.diegesis$entitySnippet())
             .withLocation(Identifier.fromNamespaceAndPath("diegesis", "pipeline/entity_translucent_cull_no_depth"))
             .withShaderDefine("ALPHA_CUTOUT", 0.1F)
-            .withBindGroupLayout(BindGroupLayouts.SAMPLER1)
-            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-            .withDepthStencilState(new DepthStencilState(DEPTH_TEST, false))
+            .withSampler("Sampler1")
+            .withBlend(BlendFunction.TRANSLUCENT)
+            .withDepthWrite(false)
             .build();
     /** The translucent entity pipeline (not culled), writing no depth. */
     private static final RenderPipeline TRANSLUCENT_NO_DEPTH = RenderPipeline.builder(RenderPipelinesAccessor.diegesis$entitySnippet())
             .withLocation(Identifier.fromNamespaceAndPath("diegesis", "pipeline/entity_translucent_no_depth"))
             .withShaderDefine("ALPHA_CUTOUT", 0.1F)
-            .withBindGroupLayout(BindGroupLayouts.SAMPLER1)
-            .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+            .withSampler("Sampler1")
+            .withBlend(BlendFunction.TRANSLUCENT)
             .withCull(false)
-            .withDepthStencilState(new DepthStencilState(DEPTH_TEST, false))
+            .withDepthWrite(false)
             .build();
 
     private static final Function<Identifier, RenderType> LIGHT_POOL_TYPE = Util.memoize(texture -> create("diegesis_light_pool",
             RenderSetup.builder(LIGHT_POOL)
-                    .setOitPipelines(RenderPipelines.OIT_ENTITY_EMISSIVE)
                     .withTexture("Sampler0", texture)
                     .useOverlay()
                     .setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
                     .createRenderSetup()));
     private static final Function<Identifier, RenderType> GHOST_TYPE = Util.memoize(texture -> create("diegesis_ghost",
             RenderSetup.builder(TRANSLUCENT_NO_DEPTH)
-                    .setOitPipelines(RenderPipelines.OIT_ENTITY)
                     .withTexture("Sampler0", texture)
                     .useLightmap()
                     .useOverlay()
                     .sortOnUpload()
                     .createRenderSetup()));
-    private static final RenderType ITEM = create("diegesis_item", RenderSetup.builder(RenderPipelines.ENTITY_TRANSLUCENT_CULL)
-            .setOitPipelines(RenderPipelines.OIT_ENTITY_CULL)
+    private static final RenderType ITEM = create("diegesis_item", RenderSetup.builder(TRANSLUCENT_CULL)
             .withTexture("Sampler0", TextureAtlas.LOCATION_BLOCKS)
             .useLightmap()
             .useOverlay()
             .sortOnUpload()
             .setOutline(RenderSetup.OutlineProperty.AFFECTS_OUTLINE)
             .createRenderSetup());
+    private static final Function<Identifier, RenderType> TRANSLUCENT_CULL_TYPE = Util.memoize(texture -> create(
+            "diegesis_entity_translucent_cull", RenderSetup.builder(TRANSLUCENT_CULL)
+                    .withTexture("Sampler0", texture)
+                    .useLightmap()
+                    .useOverlay()
+                    .affectsCrumbling()
+                    .sortOnUpload()
+                    .setOutline(RenderSetup.OutlineProperty.AFFECTS_OUTLINE)
+                    .createRenderSetup()));
     private static final RenderType CLEAR = create("diegesis_clear", RenderSetup.builder(TRANSLUCENT_CULL_NO_DEPTH)
-            .setOitPipelines(RenderPipelines.OIT_ENTITY_CULL)
             .withTexture("Sampler0", TextureAtlas.LOCATION_BLOCKS)
             .useLightmap()
             .useOverlay()
@@ -99,6 +103,7 @@ public final class DiegesisRenderTypes {
     static {
         // A shader pack draws the game's entity pipelines with its own programs; these are those pipelines with a change or two.
         ShaderPipelines.assign(LIGHT_POOL, "EMISSIVE_ENTITIES");
+        ShaderPipelines.assign(TRANSLUCENT_CULL, "ENTITIES_TRANSLUCENT");
         ShaderPipelines.assign(TRANSLUCENT_CULL_NO_DEPTH, "ENTITIES_TRANSLUCENT");
         ShaderPipelines.assign(TRANSLUCENT_NO_DEPTH, "ENTITIES_TRANSLUCENT");
     }
@@ -141,17 +146,25 @@ public final class DiegesisRenderTypes {
         return CLEAR;
     }
 
-    /** Block-atlas geometry drawn like an entity, cut out: what {@code Sheets.cutoutBlockSheet()} was before Minecraft 26.x. */
+    /** Block-atlas geometry drawn like an entity, cut out: {@code Sheets.cutoutBlockSheet()}, kept here as on Minecraft 26.x. */
     public static RenderType cutoutBlockSheet() {
         return RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS);
     }
 
-    /** Block-atlas geometry drawn like an entity, see-through and culled: {@code Sheets.translucentCullBlockSheet()} before 26.x. */
+    /** Block-atlas geometry drawn like an entity, see-through and culled: {@code Sheets.translucentCullBlockSheet()} before 1.21.9. */
     public static RenderType translucentCullBlockSheet() {
-        return RenderTypes.entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
+        return translucentCull(TextureAtlas.LOCATION_BLOCKS);
     }
 
-    /** Block-atlas geometry drawn like an entity, solid: {@code Sheets.solidBlockSheet()} before Minecraft 26.x. */
+    /**
+     * An atlas drawn like an entity, see-through and culled: the game's {@code RenderTypes.entityTranslucentCull} of Minecraft
+     * 1.21.1 and 26.x, which 1.21.11 lacks. One type per texture, so a type can be told by identity.
+     */
+    public static RenderType translucentCull(Identifier texture) {
+        return TRANSLUCENT_CULL_TYPE.apply(texture);
+    }
+
+    /** Block-atlas geometry drawn like an entity, solid: {@code Sheets.solidBlockSheet()}, kept here as on Minecraft 26.x. */
     public static RenderType solidBlockSheet() {
         return RenderTypes.entitySolid(TextureAtlas.LOCATION_BLOCKS);
     }

@@ -1,7 +1,7 @@
 package com.pockyl.diegesis.impl.client.hud;
 
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Util;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.joml.Matrix3x2fc;
 import org.joml.Vector2f;
 
@@ -14,7 +14,7 @@ import java.util.Map;
  * The game's HUD sliding off the screen while the player starts to work at a station, and back when they leave
  * ({@link HudOptions}). The loaders draw each part of the HUD between {@link #begin} and {@link #end}: a NeoForge layer, a part of
  * the vanilla HUD on Fabric, all that mods draw through the loader's HUD hook. While a part is drawn, what it draws through
- * {@link GuiGraphicsExtractor} is measured ({@link #include}), so each part goes to the edge of the screen nearest to it, as far as it
+ * {@link GuiGraphics} is measured ({@link #include}), so each part goes to the edge of the screen nearest to it, as far as it
  * takes to be off the screen, wherever its mod put it. Parts are measured while the HUD is in place too, so that what covers
  * most of the screen (a vignette, a frost border) is known before a station opens: it stays where it is, and stays drawn once
  * the HUD is gone while the scene keeps it ({@link HudOptions#keepVignette()}).
@@ -117,7 +117,7 @@ public final class HudSlide {
     }
 
     /** Draws a part of the HUD from here on where the slide has it, measuring it; {@code key} names the part. */
-    public static void begin(String key, GuiGraphicsExtractor graphics) {
+    public static void begin(String key, GuiGraphics graphics) {
         if (depth++ > 0) {
             return;
         }
@@ -139,7 +139,7 @@ public final class HudSlide {
     }
 
     /** The part {@link #begin} started is drawn. */
-    public static void end(GuiGraphicsExtractor graphics) {
+    public static void end(GuiGraphics graphics) {
         if (depth == 0 || --depth > 0) {
             return;
         }

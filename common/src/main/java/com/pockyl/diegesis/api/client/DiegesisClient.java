@@ -198,31 +198,21 @@ public final class DiegesisClient {
 
     /**
      * The see-through twin of an opaque type an item or block model asks for, on the same atlas (block items draw from the block
-     * atlas, other icons from the item atlas since Minecraft 26.x); the type itself when it is see-through already.
+     * atlas, other icons from the item atlas since Minecraft 1.21.11); the type itself when it is see-through already.
      */
     private static net.minecraft.client.renderer.rendertype.RenderType seeThrough(net.minecraft.client.renderer.rendertype.RenderType type) {
         if (type == com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.cutoutBlockSheet()
                 || type == com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.solidBlockSheet()
                 || type == net.minecraft.client.renderer.rendertype.RenderTypes.cutoutMovingBlock()
-                || type == net.minecraft.client.renderer.rendertype.RenderTypes.solidMovingBlock()
-                || type == net.minecraft.client.renderer.Sheets.cutoutBlockItemSheet()) {
+                || type == net.minecraft.client.renderer.rendertype.RenderTypes.solidMovingBlock()) {
             return net.minecraft.client.renderer.Sheets.translucentBlockItemSheet();
-        }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutBlockItemGlintSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentBlockItemGlintSheet();
-        }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutItemSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentItemSheet();
-        }
-        if (type == net.minecraft.client.renderer.Sheets.cutoutItemGlintSheet()) {
-            return net.minecraft.client.renderer.Sheets.translucentItemGlintSheet();
         }
         return OPAQUE_ENTITY.computeIfAbsent(type, DiegesisClient::seeThroughEntity);
     }
 
     /** Entity types that ignore alpha, by name, as a render type prints itself: "RenderType[name:RenderSetup[...]]". */
     private static final java.util.Set<String> OPAQUE_ENTITY_NAMES = java.util.Set.of("entity_solid", "entity_solid_z_offset_forward",
-            "entity_cutout", "entity_cutout_cull", "entity_cutout_z_offset");
+            "entity_cutout", "entity_cutout_no_cull", "entity_cutout_no_cull_z_offset", "entity_smooth_cutout", "entity_no_outline");
     private static final java.util.regex.Pattern ENTITY_TEXTURE = java.util.regex.Pattern.compile(
             "Sampler0=TextureBinding\\[location=([a-z0-9_.-]+:[a-z0-9_/.-]+)");
     private static final java.util.Map<net.minecraft.client.renderer.rendertype.RenderType, net.minecraft.client.renderer.rendertype.RenderType>
@@ -240,7 +230,7 @@ public final class DiegesisClient {
             return type;
         }
         java.util.regex.Matcher texture = ENTITY_TEXTURE.matcher(printed);
-        return texture.find() ? net.minecraft.client.renderer.rendertype.RenderTypes.itemTranslucent(
+        return texture.find() ? net.minecraft.client.renderer.rendertype.RenderTypes.itemEntityTranslucentCull(
                 net.minecraft.resources.Identifier.parse(texture.group(1))) : type;
     }
 
@@ -256,6 +246,6 @@ public final class DiegesisClient {
      */
     public static boolean isSceneDrawn(BlockPos pos) {
         ClientStation station = ClientStations.get().at(pos);
-        return station != null && SceneRenderer.isDrawn(station, Minecraft.getInstance().gameRenderer.mainCamera().position());
+        return station != null && SceneRenderer.isDrawn(station, Minecraft.getInstance().gameRenderer.getMainCamera().position());
     }
 }

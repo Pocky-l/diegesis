@@ -1,9 +1,8 @@
 package com.pockyl.diegesis.impl.client.focus;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -11,12 +10,13 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.ApiStatus;
 
-import com.pockyl.diegesis.api.scene.CameraGlance;
 import com.pockyl.diegesis.api.client.ScreenOverlay;
+import com.pockyl.diegesis.api.scene.CameraGlance;
 import com.pockyl.diegesis.api.scene.InventoryDrawer;
 import com.pockyl.diegesis.api.scene.NodeDefinition;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
@@ -162,7 +162,7 @@ public final class FocusScreen extends Screen {
     }
 
     /** What the player got at the station, flying in; a stack whose slot is not on show stands next to the drawer for a moment. */
-    private void renderGains(GuiGraphicsExtractor graphics, FocusInput input) {
+    private void renderGains(GuiGraphics graphics, FocusInput input) {
         float asideX = width / 2.0F;
         float asideY = height - 24.0F;
         if (keepsHotbar()) {
@@ -189,7 +189,7 @@ public final class FocusScreen extends Screen {
     public static ItemStack hoveredStack() {
         LocalPlayer player = Minecraft.getInstance().player;
         ClientStation station = FocusController.get().station();
-        if (player == null || station == null || !(Minecraft.getInstance().gui.screen() instanceof FocusScreen)) {
+        if (player == null || station == null || !(Minecraft.getInstance().screen instanceof FocusScreen)) {
             return ItemStack.EMPTY;
         }
         FocusInput input = FocusInput.get();
@@ -222,19 +222,16 @@ public final class FocusScreen extends Screen {
     protected void init() {
         layout();
         heldKeys.clear();
-        // Since Minecraft 26.x characters come only while text input is on, and the game turns it on for a focused text field
-        // alone. A station types without one (a recipe book's search): the screen holds text input for as long as it is open.
-        Minecraft.getInstance().onTextInputFocusChange(this, true);
         var options = Minecraft.getInstance().options;
         List<Integer> keys = new ArrayList<>(List.of(InputConstants.KEY_LEFT, InputConstants.KEY_RIGHT, InputConstants.KEY_UP, InputConstants.KEY_DOWN));
         for (var mapping : List.of(options.keyLeft, options.keyRight, options.keyUp, options.keyDown)) {
             InputConstants.Key bound = InputConstants.getKey(mapping.saveString());
-            if (bound.getType() == InputConstants.Type.KEYBOARD && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
+            if (bound.getType() == InputConstants.Type.KEYSYM && bound.getValue() != InputConstants.UNKNOWN.getValue()) {
                 keys.add(bound.getValue());
             }
         }
         for (int key : keys) {
-            if (InputConstants.isKeyDown(key)) {
+            if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key)) {
                 heldKeys.add(key);
             }
         }
@@ -389,11 +386,11 @@ public final class FocusScreen extends Screen {
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int realMouseX, int realMouseY, float partialTick) {
+    public void render(GuiGraphics graphics, int realMouseX, int realMouseY, float partialTick) {
         if (!FocusController.get().holdsScreen()) {
             // A stale screen, closed in the next frame: nothing of a station left to draw.
             return;
@@ -411,7 +408,7 @@ public final class FocusScreen extends Screen {
         }
     }
 
-    private void renderScreen(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void renderScreen(GuiGraphics graphics, int mouseX, int mouseY) {
         InventoryDrawer drawer = drawer();
         if (keepsHotbar()) {
             HotbarLayout.update(FocusController.get().station(), Minecraft.getInstance().player.getInventory());
@@ -446,14 +443,14 @@ public final class FocusScreen extends Screen {
                 // The stack itself stands on the surface as a preview; the cursor only says how many are left in the hand.
                 graphics.pose().pushMatrix();
                 graphics.pose().translate(0.0F, 0.0F);
-                graphics.itemDecorations(font, carried.stack(), mouseX - 8, mouseY - 8);
+                graphics.renderItemDecorations(font, carried.stack(), mouseX - 8, mouseY - 8);
                 graphics.pose().popMatrix();
             } else if (!carried.inWorld()) {
                 graphics.pose().pushMatrix();
                 graphics.pose().translate(0.0F, 0.0F);
-                graphics.item(carried.stack(), mouseX - 8, mouseY - 8);
+                graphics.renderItem(carried.stack(), mouseX - 8, mouseY - 8);
                 int left = input.spreadLeft();
-                graphics.itemDecorations(font, carried.stack(), mouseX - 8, mouseY - 8,
+                graphics.renderItemDecorations(font, carried.stack(), mouseX - 8, mouseY - 8,
                         left >= 0 ? (left == 0 ? net.minecraft.ChatFormatting.YELLOW + "0" : String.valueOf(left)) : null);
                 graphics.pose().popMatrix();
             }
@@ -490,7 +487,7 @@ public final class FocusScreen extends Screen {
 
     /** Arrows at the edges the look can go to, and at the one it comes back from while it is away. */
     /** The station's line at the edge of the screen ({@code StationView.showCaption}). */
-    private void renderCaption(GuiGraphicsExtractor graphics) {
+    private void renderCaption(GuiGraphics graphics) {
         ClientStation station = FocusController.get().station();
         net.minecraft.network.chat.Component text = station == null ? null : station.caption();
         if (text == null || station.scene() == null) {
@@ -508,10 +505,10 @@ public final class FocusScreen extends Screen {
         if (background > 0) {
             graphics.fill(x - 6, y - 4, x + textWidth + 6, y + font.lineHeight + 3, background << 24 | look.background() & 0xFFFFFF);
         }
-        graphics.text(font, text, x, y, ((look.color() >>> 24) * alpha / 255) << 24 | look.color() & 0xFFFFFF, true);
+        graphics.drawString(font, text, x, y, ((look.color() >>> 24) * alpha / 255) << 24 | look.color() & 0xFFFFFF, true);
     }
 
-    private void renderGlanceHints(GuiGraphicsExtractor graphics, FocusInput input, int mouseX, int mouseY) {
+    private void renderGlanceHints(GuiGraphics graphics, FocusInput input, int mouseX, int mouseY) {
         ClientStation station = FocusController.get().station();
         if (station == null || station.scene() == null || !FocusController.get().isInteractive() || input.isHoldingObject()) {
             return;
@@ -542,7 +539,7 @@ public final class FocusScreen extends Screen {
         }
     }
 
-    private void renderHint(GuiGraphicsExtractor graphics, int hintColor, InventoryDrawer.Side edge, float zone, float shown, float faint, float u,
+    private void renderHint(GuiGraphics graphics, int hintColor, InventoryDrawer.Side edge, float zone, float shown, float faint, float u,
             float v) {
         // Faint across the screen ({@code faint}), full at the strip: it answers the cursor coming closer.
         float near = 1.0F - Math.min(1.0F, Math.max(0.0F, (Glance.distance(edge, u, v) - zone) / 0.3F));
@@ -569,7 +566,7 @@ public final class FocusScreen extends Screen {
         }
     }
 
-    private void renderDrawer(GuiGraphicsExtractor graphics, InventoryDrawer drawer, Inventory inventory, int hoveredSlot, int mouseX, int mouseY) {
+    private void renderDrawer(GuiGraphics graphics, InventoryDrawer drawer, Inventory inventory, int hoveredSlot, int mouseX, int mouseY) {
         // Over everything the world drew; the items' own depth stays above it.
         graphics.pose().pushMatrix();
         graphics.pose().translate(0.0F, 0.0F);
@@ -589,7 +586,7 @@ public final class FocusScreen extends Screen {
         graphics.pose().popMatrix();
     }
 
-    private void renderTab(GuiGraphicsExtractor graphics, InventoryDrawer drawer, int mouseX, int mouseY) {
+    private void renderTab(GuiGraphics graphics, InventoryDrawer drawer, int mouseX, int mouseY) {
         if (drawer.alwaysOpen()) {
             return;
         }
@@ -617,11 +614,11 @@ public final class FocusScreen extends Screen {
         if (drawer.iconTexture().isPresent()) {
             graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, drawer.iconTexture().get(), x, y, 0.0F, 0.0F, 16, 16, 16, 16);
         } else {
-            graphics.item(new ItemStack(drawer.icon()), x, y);
+            graphics.renderItem(new ItemStack(drawer.icon()), x, y);
         }
     }
 
-    private void renderMinimal(GuiGraphicsExtractor graphics, InventoryDrawer drawer, Inventory inventory, int hoveredSlot) {
+    private void renderMinimal(GuiGraphics graphics, InventoryDrawer drawer, Inventory inventory, int hoveredSlot) {
         graphics.fill(panelLeft, panelY(), panelLeft + panelWidth, panelTop + panelHeight, drawer.background());
         for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
             int[] center = slotCenter(slot);
@@ -634,7 +631,7 @@ public final class FocusScreen extends Screen {
     }
 
     /** Next to the cursor while pouring: how full the tank being poured into is. */
-    private void renderMeter(GuiGraphicsExtractor graphics, FocusInput input, int mouseX, int mouseY) {
+    private void renderMeter(GuiGraphics graphics, FocusInput input, int mouseX, int mouseY) {
         FocusInput.Meter meter = input.pourMeter();
         if (meter == null) {
             return;
@@ -646,14 +643,14 @@ public final class FocusScreen extends Screen {
         graphics.fill(x, y + METER_HEIGHT - fill, x + METER_WIDTH, y + METER_HEIGHT, 0xFF000000 | meter.color());
     }
 
-    private void renderPanel(GuiGraphicsExtractor graphics, Inventory inventory, int hoveredSlot) {
+    private void renderPanel(GuiGraphics graphics, Inventory inventory, int hoveredSlot) {
         graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, PANEL, panelLeft, panelTop, 0.0F, 0.0F, PANEL_WIDTH, BORDER, 256, 256);
         graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, PANEL, panelLeft, panelTop + BORDER, 0.0F, INVENTORY_V, PANEL_WIDTH, INVENTORY_HEIGHT, 256, 256);
-        graphics.text(font, Component.translatable("container.inventory"), panelLeft + 8, panelTop + BORDER + 3, LABEL_COLOR, false);
+        graphics.drawString(font, Component.translatable("container.inventory"), panelLeft + 8, panelTop + BORDER + 3, LABEL_COLOR, false);
         renderSlots(graphics, inventory, hoveredSlot);
     }
 
-    private void renderSlots(GuiGraphicsExtractor graphics, Inventory inventory, int hoveredSlot) {
+    private void renderSlots(GuiGraphics graphics, Inventory inventory, int hoveredSlot) {
         for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
             int[] center = slotCenter(slot);
             if (center[0] == OFF_SCREEN) {
@@ -672,8 +669,8 @@ public final class FocusScreen extends Screen {
                 graphics.pose().pushMatrix();
                 graphics.pose().translate(center[0], center[1]);
                 graphics.pose().scale(scale, scale);
-                graphics.item(stack, -8, -8);
-                graphics.itemDecorations(font, stack, -8, -8);
+                graphics.renderItem(stack, -8, -8);
+                graphics.renderItemDecorations(font, stack, -8, -8);
                 graphics.pose().popMatrix();
             }
             if (slot == hoveredSlot || FocusInput.get().isSpreadTarget(new Target.Inventory(slot))) {
@@ -729,7 +726,8 @@ public final class FocusScreen extends Screen {
 
     /**
      * The button of a click as container clicks number it (0 left, 1 right, 2 middle), as vanilla's container screen turns it:
-     * the library and its stations count buttons this way, while Minecraft 26.x's input names SDL's buttons (1 left, 3 right).
+     * the library and its stations count buttons this way, while Minecraft 26.3's input names SDL's buttons (1 left, 3 right); on
+     * 1.21.11 GLFW's numbers are these already.
      */
     static int containerButton(MouseButtonEvent event) {
         return switch (event.button()) {
@@ -802,7 +800,7 @@ public final class FocusScreen extends Screen {
         }
         // The station's own keys come first (a field it types into), then the library's.
         ClientStation keyed = FocusController.get().station();
-        if (overlay == null && keyed != null && keyed.key(keyCode, event.keycode(), event.modifiers())) {
+        if (overlay == null && keyed != null && keyed.key(keyCode, event.scancode(), event.modifiers())) {
             return true;
         }
         if (inventoryKey) {
@@ -834,8 +832,8 @@ public final class FocusScreen extends Screen {
     @Override
     public boolean charTyped(CharacterEvent event) {
         ClientStation keyed = FocusController.get().station();
-        // Stations take a char: a character outside the Basic Multilingual Plane goes past them. Minecraft 26.x no longer hands
-        // modifiers with a character.
+        // Stations take a char: a character outside the Basic Multilingual Plane goes past them. Minecraft 26.x hands no
+        // modifiers with a character: none here either, so a station behaves the same on every line.
         if (overlay == null && keyed != null && Character.isBmpCodePoint(event.codepoint())
                 && keyed.typed((char) event.codepoint(), 0)) {
             return true;
@@ -868,7 +866,7 @@ public final class FocusScreen extends Screen {
             FocusController.get().requestExit();
         } else {
             // No station behind this screen any more (another mod's screen gave it back): it just closes.
-            Minecraft.getInstance().gui.setScreen(null);
+            Minecraft.getInstance().setScreen(null);
         }
     }
 
@@ -880,7 +878,6 @@ public final class FocusScreen extends Screen {
 
     @Override
     public void removed() {
-        Minecraft.getInstance().onTextInputFocusChange(this, false);
         SmoothPass.release();
         showOverlay(null);
         panelLeft = NO_PANEL;

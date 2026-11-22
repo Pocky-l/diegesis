@@ -18,8 +18,8 @@ final class FabricNetwork {
 
     /** Both sides: the payload types and the server's receiver. */
     static void register() {
-        PayloadTypeRegistry.serverboundPlay().register(DiegesisNetwork.ToServer.TYPE, DiegesisNetwork.ToServer.STREAM_CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(DiegesisNetwork.ToClient.TYPE, DiegesisNetwork.ToClient.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(DiegesisNetwork.ToServer.TYPE, DiegesisNetwork.ToServer.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(DiegesisNetwork.ToClient.TYPE, DiegesisNetwork.ToClient.STREAM_CODEC);
         ServerPlayNetworking.registerGlobalReceiver(DiegesisNetwork.ToServer.TYPE, (payload, context) -> {
             if (payload.packet() != null) {
                 DiegesisNetwork.receiveOnServer(context.player(), payload.packet());

@@ -2,7 +2,7 @@ package com.pockyl.diegesis.impl.client.focus;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.HumanoidArm;
@@ -162,7 +162,7 @@ final class HotbarLayout {
     }
 
     /** Draws the bars as the HUD draws the hotbar, the rows over it in the same look, and the stacks on them. */
-    static void render(GuiGraphicsExtractor graphics, Font font, ClientStation station, Inventory inventory, int hoveredSlot) {
+    static void render(GuiGraphics graphics, Font font, ClientStation station, Inventory inventory, int hoveredSlot) {
         int left = width() / 2 - BAR_WIDTH / 2;
         int top = height() - BAR_HEIGHT;
         graphics.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, HOTBAR, left, top, BAR_WIDTH, BAR_HEIGHT);
@@ -197,8 +197,8 @@ final class HotbarLayout {
                 graphics.pose().pushMatrix();
                 graphics.pose().translate(at[0], at[1]);
                 graphics.pose().scale(scale, scale);
-                graphics.item(stack, -8, -8);
-                graphics.itemDecorations(font, stack, -8, -8);
+                graphics.renderItem(stack, -8, -8);
+                graphics.renderItemDecorations(font, stack, -8, -8);
                 graphics.pose().popMatrix();
             }
             if (slot == hoveredSlot || FocusInput.get().isSpreadTarget(new Target.Inventory(slot))) {

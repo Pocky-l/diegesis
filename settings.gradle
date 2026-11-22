@@ -17,5 +17,5 @@ rootProject.name = 'diegesis'
 
 // common: the API and its implementation, compiled against vanilla Minecraft; neoforge / fabric: the loader glue. Each
 // loader project compiles the common sources into its own jar.
-// Minecraft 26.3: Fabric only for now. The neoforge project is kept but not built until it is ported too.
+// Minecraft 1.21.11: Fabric only for now. The neoforge project is kept but not built until it is ported too.
 include 'common', 'fabric'

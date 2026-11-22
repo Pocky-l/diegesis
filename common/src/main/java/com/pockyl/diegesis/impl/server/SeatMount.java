@@ -3,7 +3,7 @@ package com.pockyl.diegesis.impl.server;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Display;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -24,7 +24,7 @@ final class SeatMount {
 
     /** Sits {@code player} down on {@code surface}; null when the level refuses the entity. */
     static SeatMount sit(ServerLevel level, ServerPlayer player, Vec3 surface) {
-        Display.ItemDisplay entity = new Display.ItemDisplay(EntityTypes.ITEM_DISPLAY, level) {
+        Display.ItemDisplay entity = new Display.ItemDisplay(EntityType.ITEM_DISPLAY, level) {
             @Override
             public boolean shouldBeSaved() {
                 return false;

@@ -2,11 +2,11 @@ package com.pockyl.diegesis.impl.client.debug;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.pockyl.diegesis.api.client.SceneBuffers;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.util.LightCoordsUtil;
-import com.pockyl.diegesis.api.client.SceneBuffers;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -64,7 +64,7 @@ public final class DebugView {
         forced = !forced;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            minecraft.player.sendOverlayMessage(Component.translatable(forced ? "diegesis.debug.on" : "diegesis.debug.off"));
+            minecraft.player.displayClientMessage(Component.translatable(forced ? "diegesis.debug.on" : "diegesis.debug.off"), true);
         }
     }
 
@@ -162,13 +162,13 @@ public final class DebugView {
         Font font = Minecraft.getInstance().font;
         levelPose.pushPose();
         levelPose.translate(at.x - cameraPos.x, at.y - cameraPos.y, at.z - cameraPos.z);
-        levelPose.rotate(camera.rotation());
+        levelPose.mulPose(camera.rotation());
         float scale = LABEL_SCALE * (float) Math.max(1.0, cameraPos.distanceTo(at) * 0.5);
         levelPose.scale(-scale, -scale, scale);
         Matrix4f matrix = levelPose.last().pose();
         int rgb = (int) (color[0] * 255) << 16 | (int) (color[1] * 255) << 8 | (int) (color[2] * 255);
         com.pockyl.diegesis.impl.client.render.SceneDraw.text(buffers, text, -font.width(text) / 2.0F, 0.0F, 0xFF000000 | rgb, matrix,
-                Font.DisplayMode.SEE_THROUGH, 0x80000000, LightCoordsUtil.FULL_BRIGHT);
+                Font.DisplayMode.SEE_THROUGH, 0x80000000, LightTexture.FULL_BRIGHT);
         levelPose.popPose();
     }
 

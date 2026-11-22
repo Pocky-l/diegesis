@@ -2,15 +2,15 @@ package com.pockyl.diegesis.impl.client.fx;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.util.Util;
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.LightCoordsUtil;
 import com.pockyl.diegesis.api.client.SceneBuffers;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.util.ARGB;
+import net.minecraft.util.Util;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -298,7 +298,7 @@ public final class PourStreams {
             TextureAtlasSprite sprite = com.pockyl.diegesis.impl.client.render.SceneDraw.blockSprite(look.sprite());
             VertexConsumer consumer = buffers.getBuffer(com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.translucentCullBlockSheet());
             PoseStack.Pose pose = poseStack.last();
-            int packed = look.emissive() ? LightCoordsUtil.FULL_BRIGHT : light;
+            int packed = look.emissive() ? LightTexture.FULL_BRIGHT : light;
             float time = (Util.getMillis() % 100000L) / 1000.0F;
             float strength = Math.max(0.1F, Math.min(1.0F, flow));
             float base = width * (float) Math.sqrt(strength);

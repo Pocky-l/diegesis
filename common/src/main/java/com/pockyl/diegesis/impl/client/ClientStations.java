@@ -160,7 +160,7 @@ public final class ClientStations {
         ChunkPos center = player.chunkPosition();
         for (int dx = -IDLE_SCAN_CHUNKS; dx <= IDLE_SCAN_CHUNKS; dx++) {
             for (int dz = -IDLE_SCAN_CHUNKS; dz <= IDLE_SCAN_CHUNKS; dz++) {
-                LevelChunk chunk = level.getChunkSource().getChunk(center.x() + dx, center.z() + dz, false);
+                LevelChunk chunk = level.getChunkSource().getChunk(center.x + dx, center.z + dz, false);
                 if (chunk == null) {
                     continue;
                 }

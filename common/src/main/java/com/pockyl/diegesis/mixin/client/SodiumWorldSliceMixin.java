@@ -14,7 +14,8 @@ import com.pockyl.diegesis.impl.client.render.ClearBlocks;
 /**
  * Sodium builds chunk meshes from its own copy of the world: the blocks in the camera's way at a station, and those a scene stands
  * in for, are air there too. Every block its mesh builder reads, by position or by coordinates, goes through this method. Without
- * Sodium the class is missing and nothing is applied. The descriptor names Mojang's classes, which every Minecraft 26.x game uses.
+ * Sodium the class is missing and nothing is applied. The descriptor names Mojang's classes: a development run's. A Fabric jar
+ * has intermediary names at run time, where the Fabric mixin of the same name applies instead.
  */
 @Pseudo
 @Mixin(targets = "net.caffeinemc.mods.sodium.client.world.LevelSlice", remap = false)

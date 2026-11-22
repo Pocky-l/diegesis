@@ -1,8 +1,8 @@
 package com.pockyl.diegesis.fabric;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.model.loading.v1.ExtraModelKey;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
@@ -11,15 +11,14 @@ import net.fabricmc.fabric.api.client.model.loading.v1.SimpleUnbakedExtraModel;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
@@ -30,6 +29,7 @@ import com.pockyl.diegesis.impl.client.DiegesisClientRuntime;
 import com.pockyl.diegesis.impl.client.debug.DebugView;
 import com.pockyl.diegesis.impl.client.focus.FocusController;
 import com.pockyl.diegesis.impl.client.hud.HudSlide;
+import com.pockyl.diegesis.impl.client.render.FrameView;
 import com.pockyl.diegesis.impl.client.render.SceneRenderer;
 import com.pockyl.diegesis.impl.client.scene.SceneLibrary;
 
@@ -54,7 +54,7 @@ public final class DiegesisFabricClient implements ClientModInitializer {
             Map.entry(VanillaHudElements.INFO_BAR, "experience"),
             Map.entry(VanillaHudElements.EXPERIENCE_LEVEL, "experience_level"),
             Map.entry(VanillaHudElements.HELD_ITEM_TOOLTIP, "item_name"),
-            Map.entry(VanillaHudElements.MOB_EFFECTS, "effects"),
+            Map.entry(VanillaHudElements.STATUS_EFFECTS, "effects"),
             Map.entry(VanillaHudElements.SCOREBOARD, "scoreboard"),
             Map.entry(VanillaHudElements.BOSS_BAR, "boss"));
     /** The scene models the last resource load baked, by the id a scene names them with. */
@@ -79,17 +79,15 @@ public final class DiegesisFabricClient implements ClientModInitializer {
             return result != null ? result : InteractionResult.PASS;
         });
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> dispatcher.register(
-                ClientCommands.literal("diegesis").then(ClientCommands.literal("debug").executes(command -> {
+                ClientCommandManager.literal("diegesis").then(ClientCommandManager.literal("debug").executes(command -> {
                     DebugView.toggle();
                     return 1;
                 }))));
         registerHud();
-        LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
-            CameraRenderState camera = context.levelState().cameraRenderState;
-            SceneRenderer.render(context.submitNodeCollector(), context.poseStack(), camera.viewRotationMatrix, camera.projectionMatrix,
-                    Minecraft.getInstance().gameRenderer.mainCamera());
-        });
-        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(SceneLibrary.ID, SceneLibrary.INSTANCE);
+        // The scene joins what the level submits this frame; its batches are ordered after the entities' own.
+        WorldRenderEvents.BEFORE_ENTITIES.register(context -> SceneRenderer.render(context.commandQueue(), context.matrices(),
+                FrameView.view(), FrameView.projection(), Minecraft.getInstance().gameRenderer.getMainCamera()));
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloader(SceneLibrary.ID, SceneLibrary.INSTANCE);
         PreparableModelLoadingPlugin.register(
                 (PreparableReloadListener.SharedState state, Executor executor) -> CompletableFuture.supplyAsync(
                         () -> SceneLibrary.modelsToLoad(state.resourceManager()), executor),
@@ -118,7 +116,7 @@ public final class DiegesisFabricClient implements ClientModInitializer {
         // The crosshair is where the player aims, and the player no longer aims.
         HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, element -> (graphics, deltaTracker) -> {
             if (!hides()) {
-                element.extractRenderState(graphics, deltaTracker);
+                element.render(graphics, deltaTracker);
             }
         });
     }
@@ -131,7 +129,7 @@ public final class DiegesisFabricClient implements ClientModInitializer {
             }
             HudSlide.begin(key, graphics);
             try {
-                element.extractRenderState(graphics, deltaTracker);
+                element.render(graphics, deltaTracker);
             } finally {
                 HudSlide.end(graphics);
             }

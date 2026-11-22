@@ -3,9 +3,7 @@ package com.pockyl.diegesis.impl.client.mesh;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.geom.builders.UVPair;
-import net.minecraft.client.renderer.Sheets;
-import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
-import net.minecraft.client.resources.model.geometry.BakedQuad;
+import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Direction;
@@ -113,9 +111,7 @@ public final class Mesh {
      */
     public List<BakedQuad> quads(TextureAtlasSprite sprite) {
         List<BakedQuad> quads = new ArrayList<>(faces());
-        // Drawn as an item of the block atlas, cut out, untinted, shaded by the way each face looks.
-        BakedQuad.MaterialInfo material = new BakedQuad.MaterialInfo(sprite, ChunkSectionLayer.CUTOUT, Sheets.cutoutBlockItemSheet(),
-                Sheets.cutoutBlockItemGlintSheet(), Sheets.cutoutBlockItemGlintSpecialSheet(), -1, null, 0);
+        // Untinted, shaded by the way each face looks; the item's layer draws it cut out from the block atlas.
         for (int face = 0; face < vertices.length; face += 4 * STRIDE) {
             Vector3f[] corners = new Vector3f[4];
             long[] uvs = new long[4];
@@ -132,7 +128,7 @@ public final class Mesh {
                 nz += vertices[i + 7];
             }
             quads.add(new BakedQuad(corners[0], corners[1], corners[2], corners[3], uvs[0], uvs[1], uvs[2], uvs[3],
-                    Direction.getApproximateNearest(nx, ny, nz), material));
+                    -1, Direction.getApproximateNearest(nx, ny, nz), sprite, true, 0));
         }
         return List.copyOf(quads);
     }

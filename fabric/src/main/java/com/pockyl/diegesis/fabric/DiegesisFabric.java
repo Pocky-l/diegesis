@@ -3,7 +3,7 @@ package com.pockyl.diegesis.fabric;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ClientboundPlayChannelEvents;
+import net.fabricmc.fabric.api.networking.v1.S2CPlayChannelEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 
@@ -39,7 +39,7 @@ public final class DiegesisFabric implements ModInitializer {
             DiegesisMod.onServerTick(server);
         });
         // The client names its channels after joining: only then can it be sent anything.
-        ClientboundPlayChannelEvents.REGISTER.register((handler, sender, server, channels) -> {
+        S2CPlayChannelEvents.REGISTER.register((handler, sender, server, channels) -> {
             if (channels.contains(FabricNetwork.channel())) {
                 READY.add(handler);
             }

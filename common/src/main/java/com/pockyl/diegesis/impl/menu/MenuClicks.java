@@ -2,14 +2,14 @@ package com.pockyl.diegesis.impl.menu;
 
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 import com.pockyl.diegesis.api.station.MenuBinding;
-import com.pockyl.diegesis.impl.action.StationAction;
 import com.pockyl.diegesis.impl.action.StationAction.ClickKind;
 import com.pockyl.diegesis.impl.action.StationAction.Target;
+import com.pockyl.diegesis.impl.action.StationAction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ public final class MenuClicks {
     }
 
     /** One click as {@code MultiPlayerGameMode.handleInventoryMouseClick} takes it. */
-    public record Click(int slot, int button, ContainerInput type) {
+    public record Click(int slot, int button, ClickType type) {
     }
 
     /** The menu slot a target shows, or -1. Inventory slots are found by their container slot, never by arithmetic. */
@@ -79,10 +79,10 @@ public final class MenuClicks {
             if (slot < 0) {
                 return clicks;
             }
-            ContainerInput type = switch (click.kind()) {
-                case QUICK_MOVE, SPILL -> ContainerInput.QUICK_MOVE;
-                case PICKUP_ALL -> ContainerInput.PICKUP_ALL;
-                default -> ContainerInput.PICKUP;
+            ClickType type = switch (click.kind()) {
+                case QUICK_MOVE, SPILL -> ClickType.QUICK_MOVE;
+                case PICKUP_ALL -> ClickType.PICKUP_ALL;
+                default -> ClickType.PICKUP;
             };
             clicks.add(new Click(slot, click.kind() == ClickKind.PICKUP_ALL ? 0 : click.button(), type));
         } else if (action instanceof StationAction.Spread spread) {
@@ -99,11 +99,11 @@ public final class MenuClicks {
             if (slots.isEmpty()) {
                 return clicks;
             }
-            clicks.add(new Click(OUTSIDE, AbstractContainerMenu.getQuickcraftMask(0, kind), ContainerInput.QUICK_CRAFT));
+            clicks.add(new Click(OUTSIDE, AbstractContainerMenu.getQuickcraftMask(0, kind), ClickType.QUICK_CRAFT));
             for (int slot : slots) {
-                clicks.add(new Click(slot, AbstractContainerMenu.getQuickcraftMask(1, kind), ContainerInput.QUICK_CRAFT));
+                clicks.add(new Click(slot, AbstractContainerMenu.getQuickcraftMask(1, kind), ClickType.QUICK_CRAFT));
             }
-            clicks.add(new Click(OUTSIDE, AbstractContainerMenu.getQuickcraftMask(2, kind), ContainerInput.QUICK_CRAFT));
+            clicks.add(new Click(OUTSIDE, AbstractContainerMenu.getQuickcraftMask(2, kind), ClickType.QUICK_CRAFT));
         }
         return clicks;
     }
@@ -121,28 +121,28 @@ public final class MenuClicks {
         if (free < 0 || held.isEmpty() && carried.isEmpty()) {
             return clicks;
         }
-        Click swap = new Click(free, Inventory.SLOT_OFFHAND, ContainerInput.SWAP);
+        Click swap = new Click(free, Inventory.SLOT_OFFHAND, ClickType.SWAP);
         if (kind == ClickKind.QUICK_MOVE) {
             if (!held.isEmpty()) {
                 clicks.add(swap);
-                clicks.add(new Click(free, 0, ContainerInput.QUICK_MOVE));
+                clicks.add(new Click(free, 0, ClickType.QUICK_MOVE));
                 clicks.add(swap);
             }
         } else if (kind == ClickKind.PICKUP) {
             if (carried.isEmpty()) {
                 clicks.add(swap);
-                clicks.add(new Click(free, 0, ContainerInput.PICKUP));
+                clicks.add(new Click(free, 0, ClickType.PICKUP));
             } else if (held.isEmpty()) {
-                clicks.add(new Click(free, 0, ContainerInput.PICKUP));
+                clicks.add(new Click(free, 0, ClickType.PICKUP));
                 clicks.add(swap);
             } else if (ItemStack.isSameItemSameComponents(held, carried)) {
                 clicks.add(swap);
-                clicks.add(new Click(free, button == 1 ? 1 : 0, ContainerInput.PICKUP));
+                clicks.add(new Click(free, button == 1 ? 1 : 0, ClickType.PICKUP));
                 clicks.add(swap);
             } else {
-                clicks.add(new Click(free, 0, ContainerInput.PICKUP));
+                clicks.add(new Click(free, 0, ClickType.PICKUP));
                 clicks.add(swap);
-                clicks.add(new Click(free, 0, ContainerInput.PICKUP));
+                clicks.add(new Click(free, 0, ClickType.PICKUP));
             }
         }
         return clicks;
@@ -186,7 +186,7 @@ public final class MenuClicks {
                 int room = Math.min(there.getMaxStackSize(), inventory.getMaxStackSize()) - there.getCount();
                 int slot = inventorySlot(menu, inventory, index);
                 if (room > 0 && slot >= 0) {
-                    clicks.add(new Click(slot, 0, ContainerInput.PICKUP));
+                    clicks.add(new Click(slot, 0, ClickType.PICKUP));
                     left -= room;
                 }
             }
@@ -195,7 +195,7 @@ public final class MenuClicks {
             if (left > 0 && inventory.getItem(index).isEmpty()) {
                 int slot = inventorySlot(menu, inventory, index);
                 if (slot >= 0) {
-                    clicks.add(new Click(slot, 0, ContainerInput.PICKUP));
+                    clicks.add(new Click(slot, 0, ClickType.PICKUP));
                     left = 0;
                 }
             }

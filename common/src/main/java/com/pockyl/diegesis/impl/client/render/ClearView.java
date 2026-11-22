@@ -2,8 +2,8 @@ package com.pockyl.diegesis.impl.client.render;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.Camera;
 import com.pockyl.diegesis.api.client.SceneBuffers;
+import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  * Everything here is in view space (the camera at the origin); entities and particles arrive relative to the camera but not yet
  * turned to it (the level's view rotation is in the model-view matrix), so their vertices are turned here.
  *
- * <p>Minecraft 26.3: not hooked in yet. Entities and particles are drawn from render states the game extracts and submits, and the
+ * <p>Minecraft 1.21.11 and 26.x: not hooked in yet. Entities and particles are drawn from render states the game extracts and submits, and the
  * hooks this was fed by (an entity's buffers, a particle's own drawing) are gone: until they are fed from the submits, entities and
  * particles in the camera's way do not fade. The blocks in its way still go ({@link ClearBlocks}).
  */
@@ -202,7 +202,7 @@ public final class ClearView {
 
     /** The translucent, depth-less twin of a textured entity type; empty for what has no texture to show (lines, text, glints). */
     private static Optional<RenderType> ghostOf(RenderType type) {
-        if (type.format() != DefaultVertexFormat.ENTITY) {
+        if (type.format() != DefaultVertexFormat.NEW_ENTITY) {
             return Optional.empty();
         }
         // The state's texture is out of reach of code that is no render state, but every type prints it.
@@ -299,11 +299,6 @@ public final class ClearView {
             return this;
         }
 
-        @Override
-        public VertexConsumer setUv3(float u, float v) {
-            delegate.setUv3(u, v);
-            return this;
-        }
 
         @Override
         public VertexConsumer setNormal(float x, float y, float z) {
