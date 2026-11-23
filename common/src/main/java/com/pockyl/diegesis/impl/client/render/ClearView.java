@@ -198,12 +198,17 @@ public final class ClearView {
 
     /** The translucent, depth-less twin of a textured entity type; empty for what has no texture to show (lines, text, glints). */
     private static Optional<RenderType> ghostOf(RenderType type) {
+        return textureOf(type).map(DiegesisRenderTypes::ghostEntity);
+    }
+
+    /** The texture of an entity type; empty for what has none to show (lines, text, glints). */
+    static Optional<ResourceLocation> textureOf(RenderType type) {
         if (type.format() != DefaultVertexFormat.NEW_ENTITY) {
             return Optional.empty();
         }
         // The state's texture is out of reach of code that is no render state, but every type prints it.
         Matcher matcher = TEXTURE.matcher(type.toString());
-        return matcher.find() ? Optional.of(DiegesisRenderTypes.ghostEntity(ResourceLocation.parse(matcher.group(1)))) : Optional.empty();
+        return matcher.find() ? Optional.of(ResourceLocation.parse(matcher.group(1))) : Optional.empty();
     }
 
     /**

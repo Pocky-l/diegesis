@@ -176,6 +176,7 @@ public final class SceneRenderer {
      * @param projection the frame's projection matrix
      */
     public static void render(PoseStack poseStack, Matrix4f modelView, Matrix4f projection, Camera camera) {
+        ClearBlocks.capture(poseStack, camera);
         try {
             renderStations(poseStack, modelView, projection, camera);
         } finally {
@@ -297,6 +298,8 @@ public final class SceneRenderer {
      * neither does the outline round the item under the cursor.
      */
     public static void renderCounts() {
+        // Blocks fading out of the camera's way first: they lie over the scene behind them, and the counts over them.
+        ClearBlocks.renderFading();
         if (sceneBuffers == null) {
             PENDING_COUNTS.clear();
             return;
