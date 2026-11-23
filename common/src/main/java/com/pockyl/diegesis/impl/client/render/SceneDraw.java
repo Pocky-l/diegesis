@@ -7,6 +7,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.item.SpecialModelWrapper;
+import net.minecraft.client.renderer.item.TrackingItemStackRenderState;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -122,6 +124,30 @@ public final class SceneDraw {
     public static ItemStackRenderState itemState(ItemStack stack, ItemDisplayContext context, @Nullable Level level, int seed) {
         Minecraft.getInstance().getItemModelResolver().updateForTopItem(ITEM, stack, context, level, null, seed);
         return ITEM;
+    }
+
+    /**
+     * Whether the item is a thing rather than a flat icon, as {@code BakedModel.isGui3d} said before Minecraft 1.21.4: a model lit as a
+     * block, or a special model (a banner, a shield), which was a built-in entity model then. Lighting alone calls a banner flat.
+     */
+    public static boolean isGui3d(ItemStack stack, ItemDisplayContext context, @Nullable Level level, int seed) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        // A fresh state: the tracking one keeps adding to its identity over updates.
+        TrackingItemStackRenderState state = new TrackingItemStackRenderState();
+        Minecraft.getInstance().getItemModelResolver().updateForTopItem(state, stack, context, level, null, seed);
+        return state.usesBlockLight() || isSpecial(state);
+    }
+
+    /** Whether an item's look comes from a special model renderer (a banner, a shield, a chest), from its model identity. */
+    public static boolean isSpecial(TrackingItemStackRenderState state) {
+        for (Object element : (List<?>) state.getModelIdentity()) {
+            if (element instanceof SpecialModelWrapper<?>) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A line of text, as {@code Font.drawInBatch} drew it into a buffer source before Minecraft 26.x. */

@@ -1263,7 +1263,7 @@ public final class SceneRenderer {
     }
 
     private static boolean isBlockLike(ItemStack stack, ClientLevel level) {
-        return SceneDraw.itemState(stack, ItemDisplayContext.FIXED, level, 0).usesBlockLight();
+        return SceneDraw.isGui3d(stack, ItemDisplayContext.FIXED, level, 0);
     }
 
     /**
