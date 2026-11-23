@@ -4,7 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.17.2+26.3] - Unreleased
+## [1.0.0-beta.17.2+26.3] - 2026-11-23
 ### Fixed
 - An item with a special model, such as a banner or a shield, stands in a slot as an item frame shows it again, instead of lying
   upside down as a flat icon.
