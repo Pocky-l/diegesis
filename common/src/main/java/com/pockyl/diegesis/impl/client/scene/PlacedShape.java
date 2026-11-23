@@ -108,8 +108,11 @@ public final class PlacedShape implements Placing.Shape {
     public static PlacedShape of(ItemStack stack, ClientLevel level, boolean blockModels, boolean framePose) {
         TrackingItemStackRenderState icon = new TrackingItemStackRenderState();
         Minecraft.getInstance().getItemModelResolver().updateForTopItem(icon, stack, ItemDisplayContext.FIXED, level, null, 0);
-        // A 3D item model (a block's, a modelled thing's) is lit as a block; a flat icon is not.
-        boolean gui3d = icon.usesBlockLight();
+        // A 3D item model (a block's, a modelled thing's) is lit as a block; a flat icon is not. A special model (a banner, a shield)
+        // is a thing too, though lit from the front: before Minecraft 1.21.4 it was a built-in entity model, 3D and custom drawn, and
+        // stood as an item frame shows it; laid down as a flat icon, a banner lay upside down in the loom.
+        boolean special = com.pockyl.diegesis.impl.client.render.SceneDraw.isSpecial(icon);
+        boolean gui3d = icon.usesBlockLight() || special;
         BlockState state = stack.getItem() instanceof BlockItem item ? item.getBlock().defaultBlockState() : null;
         if (state != null && state.hasProperty(BlockStateProperties.LIT)) {
             state = state.setValue(BlockStateProperties.LIT, true);
@@ -121,7 +124,7 @@ public final class PlacedShape implements Placing.Shape {
             BlockState shown = state;
             return CACHE.computeIfAbsent(model, key -> new PlacedShape(model, shown, blockBox(model), light, flame, ItemDisplayContext.FIXED));
         }
-        if (!framePose && gui3d) {
+        if (!framePose && gui3d && !special) {
             TrackingItemStackRenderState modelled = new TrackingItemStackRenderState();
             Minecraft.getInstance().getItemModelResolver().updateForTopItem(modelled, stack, ItemDisplayContext.NONE, level, null, 0);
             // An ArrayList, not List.copyOf: another mod's item model may add a null to the identity.
