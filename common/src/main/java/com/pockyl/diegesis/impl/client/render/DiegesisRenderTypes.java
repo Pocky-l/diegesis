@@ -54,6 +54,37 @@ final class DiegesisRenderTypes extends RenderType {
     }
 
     /**
+     * The depth of a block fading out of the camera's way ({@code ClearBlocks}), drawn before its colour: only its nearest faces
+     * then show, as a whole thing turning see-through rather than a heap of faces seen through each other. Cut-out holes (leaves,
+     * a trapdoor's bars) stay holes.
+     */
+    static RenderType fadingBlockDepth() {
+        return FADING_BLOCK_DEPTH;
+    }
+
+    /** The colour of a block fading out of the camera's way, on its own depth ({@link #fadingBlockDepth}); alpha from the vertices. */
+    static RenderType fadingBlock() {
+        return FADING_BLOCK;
+    }
+
+    /**
+     * A block fading out of the camera's way under a shader pack: the block atlas' sorted translucent entity type. Drawn with the
+     * terrain's translucent program, the packs give the faces a reflection that grows towards the edges and lift their alpha
+     * with it (Complementary, BSL): a block nearly gone came back as a dark mirror before the camera. Their entity program
+     * keeps the alpha, as it does for the entities that fade there.
+     */
+    static RenderType fadingBlockUnderPack() {
+        return FADING_BLOCK_UNDER_PACK;
+    }
+
+    private static final RenderType FADING_BLOCK_UNDER_PACK = entityTranslucentCull(TextureAtlas.LOCATION_BLOCKS);
+    private static final RenderType FADING_BLOCK_DEPTH = of("diegesis_fading_block_depth", DefaultVertexFormat.BLOCK, false,
+            List.of(RENDERTYPE_CUTOUT_SHADER, BLOCK_SHEET_MIPPED, NO_TRANSPARENCY, CULL, LIGHTMAP, LEQUAL_DEPTH_TEST, DEPTH_WRITE));
+    private static final RenderType FADING_BLOCK = of("diegesis_fading_block", DefaultVertexFormat.BLOCK, false,
+            List.of(RENDERTYPE_TRANSLUCENT_SHADER, BLOCK_SHEET_MIPPED, TRANSLUCENT_TRANSPARENCY, CULL, LIGHTMAP, LEQUAL_DEPTH_TEST,
+                    COLOR_WRITE));
+
+    /**
      * Items in a scene: the block atlas' translucent entity type the item renderer asks for, which writes depth as the game's
      * does. The scene draws that type as {@link #clearBlockSheet()}, where an item's own faces have no depth between them.
      */

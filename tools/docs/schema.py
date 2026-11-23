@@ -168,6 +168,8 @@ obj("clear_view", "ClearViewOptions", "Keeps the view of the station free while 
                                                      " height of the camera's target, or the scene's placing surfaces where"
                                                      " they are written, each on its own (a drawer pulled out before the"
                                                      " block).", "block"),
+    "fade": field(num(0, 1), "How much of the camera's flight time the blocks left out take to fade out on the way in, and"
+                             " back in on the way back; 1 is the whole flight, 0 takes them out at once.", 1),
 })
 
 obj("hud", "HudOptions", "How the game's HUD leaves and comes back; every field is optional.", {
