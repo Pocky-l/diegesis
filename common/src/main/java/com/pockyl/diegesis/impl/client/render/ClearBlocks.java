@@ -1,12 +1,22 @@
 package com.pockyl.diegesis.impl.client.render;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.OrderedSubmitNodeCollector;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.util.Util;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -14,6 +24,8 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.joml.Matrix4d;
+import org.joml.Matrix4f;
 import org.joml.Vector3fc;
 
 import java.util.List;
@@ -25,7 +37,10 @@ import com.pockyl.diegesis.api.scene.ClearViewOptions;
 import com.pockyl.diegesis.api.scene.PlaceSurface;
 import com.pockyl.diegesis.api.scene.PlacingOptions;
 import com.pockyl.diegesis.api.scene.SceneDefinition;
+import com.pockyl.diegesis.DiegesisMod;
+import com.pockyl.diegesis.impl.SubLevels;
 import com.pockyl.diegesis.impl.client.ClientStation;
+import com.pockyl.diegesis.impl.client.focus.FocusController;
 
 /**
  * Leaves blocks in the camera's way out of the picture while a player works at a station ({@link ClearViewOptions#blocks()}): the
@@ -35,6 +50,11 @@ import com.pockyl.diegesis.impl.client.ClientStation;
  * cabinet beside the one worked at, seen from three-quarters) stays. Chunk meshes are built as if those blocks were air (the game's, and Embeddium's or
  * Sodium's through their world slice), so the faces of their neighbours show and nothing is left hollow; light stays the world's,
  * so the station keeps the shade a cabinet gives it. Nobody else sees a change.
+ *
+ * <p>While the camera flies in or back, the blocks left out are drawn here instead, fading with the flight
+ * ({@link ClearViewOptions#fade()}): out over the first share of the flight in, back over the last share of the flight back, and,
+ * going over to a neighbour, the new station's fading out while the old one's come back. Their block entities do not fade here:
+ * they are drawn from render states the game submits, which nothing here can turn see-through yet.
  *
  * <p>The shot itself never moves: what a scene hangs before the camera (a recipe book) stays where it was framed, stations side by
  * side keep their shots, and under a cabinet the camera still looks into a pot, which no lower angle does.
@@ -57,9 +77,30 @@ public final class ClearBlocks {
     /** How high things lying on the surface stand, pixels: their tops must show too. */
     private static final float RISE = 4.0F;
     private static final LongOpenHashSet NONE = new LongOpenHashSet();
+    /**
+     * How long a block put back is still drawn whole here, nanoseconds: the game rebuilds its chunk with it a few frames later,
+     * off the render thread, and till then nothing would stand there. Drawn over its own block, it looks the same.
+     */
+    private static final long RETURNING_FOR = 400_000_000L;
+    /** Below this a fading block is not drawn at all. */
+    private static final float UNSEEN = 1.0F / 255.0F;
 
     /** The blocks left out; never changed once published, as the chunk builders read it on their own threads. */
     private static volatile LongOpenHashSet hidden = NONE;
+    /** Of {@link #hidden}: the blocks in the way of the station worked at, and of the one the camera flies over from. */
+    private static LongOpenHashSet ofStation = NONE;
+    private static LongOpenHashSet ofLeaving = NONE;
+    /** Their scenes' {@link ClearViewOptions#fade()}. */
+    private static float stationFade;
+    private static float leavingFade;
+    /** Blocks just put back, drawn whole until {@link #returningUntil}: see {@link #RETURNING_FOR}. */
+    private static final LongOpenHashSet RETURNING = new LongOpenHashSet();
+    private static long returningUntil;
+    /** The frame's fading blocks, handed to the game after the scene. */
+    private static final RecordedBuffers FADING = new RecordedBuffers();
+    /** The parts of the model a fading block is drawn with, as the chunk picks them for its place. */
+    private static final List<BlockModelPart> PARTS = new java.util.ArrayList<>();
+    private static final RandomSource RANDOM = RandomSource.create();
     private static float sinceCheck;
     private static ClientStation checkedStation;
     private static ClientStation checkedLeaving;
@@ -93,27 +134,155 @@ public final class ClearBlocks {
         checkedStation = station;
         checkedLeaving = leaving;
         ClientLevel level = Minecraft.getInstance().level;
-        LongOpenHashSet found = new LongOpenHashSet();
+        LongOpenHashSet forStation = new LongOpenHashSet();
+        LongOpenHashSet forLeaving = new LongOpenHashSet();
         if (level != null) {
-            collect(level, station, found);
-            collect(level, leaving, found);
+            collect(level, station, forStation);
+            collect(level, leaving, forLeaving);
         }
-        publish(level, found);
+        boolean faded = stationFade > 0.0F || leavingFade > 0.0F;
+        ofStation = forStation;
+        ofLeaving = forLeaving;
+        stationFade = fadeOf(station);
+        leavingFade = fadeOf(leaving);
+        LongOpenHashSet found = new LongOpenHashSet(forStation);
+        found.addAll(forLeaving);
+        publish(level, found, faded);
     }
 
     /** Puts every block back. */
     public static void clear() {
         checkedStation = null;
         checkedLeaving = null;
-        publish(Minecraft.getInstance().level, NONE);
+        boolean faded = stationFade > 0.0F || leavingFade > 0.0F;
+        ofStation = NONE;
+        ofLeaving = NONE;
+        stationFade = 0.0F;
+        leavingFade = 0.0F;
+        publish(Minecraft.getInstance().level, NONE, faded);
     }
 
-    private static void publish(ClientLevel level, LongOpenHashSet found) {
+    private static float fadeOf(ClientStation station) {
+        return station == null || station.scene() == null ? 0.0F : station.scene().definition().clearView().fade();
+    }
+
+    /** How solid a block left out is now, 0 to 1, by the flight's time ({@link ClearViewOptions#fade()}); -1 if it is not left out. */
+    private static float opacity(long packed, float away, float back) {
+        float opacity = -1.0F;
+        if (ofStation.contains(packed)) {
+            opacity = away;
+        }
+        if (ofLeaving.contains(packed)) {
+            opacity = opacity < 0.0F ? back : Math.min(opacity, back);
+        }
+        return opacity;
+    }
+
+    /**
+     * Submits the blocks left out that are still fading, and those just put back that their chunk does not show yet, after the
+     * scene: a fading block lies over the scene behind it. In the block atlas' sorted translucent entity type, as the scene draws
+     * blocks: shader packs keep its alpha, where their translucent terrain program lifts it with a reflection (Complementary and
+     * BSL turned a block nearly gone into a dark mirror before the camera on 1.20.1).
+     *
+     * @param poseStack the level pose stack: relative to the camera, not turned to it
+     */
+    static void submitFading(OrderedSubmitNodeCollector collector, PoseStack poseStack, Vec3 camera) {
+        LongOpenHashSet left = hidden;
+        if (!RETURNING.isEmpty() && Util.getNanos() > returningUntil) {
+            RETURNING.clear();
+        }
+        if (left.isEmpty() && RETURNING.isEmpty()) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        ClientLevel level = minecraft.level;
+        if (level == null) {
+            return;
+        }
+        // By the flight's time, not its eased way: the camera covers most of the way in the first moments.
+        float time = FocusController.get().flightProgress();
+        float away = stationFade > 0.0F ? 1.0F - smooth(time / stationFade) : 0.0F;
+        float back = leavingFade > 0.0F ? 1.0F - smooth((1.0F - time) / leavingFade) : 0.0F;
+        RenderType type = DiegesisRenderTypes.translucentCullBlockSheet();
+        VertexConsumer buffer = FADING.getBuffer(type);
+        Matrix4d world = new Matrix4d();
+        boolean drawn = false;
+        try {
+            for (LongIterator it = left.iterator(); it.hasNext(); ) {
+                long packed = it.nextLong();
+                float opacity = opacity(packed, away, back);
+                if (opacity > UNSEEN) {
+                    drawn |= draw(minecraft, level, BlockPos.of(packed), opacity, poseStack, camera, buffer, world);
+                }
+            }
+            for (LongIterator it = RETURNING.iterator(); it.hasNext(); ) {
+                long packed = it.nextLong();
+                if (!left.contains(packed)) {
+                    drawn |= draw(minecraft, level, BlockPos.of(packed), 1.0F, poseStack, camera, buffer, world);
+                }
+            }
+            if (drawn) {
+                FADING.submit(collector, type);
+            }
+        } finally {
+            FADING.clear();
+        }
+    }
+
+    /** One block's model, {@code opacity} solid, where the block is seen (on a moving structure too); whether it has one. */
+    private static boolean draw(Minecraft minecraft, ClientLevel level, BlockPos pos, float opacity, PoseStack poseStack, Vec3 camera,
+            VertexConsumer buffer, Matrix4d world) {
+        BlockState state = level.getBlockState(pos);
+        if (state.getRenderShape() != RenderShape.MODEL) {
+            return false;
+        }
+        try {
+            // The block's corner into the world as drawn this frame, made relative to the camera in doubles: far out, floats
+            // could no longer tell the blocks apart.
+            SubLevels.blockToWorld(level, pos, true, world);
+            world.translateLocal(-camera.x, -camera.y, -camera.z);
+            PoseStack at = new PoseStack();
+            at.last().pose().set(poseStack.last().pose());
+            at.last().normal().set(poseStack.last().normal());
+            at.last().mulPose(new Matrix4f(world));
+            int alpha = Math.max(1, Math.min(255, Math.round(opacity * 255.0F)));
+            VertexConsumer faded = new TintedConsumer(buffer, alpha << 24 | 0xFFFFFF);
+            BlockStateModel model = minecraft.getModelManager().getBlockModelShaper().getBlockModel(state);
+            PARTS.clear();
+            RANDOM.setSeed(state.getSeed(pos));
+            model.collectParts(RANDOM, PARTS);
+            // Faces against other blocks are left out, as in the chunk: two blocks fading together fade as one.
+            minecraft.getBlockRenderer().getModelRenderer().tesselateBlock(level, new java.util.ArrayList<>(PARTS), state, pos, at, faded, true,
+                    OverlayTexture.NO_OVERLAY);
+            return true;
+        } catch (RuntimeException e) {
+            // A modded model that cannot be drawn here only stays unseen while it fades.
+            DiegesisMod.LOGGER.debug("Fading the block at {} failed", pos, e);
+            return false;
+        }
+    }
+
+    private static float smooth(float t) {
+        float clamped = Math.max(0.0F, Math.min(1.0F, t));
+        return clamped * clamped * (3.0F - 2.0F * clamped);
+    }
+
+    /** @param faded whether the blocks put back came back fading: they are then drawn whole until their chunk has them */
+    private static void publish(ClientLevel level, LongOpenHashSet found, boolean faded) {
         LongOpenHashSet before = hidden;
         if (before.equals(found)) {
             return;
         }
         hidden = found.isEmpty() ? NONE : found;
+        if (faded) {
+            for (LongIterator it = before.iterator(); it.hasNext(); ) {
+                long packed = it.nextLong();
+                if (!found.contains(packed)) {
+                    RETURNING.add(packed);
+                    returningUntil = Util.getNanos() + RETURNING_FOR;
+                }
+            }
+        }
         if (level == null) {
             return;
         }

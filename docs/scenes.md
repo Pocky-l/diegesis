@@ -402,6 +402,7 @@ panel: clicks, shift-clicks, drags, tooltips, counts.
 | `spacing` | `2.6` | Pixels between slot centres. |
 | `size` | `2.1` | Size of the items. |
 | `surface` | none | A block state drawn as a board under the slots; floating slots without one. |
+| `fade` | `1` | How much of the camera's flight time, 0 to 1, the blocks of `blocks` take to fade out: over the first share of the flight in, and back in over the last share of the flight back; `1` is the whole flight. Going over to a neighbour, the new station's blocks fade out while the old one's come back. `0` takes them out at once as the flight starts and puts them back as it ends. |
 | `slot_color` | `"#66000000"` | Colour of each slot's square; alpha 0 hides them. |
 | `show` | `"always"` | `toggle`: hidden until Tab (Tab hides it again), shown by itself while an item is on the cursor. |
 
@@ -484,7 +485,7 @@ the edge of a cone round the line of sight, and they come back as the camera lea
 the edge of the shot and never covers the scene; a campfire's smoke under a pot stops at the cone. Blocks in the camera's way are
 left out of the picture: the blocks the camera stands in, from any of the scene's shots, and those between it and the work surface,
 such as a wall cabinet over the station or a low ceiling; a neighbour that only grazes the edge of the view stays. Their
-neighbours show their faces, light stays as it was, and the blocks are back once the camera has flown back. The shot never moves, so what the scene hangs before the camera stays where it was
+neighbours show their faces, light stays as it was, and the blocks fade out as the camera flies in and fade back as it flies back. The shot never moves, so what the scene hangs before the camera stays where it was
 framed. Nobody else sees a change, and the scene's own particles stay. On by default; every field is optional.
 
 | Field | Default | Meaning |
