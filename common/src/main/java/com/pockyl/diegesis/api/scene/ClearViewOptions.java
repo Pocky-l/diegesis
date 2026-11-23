@@ -23,10 +23,14 @@ import com.pockyl.diegesis.impl.codec.StrictCodecs;
  *                  default); {@code placing}, the scene's {@code placing} surfaces where they are written, each on its own. A
  *                  drawer pulled out before its block is worked on there, not over the block: counted over the block, the block
  *                  on top of it, seen past the drawer's own front, went from the picture though it hid nothing
+ * @param fade      how much of the camera's flight time the blocks of {@code blocks} take to fade out, and to come back on the
+ *                  way back, 0 to 1: over the first share of the flight in, over the last share of the flight back; 1, the
+ *                  default, over the whole flight. 0 takes them out at once as the flight starts and puts them back as it ends
  */
-public record ClearViewOptions(boolean entities, boolean particles, float radius, float soft, boolean blocks, Surface surface) {
-    public static final ClearViewOptions DEFAULT = new ClearViewOptions(true, true, 16.0F, 12.0F, true, Surface.BLOCK);
-    public static final ClearViewOptions OFF = new ClearViewOptions(false, false, 0.0F, 1.0F, false, Surface.BLOCK);
+public record ClearViewOptions(boolean entities, boolean particles, float radius, float soft, boolean blocks, Surface surface,
+                               float fade) {
+    public static final ClearViewOptions DEFAULT = new ClearViewOptions(true, true, 16.0F, 12.0F, true, Surface.BLOCK, 1.0F);
+    public static final ClearViewOptions OFF = new ClearViewOptions(false, false, 0.0F, 1.0F, false, Surface.BLOCK, 0.0F);
 
     /** Which work surface blocks must leave in view. */
     public enum Surface implements StringRepresentable {
@@ -49,7 +53,8 @@ public record ClearViewOptions(boolean entities, boolean particles, float radius
             StrictCodecs.optional(Codec.floatRange(0.0F, 256.0F), "radius", DEFAULT.radius).forGetter(ClearViewOptions::radius),
             StrictCodecs.optional(Codec.floatRange(1.0F, 256.0F), "soft", DEFAULT.soft).forGetter(ClearViewOptions::soft),
             StrictCodecs.optional(Codec.BOOL, "blocks", DEFAULT.blocks).forGetter(ClearViewOptions::blocks),
-            StrictCodecs.optional(Surface.CODEC, "surface", DEFAULT.surface).forGetter(ClearViewOptions::surface)
+            StrictCodecs.optional(Surface.CODEC, "surface", DEFAULT.surface).forGetter(ClearViewOptions::surface),
+            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "fade", DEFAULT.fade).forGetter(ClearViewOptions::fade)
     ).apply(instance, ClearViewOptions::new));
 
     /** Options that leave blocks in the camera's way out of the picture, as by default. */
@@ -62,13 +67,23 @@ public record ClearViewOptions(boolean entities, boolean particles, float radius
         this(entities, particles, radius, soft, blocks, DEFAULT.surface);
     }
 
+    /** Options with another work surface, whose blocks fade as by default. */
+    public ClearViewOptions(boolean entities, boolean particles, float radius, float soft, boolean blocks, Surface surface) {
+        this(entities, particles, radius, soft, blocks, surface, DEFAULT.fade);
+    }
+
     /** The same options, leaving blocks in the way out of the picture or not. */
     public ClearViewOptions withBlocks(boolean value) {
-        return new ClearViewOptions(entities, particles, radius, soft, value, surface);
+        return new ClearViewOptions(entities, particles, radius, soft, value, surface, fade);
     }
 
     /** The same options, keeping another work surface in view. */
     public ClearViewOptions withSurface(Surface value) {
-        return new ClearViewOptions(entities, particles, radius, soft, blocks, value);
+        return new ClearViewOptions(entities, particles, radius, soft, blocks, value, fade);
+    }
+
+    /** The same options, with blocks in the way fading over another share of the flight (0: at once). */
+    public ClearViewOptions withFade(float value) {
+        return new ClearViewOptions(entities, particles, radius, soft, blocks, surface, value);
     }
 }

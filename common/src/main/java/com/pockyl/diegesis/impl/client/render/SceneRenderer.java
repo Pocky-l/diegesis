@@ -130,8 +130,9 @@ public final class SceneRenderer {
     private static final int ORDER_ITEMS = 1001;
     private static final int ORDER_CLEAR = 1002;
     private static final int ORDER_REST = 1003;
-    private static final int ORDER_OUTLINES = 1004;
-    private static final int ORDER_COUNTS = 1005;
+    private static final int ORDER_FADING = 1004;
+    private static final int ORDER_OUTLINES = 1005;
+    private static final int ORDER_COUNTS = 1006;
     /** The scene's own buffers this frame (the see-through sheet drawn as CLEAR). */
     private static SceneBuffers sceneSource;
     /** What is see-through: one batch, sorted back to front. */
@@ -289,6 +290,8 @@ public final class SceneRenderer {
         }
         CLEAR_BUFFERS.submitAll(collector.order(ORDER_CLEAR));
         SCENE_BUFFERS.submitAll(collector.order(ORDER_REST));
+        // Blocks fading out of the camera's way: over the scene behind them, under the outline and the counts.
+        ClearBlocks.submitFading(collector.order(ORDER_FADING), poseStack, cameraPos);
         if (!PENDING_OUTLINES.isEmpty() || !PENDING_SEEN_OUTLINES.isEmpty()) {
             drawOutlines(collector);
         }

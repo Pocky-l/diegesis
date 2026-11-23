@@ -541,6 +541,14 @@ public final class FocusController {
     }
 
     /**
+     * How far the camera's flight in, back or over to a neighbour has gone in time, 0 to 1, not eased: rising flying in or over,
+     * falling flying back, 1 at the station.
+     */
+    public float flightProgress() {
+        return phase == Phase.IDLE ? 0.0F : progress;
+    }
+
+    /**
      * How far the camera has come from the player's view to the station worked at, eased: rising while it flies in, falling while
      * it flies back, 1 at the station and while going over to a neighbour, 0 when nobody works at one. What comes with the
      * station (the inventory, an addon's book) shows by it, in step with the camera.
