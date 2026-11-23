@@ -4,7 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.17.1+26.3] - Unreleased
+## [1.0.0-beta.17.1+26.3] - 2026-11-23
 ### Added
 - NeoForge is supported on 26.3 (NeoForge 26.3.0.84 or newer), with the same features as Fabric. On NeoForge the HUD parts other mods add slide away too.
 - `Diegesis.addListener` and `DiegesisClient.addBehavior`: a mod can watch any station, refuse what players do there and add client code beside the station's own.
