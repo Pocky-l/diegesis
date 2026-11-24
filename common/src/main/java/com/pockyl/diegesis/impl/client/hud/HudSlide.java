@@ -2,11 +2,14 @@ package com.pockyl.diegesis.impl.client.hud;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Util;
+import org.joml.Matrix3x2fStack;
 import org.joml.Matrix3x2fc;
 import org.joml.Vector2f;
 
 import com.pockyl.diegesis.api.scene.HudOptions;
 
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -52,6 +55,8 @@ public final class HudSlide {
     private static float maxX;
     private static float maxY;
     private static boolean measured;
+    /** How deep the pose stack was when {@link #begin} pushed the slide's level for the part being drawn. */
+    private static int below;
     private static final Vector2f CORNER = new Vector2f();
 
     private HudSlide() {
@@ -134,22 +139,77 @@ public final class HudSlide {
             return;
         }
         offset(key, graphics.guiWidth(), graphics.guiHeight());
+        below = StackDepth.of(graphics.pose());
         graphics.pose().pushMatrix();
         graphics.pose().translate(shiftX, shiftY);
     }
 
-    /** The part {@link #begin} started is drawn. */
+    /**
+     * The part {@link #begin} started is drawn. The pose goes back to where it was before {@link #begin}: what the part pushed
+     * and left goes with the slide's own level, else the slide stayed on the pose the screen draws with next, and the
+     * station's hotbar was drawn away from where it is clicked.
+     */
     public static void end(GuiGraphics graphics) {
         if (depth == 0 || --depth > 0) {
             return;
         }
         if (moved) {
-            graphics.pose().popMatrix();
+            unwind(graphics.pose());
         }
         if (measured) {
             BOXES.put(current, new float[] {minX, minY, maxX, maxY});
         }
         current = null;
+    }
+
+    /**
+     * Pops the slide's own level and every one above it. Where the part popped the slide's level itself (one pop too many),
+     * the stack is back where {@link #begin} found it and nothing more is popped: never below that.
+     */
+    private static void unwind(Matrix3x2fStack pose) {
+        for (int above = StackDepth.of(pose) - below; above > 0; above--) {
+            pose.popMatrix();
+        }
+    }
+
+    /**
+     * How many levels a pose stack has pushed. JOML keeps the count private, without the entry objects a {@code PoseStack} has
+     * to compare, and writes it out after the matrix when the stack is written as an {@code Externalizable}: this stream
+     * keeps that number and ignores the rest. The render thread only.
+     */
+    private static final class StackDepth extends ObjectOutputStream {
+        private static StackDepth stream;
+        private int depth;
+
+        private StackDepth() throws IOException {
+            super();
+        }
+
+        static int of(Matrix3x2fStack pose) {
+            try {
+                if (stream == null) {
+                    stream = new StackDepth();
+                }
+                stream.depth = 0;
+                pose.writeExternal(stream);
+                return stream.depth;
+            } catch (IOException e) {
+                throw new IllegalStateException("Could not read the depth of the HUD's pose stack", e);
+            }
+        }
+
+        @Override
+        public void writeFloat(float value) {
+        }
+
+        @Override
+        public void writeInt(int value) {
+            depth = value;
+        }
+
+        @Override
+        protected void writeObjectOverride(Object object) {
+        }
     }
 
     /** Whether part {@code key} covered most of the screen when it was drawn last: a vignette, not a part of the HUD. */
