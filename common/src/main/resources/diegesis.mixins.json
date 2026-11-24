@@ -19,6 +19,7 @@
     "client.KeyboardInputMixin",
     "client.LevelRendererMixin",
     "client.LevelRendererOutlineMixin",
+    "client.LightColorMixin",
     "client.MultiPlayerGameModeMixin",
     "client.RenderChunkRegionMixin",
     "client.RenderPipelinesAccessor",
