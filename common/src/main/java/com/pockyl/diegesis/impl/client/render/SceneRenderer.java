@@ -222,12 +222,8 @@ public final class SceneRenderer {
                     Sheets.translucentCullBlockSheet())) {
                 kept.put(type, new ByteBufferBuilder(1 << 16));
             }
-            // Enchantment glints test for the very depth their item wrote: kept apart, they are drawn after the items, as the
-            // game keeps them; in the shared buffer they went out first, before any item, and showed nowhere.
-            for (RenderType type : List.of(RenderType.glint(), RenderType.glintTranslucent(),
-                    RenderType.entityGlint(), RenderType.entityGlintDirect())) {
-                kept.put(type, new ByteBufferBuilder(1 << 12));
-            }
+            // In the shared buffer glints also went out first, before any item, and showed nowhere.
+            DiegesisRenderTypes.keepGlints(kept);
             sceneBuffers = MultiBufferSource.immediateWithBuffers(kept, new ByteBufferBuilder(1 << 16));
         }
         RenderType translucent = Sheets.translucentCullBlockSheet();

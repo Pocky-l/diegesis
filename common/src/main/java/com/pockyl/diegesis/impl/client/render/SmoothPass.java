@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.SequencedMap;
 import java.util.Set;
 
 /**
@@ -68,6 +69,7 @@ public final class SmoothPass {
     private static boolean failed;
     /** Drawing straight over the frame failed too: painters are drawn with the scene. */
     private static boolean broken;
+    private static boolean drawing;
     private static MultiBufferSource.BufferSource buffers;
 
     private SmoothPass() {
@@ -93,11 +95,23 @@ public final class SmoothPass {
         return true;
     }
 
+    /**
+     * Whether the painters are being drawn over the frame now. The frame is composed by then: under Fabulous graphics the
+     * level's layer targets (item entities, translucent, particles) were blended into it already, and a draw into one of them
+     * is lost. What the painters draw is drawn as Fancy graphics draws it instead, into the pass's own target
+     * ({@code ShaderTransparencyMixin}): a slime block on a book page left its cell empty and moved every later draw into the
+     * frame, four times as large.
+     */
+    public static boolean drawingOverTheFrame() {
+        return drawing;
+    }
+
     /** Draws what was kept over the frame; called first thing by the focus screen. */
     public static void draw() {
         if (PENDING.isEmpty()) {
             return;
         }
+        drawing = true;
         try {
             if (!failed) {
                 try {
@@ -114,6 +128,7 @@ public final class SmoothPass {
             broken = true;
             DiegesisMod.LOGGER.error("Drawing over the frame failed; smooth painters are drawn with the scene from now on", e);
         } finally {
+            drawing = false;
             PENDING.clear();
             Minecraft.getInstance().getMainRenderTarget().bindWrite(true);
         }
@@ -227,10 +242,15 @@ public final class SmoothPass {
         }
     }
 
-    /** An own source, drawn in the painters' order: shader packs swap the game's for one that holds draws back. */
+    /**
+     * An own source, drawn in the painters' order: shader packs swap the game's for one that holds draws back. Glints have
+     * buffers of their own, as in the game's: an enchanted item on a book page threw in a shared one.
+     */
     private static MultiBufferSource.BufferSource buffers() {
         if (buffers == null) {
-            buffers = MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+            SequencedMap<RenderType, ByteBufferBuilder> glints = new LinkedHashMap<>();
+            DiegesisRenderTypes.keepGlints(glints);
+            buffers = MultiBufferSource.immediateWithBuffers(glints, new ByteBufferBuilder(1 << 16));
         }
         return buffers;
     }

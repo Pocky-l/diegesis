@@ -2,6 +2,7 @@ package com.pockyl.diegesis.impl.client.render;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.RenderStateShard;
@@ -10,6 +11,7 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
+import java.util.SequencedMap;
 
 /** The library's own render types (a subclass only to reach the protected render state shards). */
 final class DiegesisRenderTypes extends RenderType {
@@ -104,5 +106,18 @@ final class DiegesisRenderTypes extends RenderType {
         return of("diegesis_clear", DefaultVertexFormat.NEW_ENTITY, true, List.of(RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
                 new RenderStateShard.TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, false), TRANSLUCENT_TRANSPARENCY, CULL, LIGHTMAP,
                 OVERLAY, LEQUAL_DEPTH_TEST, COLOR_WRITE, POLYGON_OFFSET_LAYERING));
+    }
+
+    /**
+     * Gives the game's enchantment glint types a buffer each in a source that draws items. A foil item asks for its glint's
+     * buffer and then for its own: in a shared buffer the second ends the first, and the glint's next vertex throws "Not
+     * building!" (with a Fabric renderer's item model that throw also left the renderer holding the dead buffer, and the next
+     * foil item the game drew crashed). Kept apart, glints are drawn after the items, as the game keeps them: a glint tests
+     * for the very depth its item wrote.
+     */
+    static void keepGlints(SequencedMap<RenderType, ByteBufferBuilder> buffers) {
+        for (RenderType type : List.of(glint(), glintTranslucent(), entityGlint(), entityGlintDirect())) {
+            buffers.put(type, new ByteBufferBuilder(1 << 12));
+        }
     }
 }

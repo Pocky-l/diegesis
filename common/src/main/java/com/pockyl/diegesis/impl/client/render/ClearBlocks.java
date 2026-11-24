@@ -243,7 +243,9 @@ public final class ClearBlocks {
             kept.put(DiegesisRenderTypes.fadingBlockDepth(), new ByteBufferBuilder(1 << 14));
             kept.put(DiegesisRenderTypes.fadingBlock(), new ByteBufferBuilder(1 << 14));
             kept.put(DiegesisRenderTypes.fadingBlockUnderPack(), new ByteBufferBuilder(1 << 14));
-            buffers = MultiBufferSource.immediateWithBuffers(kept, new ByteBufferBuilder(1 << 14));
+            // A block entity that draws a foil item (a shelf, a pedestal) asks for the glint and then for the item's type.
+            DiegesisRenderTypes.keepGlints(kept);
+            buffers =MultiBufferSource.immediateWithBuffers(kept, new ByteBufferBuilder(1 << 14));
         }
         PoseStack poseStack = new PoseStack();
         poseStack.last().pose().set(VIEW);
