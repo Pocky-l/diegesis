@@ -222,8 +222,7 @@ public final class SceneRenderer {
             }
             // Enchantment glints test for the very depth their item wrote: kept apart, they are drawn after the items, as the
             // game keeps them; in the shared buffer they went out first, before any item, and showed nowhere.
-            for (RenderType type : List.of(RenderType.glint(), RenderType.glintDirect(), RenderType.glintTranslucent(),
-                    RenderType.entityGlint(), RenderType.entityGlintDirect())) {
+            for (RenderType type : glintTypes()) {
                 kept.put(type, new BufferBuilder(1 << 12));
             }
             sceneBuffers = MultiBufferSource.immediateWithBuffers(kept, new BufferBuilder(1 << 16));
@@ -285,6 +284,15 @@ public final class SceneRenderer {
         }
         // The counts wait for renderCounts: drawn here, block entities, translucent blocks and particles drawn later by the
         // game would paint over them, as they do not write depth.
+    }
+
+    /**
+     * The enchantment glint types an item asks for beside its own. A source that draws items needs a buffer of its own for each:
+     * the item renderer takes the glint's buffer first and then its own, and in one shared buffer the second ends the first.
+     */
+    static List<RenderType> glintTypes() {
+        return List.of(RenderType.glint(), RenderType.glintDirect(), RenderType.glintTranslucent(), RenderType.entityGlint(),
+                RenderType.entityGlintDirect());
     }
 
     /**

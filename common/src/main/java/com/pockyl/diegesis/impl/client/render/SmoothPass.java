@@ -29,6 +29,7 @@ import com.pockyl.diegesis.impl.client.focus.FocusScreen;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,9 @@ public final class SmoothPass {
     private static boolean failed;
     /** Drawing straight over the frame failed too: painters are drawn with the scene. */
     private static boolean broken;
-    private static MultiBufferSource.BufferSource buffers;
+    private static PassBuffers buffers;
+    /** While the kept painters are measured and drawn: see {@link #drawsFancy}. */
+    private static boolean drawing;
 
     private SmoothPass() {
     }
@@ -87,11 +90,23 @@ public final class SmoothPass {
         return true;
     }
 
+    /**
+     * Whether the game draws as Fancy does now, under Fabulous too. The painters are drawn after the frame was put together from
+     * the level's layers, and under Fabulous the game draws see-through block items (slime, honey, ice, stained glass, as a
+     * recipe book draws its icons), their glint, lines and the see-through layers into those layers' targets: such an icon never
+     * showed, and as the type's drawing bound the frame again with the fine target's viewport, every draw after it landed in
+     * the frame four times larger. Fancy draws all of them into the target bound, as the painters need.
+     */
+    public static boolean drawsFancy() {
+        return drawing && RenderSystem.isOnRenderThread();
+    }
+
     /** Draws what was kept over the frame; called first thing by the focus screen. */
     public static void draw() {
         if (PENDING.isEmpty()) {
             return;
         }
+        drawing = true;
         try {
             if (!failed) {
                 try {
@@ -108,6 +123,7 @@ public final class SmoothPass {
             broken = true;
             DiegesisMod.LOGGER.error("Drawing over the frame failed; smooth painters are drawn with the scene from now on", e);
         } finally {
+            drawing = false;
             PENDING.clear();
             Minecraft.getInstance().getMainRenderTarget().bindWrite(true);
         }
@@ -121,15 +137,17 @@ public final class SmoothPass {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         main.bindWrite(true);
         RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+        PassBuffers source = buffers();
+        source.target = main;
         try {
             withMatrices(PROJECTION, () -> {
-                MultiBufferSource.BufferSource source = buffers();
                 for (Pending pending : PENDING) {
                     pending.painter().paint(poseOf(pending), source, pending.light());
                 }
                 source.endBatch();
             });
         } finally {
+            source.target = null;
             RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         }
     }
@@ -180,13 +198,18 @@ public final class SmoothPass {
         fine.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         fine.clear(Minecraft.ON_OSX);
         fine.bindWrite(true);
-        withMatrices(narrowed, () -> {
-            MultiBufferSource source = buffers();
-            for (Pending pending : PENDING) {
-                pending.painter().paint(poseOf(pending), source, pending.light());
-            }
-            keep(measured);
-        });
+        PassBuffers source = buffers();
+        source.target = fine;
+        try {
+            withMatrices(narrowed, () -> {
+                for (Pending pending : PENDING) {
+                    pending.painter().paint(poseOf(pending), source, pending.light());
+                }
+                keep(measured);
+            });
+        } finally {
+            source.target = null;
+        }
 
         RenderTarget last = fine;
         if (half != null) {
@@ -222,11 +245,40 @@ public final class SmoothPass {
     }
 
     /** An own source, drawn in the painters' order: shader packs swap the game's for one that holds draws back. */
-    private static MultiBufferSource.BufferSource buffers() {
+    private static PassBuffers buffers() {
         if (buffers == null) {
-            buffers = MultiBufferSource.immediate(new BufferBuilder(1 << 16));
+            Map<RenderType, BufferBuilder> glints = new LinkedHashMap<>();
+            for (RenderType type : SceneRenderer.glintTypes()) {
+                glints.put(type, new BufferBuilder(1 << 12));
+            }
+            buffers = new PassBuffers(new BufferBuilder(1 << 16), glints);
         }
         return buffers;
+    }
+
+    /**
+     * The painters' buffers. The enchantment glints have buffers of their own ({@link SceneRenderer#glintTypes}), drawn after
+     * the items as the game draws them: in the shared one the item's own type ended the glint's batch and the item renderer got
+     * that one buffer for both, which the game refuses ("Duplicate delegates"). A nether star or an enchanted item on a page then
+     * broke the pass, and every smooth painter was drawn with the scene for the rest of the session. A type that
+     * binds a target of its own while it is drawn (the entity outline's, a modded one) gives the pass its target back after its
+     * batch, with its viewport: only its own drawing is lost, never everything drawn after it.
+     */
+    private static final class PassBuffers extends MultiBufferSource.BufferSource {
+        /** What the painters draw into now: the fine target, or the frame when drawing straight over it. */
+        private RenderTarget target;
+
+        private PassBuffers(BufferBuilder builder, Map<RenderType, BufferBuilder> glints) {
+            super(builder, glints);
+        }
+
+        @Override
+        public void endBatch(RenderType type) {
+            super.endBatch(type);
+            if (target != null) {
+                target.bindWrite(true);
+            }
+        }
     }
 
     /** Draws the types measuring took from the painters, then everything: see KeptTypes. */
