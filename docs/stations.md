@@ -26,6 +26,7 @@ public static final StationType STILL = Diegesis.station(ResourceLocation.fromNa
 |---|---|---|
 | `blocks(Block...)` | - | Blocks that open the station. |
 | `block(Supplier<? extends Block>)` | - | A block looked up when first needed: a NeoForge `DeferredBlock`, a Fabric field filled in `onInitialize`. |
+| `blocks(Supplier<? extends Collection<? extends Block>>)` | - | Several blocks looked up together when first needed: a set known only once every block is registered, such as all the blocks of one kind another mod adds. Asked again while it gives null or throws; an empty collection is an answer. |
 | `tag(TagKey<Block>)` | - | Every block in the tag opens it. |
 | `when(Predicate<BlockState>)` | all states | Only some states open it (the lower half of a tall block). |
 | `anchor(Anchor)` | every block alone | Multiblocks: which block the station lives at (below). |
