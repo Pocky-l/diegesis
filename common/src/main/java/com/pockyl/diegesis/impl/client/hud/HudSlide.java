@@ -1,5 +1,6 @@
 package com.pockyl.diegesis.impl.client.hud;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import org.joml.Matrix4f;
@@ -52,6 +53,9 @@ public final class HudSlide {
     private static float maxX;
     private static float maxY;
     private static boolean measured;
+    /** The pose entry {@link #begin} pushed for the part being drawn, and the one it was pushed on. */
+    private static PoseStack.Pose pushed;
+    private static PoseStack.Pose below;
     private static final Vector3f CORNER = new Vector3f();
 
     private HudSlide() {
@@ -134,22 +138,44 @@ public final class HudSlide {
             return;
         }
         offset(key, graphics.guiWidth(), graphics.guiHeight());
+        below = graphics.pose().last();
         graphics.pose().pushPose();
+        pushed = graphics.pose().last();
         graphics.pose().translate(shiftX, shiftY, 0.0F);
     }
 
-    /** The part {@link #begin} started is drawn. */
+    /**
+     * The part {@link #begin} started is drawn. The pose goes back to where it was before {@link #begin}: what the part pushed
+     * and left goes with the slide's own entry (Veil, in Effective, leaves one pushed on most frames), else the slide stayed on
+     * the pose the screen draws with next, and the station's hotbar was drawn away from where it is clicked.
+     */
     public static void end(GuiGraphics graphics) {
         if (depth == 0 || --depth > 0) {
             return;
         }
         if (moved) {
-            graphics.pose().popPose();
+            unwind(graphics.pose());
         }
         if (measured) {
             BOXES.put(current, new float[] {minX, minY, maxX, maxY});
         }
         current = null;
+    }
+
+    /**
+     * Pops the slide's own entry and every one above it. Where the part popped the slide's entry itself (one pop too many),
+     * the entry below it is on top already and nothing more is popped; the stack's last entry is never popped.
+     */
+    private static void unwind(PoseStack pose) {
+        while (pose.last() != below && !pose.clear()) {
+            PoseStack.Pose top = pose.last();
+            pose.popPose();
+            if (top == pushed) {
+                break;
+            }
+        }
+        below = null;
+        pushed = null;
     }
 
     /** Whether part {@code key} covered most of the screen when it was drawn last: a vignette, not a part of the HUD. */
