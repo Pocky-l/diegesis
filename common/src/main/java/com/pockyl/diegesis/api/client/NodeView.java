@@ -141,7 +141,8 @@ public interface NodeView {
     /**
      * Leaves a trail on the node's liquid at {@code x, z} (the node's pixels): call it as something moves through, a spoon, a finger. The trail is
      * a furrow in the liquid's own colour, lit on one side; it stays in the liquid, goes round with {@link #setCurrent}, runs out and fades as
-     * {@link #setWakeLook} says. Square tanks seen from above.
+     * {@link #setWakeLook} says. Square tanks seen from above. In a mass ({@link #setMass}) it pushes the mass aside: a real furrow with a
+     * ridge at each side, which flows back as firmly as the mass is made.
      */
     void leaveWake(float x, float z);
 
@@ -203,7 +204,8 @@ public interface NodeView {
     /**
      * Floats {@code count} things on the node's liquid, taken in turns from {@code floaters}. They come and go one by one, so a soup can
      * fill up as it cooks and thin out as it is served; things no longer in the list leave. Nothing happens without a tank; an empty
-     * list clears it. {@link #setCurrent} carries them round.
+     * list clears it. {@link #setCurrent} carries them round. In a mass ({@link #setMass}) they are held in it, partly sunk: they neither
+     * bob nor turn, go round with the mass and stay where something pushes them.
      */
     void setFloating(java.util.List<Floater> floaters, int count);
 
@@ -215,6 +217,31 @@ public interface NodeView {
 
     /** How fast the node's liquid turns, radians per second, the sign saying which way round: it carries what floats on it. */
     void setCurrent(float radiansPerSecond);
+
+    /**
+     * Shows what the node's tank holds as a thick mass instead of a runny liquid ({@code null}: as the scene file says, a runny liquid
+     * unless its {@code tank} names a {@code mass}). The level is the liquid's; the mass has relief that {@link #leaveWake} furrows, its
+     * own texture carried round by {@link #setCurrent}, light and gloss, and holds what floats ({@link #setFloating}) partly sunk instead
+     * of afloat. Square and round tanks seen from above; a tipped vessel keeps it where it is, as a mass does.
+     */
+    default void setMass(com.pockyl.diegesis.api.scene.MassLook look) {
+    }
+
+    /**
+     * How far the node's liquid has turned into its mass ({@link #setMass}), 0 (still the liquid) to 1 (all mass, the default): as it
+     * thickens, lumps of the mass form in the liquid and grow together, the liquid takes the mass's colour and the relief grows in. It
+     * drifts there over a few frames. Nothing changes without a mass.
+     */
+    default void setThickness(float amount) {
+    }
+
+    /**
+     * Raises the node's mass into a mound at {@code x, z} (the node's pixels), {@code radius} pixels round, {@code height} pixels high at
+     * its middle: a scoop of ice cream put on, a dollop of cream. A negative height takes a hollow out, as a spoon does. It flows as the
+     * mass flows. Nothing happens without a mass.
+     */
+    default void mound(float x, float z, float radius, float height) {
+    }
 
     /**
      * Draws a shape made by code at the node, in the node's pixels, with {@code texture} (a sprite of the block atlas); null takes

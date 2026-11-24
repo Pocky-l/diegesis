@@ -496,7 +496,24 @@ obj("tank", "TankBinding", "Shows a station tank as liquid inside the node.", {
                                      " the spout.", 100),
     "opening": field(VEC3, "Where poured liquid goes in, node pixels; the middle of inner's top when absent."),
     "pour_height": field(num(0, 32), "How high (pixels) over the other tank's opening the spout is held.", 3),
+    "mass": field({"$ref": "#/definitions/mass"}, "Shows what the tank holds as a thick mass instead of a runny liquid."),
+    "wall_gap": field(num(0, 8), "How far (pixels) the vessel's walls stand outside inner: a mass reaches across the gap to"
+                                 " them, the liquid stays inside inner.", 0),
 }, required=["tank", "inner"])
+
+obj("mass", "MassLook", "A thick mass in a tank: a batter, a porridge, a dough, whipped butter, ice cream. It has relief that"
+    " whatever moves through it furrows, flows back as firmly as it is made, and holds what floats in it.", {
+    "texture": field(ID, "A block-atlas sprite with the mass's own colours, drawn without light or shade, repeated over the"
+                         " surface from the tank's middle."),
+    "tint": field(COLOR, "Multiplied into the texture.", "#FFFFFFFF"),
+    "firmness": field(num(0, 1), "How well it keeps its shape: 0 a batter that levels in about a second, 0.5 a porridge"
+                                 " that keeps a spoon's furrows, 1 ice cream that keeps its peaks.", 0.5),
+    "gloss": field(num(0, 1), "How glossy: 0 dough or mince, 1 butter or ice cream with highlights on its ridges.", 0.3),
+    "grain": field(num(0, 1), "How lumpy at a small scale: 0 smooth, 1 oat flakes or crumbs.", 0.3),
+    "tile": field(num(1, 256), "How many pixels one repeat of the texture covers; 16 is one texel a pixel.", 16),
+    "cell": field(num(0, 16), "How many pixels one cell of its surface covers, the finest step its relief bends at; 0 for"
+                              " one texel of its texture (tile / 16).", 0),
+}, required=["texture"])
 
 obj("emitter", "EmitterDefinition", "Gives off scene particles; code can switch it (NodeView.setEmitting).", {
     "particle": field(ID, "A particle style: diegesis:spark, bubble, droplet, splash, steam, smoke, glint, dust,"

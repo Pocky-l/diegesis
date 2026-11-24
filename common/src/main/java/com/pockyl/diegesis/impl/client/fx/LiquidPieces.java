@@ -65,6 +65,17 @@ public final class LiquidPieces {
     private static final float TUMBLE_TIME = 0.6F;
     private static final float TUMBLE_HOP = 0.45F;
     /**
+     * In a mass: from how thick it is nothing turns over any more; how far out (in its size) a piece feels the relief under it; how much
+     * of its thickness is sunk below the highest point under it.
+     */
+    private static final float HELD_TUMBLES = 0.3F;
+    private static final float HELD_SPAN = 0.3F;
+    private static final float HELD_SUNK = 0.05F;
+    /** Mostly in a mass from this thickness: its pieces' sides hide in it from this far (blocks), and they are not drawn from that far. */
+    private static final float HELD_HALF = 0.5F;
+    private static final float HELD_FLAT_FROM = 6.0F;
+    private static final float HELD_DRAWN_UNTIL = 20.0F;
+    /**
      * Farther than this (blocks) a solid piece is a flat slice, its top and its underside: its voxels are smaller than a pixel
      * there, and a street of cooking soups wrote a thousand corners for every piece every frame.
      */
@@ -87,6 +98,8 @@ public final class LiquidPieces {
     private float wake = WAKE;
     private float time;
     private int made;
+    /** How far the liquid has turned into a mass that holds what is in it, 0 (afloat) to 1 (held). */
+    private float held;
 
     /** What floats from now on; pieces of other things leave, new ones come until there are {@code count}. */
     public void set(List<Floater> floaters, int count) {
@@ -110,6 +123,14 @@ public final class LiquidPieces {
     /** How clear the trails of moving pieces are, 0 to 1; 0 leaves none. */
     public void setWake(float strength) {
         wake = strength;
+    }
+
+    /**
+     * How far the liquid has turned into a mass, 0 to 1: a mass holds what is in it partly sunk, where it is pushed to, going round with
+     * it; nothing bobs, drifts back or turns over in it.
+     */
+    public void setHeld(float amount) {
+        held = Math.max(0.0F, Math.min(1.0F, amount));
     }
 
     public void update(float dt) {
@@ -138,12 +159,13 @@ public final class LiquidPieces {
                     piece.tumble = 0.0F;
                     piece.over = !piece.over;
                 }
-            } else if (piece.floater.solid() && Math.abs(current) > TUMBLE_FROM && random.nextFloat() < dt * TUMBLE_RATE * Math.abs(current)) {
+            } else if (piece.floater.solid() && held < HELD_TUMBLES && Math.abs(current) > TUMBLE_FROM
+                    && random.nextFloat() < dt * TUMBLE_RATE * Math.abs(current)) {
                 piece.tumble = 0.001F;
             }
             // What leans on something stays where it is pushed to; only free, it drifts back to its way.
             if (!piece.touching) {
-                float settle = (float) Math.pow(0.5F, dt / PUSH_HALF_LIFE);
+                float settle = Mth.lerp(held, (float) Math.pow(0.5F, dt / PUSH_HALF_LIFE), 1.0F);
                 piece.pushX *= settle;
                 piece.pushZ *= settle;
             }
@@ -152,8 +174,8 @@ public final class LiquidPieces {
                 iterator.remove();
                 continue;
             }
-            // The middle of a turning liquid is slower than its edge; left alone every piece keeps wandering a little.
-            piece.angle += dt * (current * (0.45F + 0.75F * piece.reach) + 0.02F * piece.wander);
+            // The middle of a turning liquid is slower than its edge; left alone every piece keeps wandering a little. A mass turns as one.
+            piece.angle += dt * (current * Mth.lerp(held, 0.45F + 0.75F * piece.reach, 1.0F) + 0.02F * piece.wander * (1.0F - held));
         }
     }
 
@@ -168,7 +190,9 @@ public final class LiquidPieces {
      * @param distance how far the camera is from the vessel, blocks: far pieces are flat slices
      */
     public void render(Box inner, LiquidSim sim, PoseStack poseStack, MultiBufferSource buffers, int light, float distance) {
-        if (pieces.isEmpty()) {
+        boolean inMass = held > HELD_HALF;
+        if (pieces.isEmpty() || inMass && distance >= HELD_DRAWN_UNTIL) {
+            // Sunk in a mass, a piece shows as a speck from afar.
             return;
         }
         VertexConsumer consumer = buffers.getBuffer(Sheets.cutoutBlockSheet());
@@ -196,12 +220,12 @@ public final class LiquidPieces {
             separate(centerX, centerZ, halfX, halfZ);
         }
         Quaternionf turn = new Quaternionf();
-        boolean flat = distance >= FLAT_FROM;
+        boolean flat = distance >= (inMass ? HELD_FLAT_FROM : FLAT_FROM);
         for (Piece piece : pieces) {
             piece.pushX = piece.x - piece.wayX;
             piece.pushZ = piece.z - piece.wayZ;
             leaveWake(piece, sim, centerX, centerZ, halfX, halfZ);
-            float rock = Mth.sin(time * 0.9F + piece.wander * 3.0F) * 0.06F;
+            float rock = Mth.sin(time * 0.9F + piece.wander * 3.0F) * 0.06F * (1.0F - held);
             float size = piece.floater.size() * piece.grown;
             float risen = overshot(piece.rise);
             float waveU = 0.5F + piece.u / 2.0F;
@@ -213,8 +237,30 @@ public final class LiquidPieces {
             float below = RISE_DEPTH * (1.0F - risen);
             float eased = piece.tumble * piece.tumble * (3.0F - 2.0F * piece.tumble);
             float hop = Mth.sin(piece.tumble * Mth.PI) * TUMBLE_HOP;
+            float y = surface + LIFT + piece.floater.size() * 0.1F + hop - below - sim.height(waveU, waveV);
             poseStack.pushPose();
-            poseStack.translate(piece.x, surface + LIFT + piece.floater.size() * 0.1F + hop - below - sim.height(waveU, waveV), piece.z);
+            if (held > 0.0F) {
+                // Held in a mass: partly sunk where it stands highest under the piece, lying along its slope.
+                float x = (piece.x - centerX) / (2.0F * halfX);
+                float z = (piece.z - centerZ) / (2.0F * halfZ);
+                float stepX = size * HELD_SPAN / (2.0F * halfX);
+                float stepZ = size * HELD_SPAN / (2.0F * halfZ);
+                float east = sim.relief(x + stepX, z);
+                float west = sim.relief(x - stepX, z);
+                float south = sim.relief(x, z + stepZ);
+                float north = sim.relief(x, z - stepZ);
+                float top = Math.max(sim.relief(x, z), Math.max(Math.max(east, west), Math.max(south, north)));
+                float thick = size / 16.0F * THICKNESS;
+                float thin = 1.0F - held;
+                float sunk = surface + top - thick * HELD_SUNK - below - sim.height(waveU, waveV) * thin * thin;
+                y = Mth.lerp(held, y, sunk);
+                poseStack.translate(piece.x, y, piece.z);
+                float slopeX = (east - west) / (2.0F * size * HELD_SPAN);
+                float slopeZ = (south - north) / (2.0F * size * HELD_SPAN);
+                poseStack.mulPose(turn.rotationZ((float) Math.atan(slopeX) * held).rotateX(-(float) Math.atan(slopeZ) * held));
+            } else {
+                poseStack.translate(piece.x, y, piece.z);
+            }
             turn.rotationY(piece.yaw).rotateX(rock + (piece.over ? Mth.PI : 0.0F) + eased * Mth.PI);
             poseStack.mulPose(turn);
             piece.draw(consumer, poseStack.last(), atlas.apply(piece.floater.sprite()), size, light, flat);
