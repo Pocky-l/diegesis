@@ -14,8 +14,8 @@ import com.pockyl.diegesis.impl.client.HiddenBlocks;
  * longer hides them, came out black: through the fading wall, at the station, and in the gaps of the scene's copy.
  *
  * <p>Such a place is lit as the engine would light it as air: per layer, the most of its own light and of each neighbour's
- * less one, where sky light from straight above at its full strength stays full. Neighbours that are open themselves hold
- * no light of their own and count for nothing.
+ * less one, where sky light from straight above at its full strength stays full, also down a column of such places.
+ * Neighbours that are open themselves hold no light of their own and count for nothing.
  */
 public final class OpenLight {
     private static final int FULL = 15;
@@ -34,11 +34,16 @@ public final class OpenLight {
         BlockPos.MutableBlockPos around = new BlockPos.MutableBlockPos();
         for (Direction side : Direction.values()) {
             around.setWithOffset(pos, side);
+            boolean fromAbove = layer == LightLayer.SKY && side == Direction.UP;
+            // Full sky light comes straight down through open places as through air: up past them to the first that is not.
+            while (fromAbove && isOpen(around)) {
+                around.move(Direction.UP);
+            }
             if (isOpen(around)) {
                 continue;
             }
             int there = level.getBrightness(layer, around);
-            light = Math.max(light, layer == LightLayer.SKY && side == Direction.UP && there == FULL ? FULL : there - 1);
+            light = Math.max(light, fromAbove && there == FULL ? FULL : there - 1);
         }
         return Math.max(0, light);
     }
