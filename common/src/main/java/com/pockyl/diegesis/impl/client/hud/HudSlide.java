@@ -1,5 +1,6 @@
 package com.pockyl.diegesis.impl.client.hud;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import org.joml.Matrix4f;
@@ -52,6 +53,9 @@ public final class HudSlide {
     private static float maxX;
     private static float maxY;
     private static boolean measured;
+    /** The pose level {@link #begin} pushed for the slide, and the one under it. */
+    private static PoseStack.Pose slideLevel;
+    private static PoseStack.Pose underSlide;
     private static final Vector3f CORNER = new Vector3f();
 
     private HudSlide() {
@@ -134,7 +138,9 @@ public final class HudSlide {
             return;
         }
         offset(key, graphics.guiWidth(), graphics.guiHeight());
+        underSlide = graphics.pose().last();
         graphics.pose().pushPose();
+        slideLevel = graphics.pose().last();
         graphics.pose().translate(shiftX, shiftY, 0.0F);
     }
 
@@ -144,12 +150,29 @@ public final class HudSlide {
             return;
         }
         if (moved) {
-            graphics.pose().popPose();
+            unwind(graphics.pose());
         }
         if (measured) {
             BOXES.put(current, new float[] {minX, minY, maxX, maxY});
         }
         current = null;
+    }
+
+    /**
+     * Takes the slide off the pose. A part may push a level and return without popping it (Veil's tooltip in Effective, drawn
+     * through Fabric's HUD hook): popping one level then took that one, and the slide stayed on the pose the screen is drawn
+     * with after the HUD, so a station's screen was drawn moved away from where it is clicked. Every level above the slide's
+     * goes with it; if a part popped the slide's own level already, nothing under it is touched.
+     */
+    private static void unwind(PoseStack pose) {
+        while (pose.last() != slideLevel && pose.last() != underSlide && !pose.clear()) {
+            pose.popPose();
+        }
+        if (pose.last() == slideLevel) {
+            pose.popPose();
+        }
+        slideLevel = null;
+        underSlide = null;
     }
 
     /** Whether part {@code key} covered most of the screen when it was drawn last: a vignette, not a part of the HUD. */
