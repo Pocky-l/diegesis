@@ -130,6 +130,7 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Resou
                 models.add(model);
             } else {
                 absent++;
+                DiegesisMod.LOGGER.debug("Left out scene model {}: a texture or parent model it names is not installed", model);
             }
         }
         if (absent > 0) {
