@@ -19,11 +19,13 @@
     "client.LevelRendererAccessor",
     "client.LevelRendererMixin",
     "client.MultiPlayerGameModeMixin",
+    "client.OpenLightMixin",
     "client.ParticleEngineMixin",
     "client.RenderChunkRegionMixin",
     "client.ShaderTransparencyMixin",
     "client.SingleQuadParticleMixin",
     "client.TextureSheetParticleGpuMixin",
+    "client.SodiumLightDataMixin",
     "client.SodiumOcclusionMixin",
     "client.SodiumWorldSliceMixin"
   ],

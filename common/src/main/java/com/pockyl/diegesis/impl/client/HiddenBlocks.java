@@ -25,6 +25,8 @@ public final class HiddenBlocks {
     private static final int FRAMES_AFTER_BUILT = 2;
     /** The most frames the scene waits, for a renderer whose builder this never hears: then the two overlap a moment instead. */
     private static final int MOST_FRAMES = 30;
+    /** Counts the changes of {@link #HIDDEN}: what was worked out from it is stale once this moves. */
+    private static volatile int changes;
 
     private static final class Showing {
         private volatile boolean built;
@@ -33,6 +35,11 @@ public final class HiddenBlocks {
     }
 
     private HiddenBlocks() {
+    }
+
+    /** A number that changes whenever the hidden blocks do. */
+    public static int changes() {
+        return changes;
     }
 
     public static boolean isHidden(BlockPos pos) {
@@ -118,6 +125,7 @@ public final class HiddenBlocks {
         }
         HIDDEN.retainAll(wanted);
         HIDDEN.addAll(wanted);
+        changes++;
         Minecraft minecraft = Minecraft.getInstance();
         for (BlockPos pos : changed) {
             if (minecraft.level != null) {

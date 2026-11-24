@@ -123,6 +123,16 @@ public final class ClearBlocks {
         return !set.isEmpty() && set.contains(pos.asLong());
     }
 
+    /** The blocks left out now, as one unchanging set: a new set whenever they change. */
+    static Object hiddenNow() {
+        return hidden;
+    }
+
+    /** Whether the chunk meshes leave out any block now. */
+    static boolean anyHidden() {
+        return !hidden.isEmpty();
+    }
+
     /** Whether the chunk meshes leave out the block at {@code x y z}. */
     public static boolean hides(int x, int y, int z) {
         LongOpenHashSet set = hidden;
