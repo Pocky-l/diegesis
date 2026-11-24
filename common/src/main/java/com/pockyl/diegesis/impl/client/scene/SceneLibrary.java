@@ -19,10 +19,10 @@ import com.pockyl.diegesis.impl.scene.NodeTemplates;
 
 import java.io.Reader;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Loads the scene files, {@code assets/<namespace>/diegesis/scenes/<path>.json}, with the resource packs: F3+T reloads
@@ -108,15 +108,109 @@ public final class SceneLibrary extends SimplePreparableReloadListener<Map<Ident
     }
 
     /**
-     * The block models every scene may use without registering them: all of {@code models/diegesis/}, plus the ones
-     * registered in code. Read while the models load (before the scenes).
+     * The block models every scene may use without registering them: all of {@code models/diegesis/} that can be built here,
+     * plus the ones registered in code. Read while the models load (before the scenes).
+     *
+     * <p>An addon may ship models for the blocks of mods a player may not have: such a model names those mods' textures or
+     * parent models, and loaded without them it only filled the log with warnings (a station of a missing mod never draws
+     * it). A file is left out when a texture or parent model it names, or that a parent among these files names, is not in
+     * the resources. The files are looked for, not their namespaces: a pack may claim another mod's namespace whether that
+     * mod is there or not (Hands-On Delight's block states do). A file that cannot be read is loaded as before: the game
+     * reports what is wrong with it.
      */
     public static Set<Identifier> modelsToLoad(ResourceManager manager) {
-        Set<Identifier> models = manager.listResources(MODEL_DIR, path -> path.getPath().endsWith(".json")).keySet().stream()
-                .map(file -> Identifier.fromNamespaceAndPath(file.getNamespace(), file.getPath().substring("models/".length(), file.getPath().length() - ".json".length())))
-                .collect(Collectors.toSet());
+        Map<Identifier, Names> listed = new HashMap<>();
+        manager.listResources(MODEL_DIR, path -> path.getPath().endsWith(".json"))
+                .forEach((file, resource) -> listed.put(modelId(file), Names.of(file, resource)));
+        Map<Identifier, Boolean> found = new HashMap<>();
+        Set<Identifier> models = new HashSet<>();
+        int absent = 0;
+        for (Identifier model : listed.keySet()) {
+            if (complete(model, listed, manager, found, new HashSet<>())) {
+                models.add(model);
+            } else {
+                absent++;
+                DiegesisMod.LOGGER.debug("Left out scene model {}: a texture or parent model it names is not installed", model);
+            }
+        }
+        if (absent > 0) {
+            DiegesisMod.LOGGER.info("Left out {} scene models whose textures or parent models are not installed", absent);
+        }
         models.addAll(ClientRegistry.extraModels());
         return models;
+    }
+
+    private static Identifier modelId(Identifier file) {
+        return Identifier.fromNamespaceAndPath(file.getNamespace(),
+                file.getPath().substring("models/".length(), file.getPath().length() - ".json".length()));
+    }
+
+    /** Whether every texture and parent model {@code model} names is there, through its parents among the listed files. */
+    private static boolean complete(Identifier model, Map<Identifier, Names> listed, ResourceManager manager,
+            Map<Identifier, Boolean> found, Set<Identifier> seen) {
+        Names names = listed.get(model);
+        if (names == null || !seen.add(model)) {
+            return true;
+        }
+        for (Identifier texture : names.textures()) {
+            if (!found.computeIfAbsent(texture.withPath(path -> "textures/" + path + ".png"), file -> manager.getResource(file).isPresent())) {
+                return false;
+            }
+        }
+        for (Identifier parent : names.parents()) {
+            boolean there = listed.containsKey(parent) ? complete(parent, listed, manager, found, seen)
+                    : parent.getPath().startsWith("builtin/")
+                    || found.computeIfAbsent(parent.withPath(path -> "models/" + path + ".json"), file -> manager.getResource(file).isPresent());
+            if (!there) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** What a model file names: its textures and parent models, nested objects too. */
+    private record Names(Set<Identifier> textures, Set<Identifier> parents) {
+        private static final Names UNREAD = new Names(Set.of(), Set.of());
+
+        static Names of(Identifier file, Resource resource) {
+            Names names = new Names(new HashSet<>(), new HashSet<>());
+            try (Reader reader = resource.openAsReader()) {
+                names.collect(JsonParser.parseReader(reader));
+                return names;
+            } catch (Exception e) {
+                DiegesisMod.LOGGER.debug("Could not read scene model {} to see which mods it needs", file, e);
+                return UNREAD;
+            }
+        }
+
+        private void collect(JsonElement json) {
+            if (json.isJsonArray()) {
+                json.getAsJsonArray().forEach(this::collect);
+                return;
+            }
+            if (!json.isJsonObject()) {
+                return;
+            }
+            for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject().entrySet()) {
+                JsonElement value = entry.getValue();
+                if (entry.getKey().equals("parent") && value.isJsonPrimitive()) {
+                    Identifier parent = Identifier.tryParse(value.getAsString());
+                    if (parent != null) {
+                        parents.add(parent);
+                    }
+                } else if (entry.getKey().equals("textures") && value.isJsonObject()) {
+                    for (Map.Entry<String, JsonElement> texture : value.getAsJsonObject().entrySet()) {
+                        String name = texture.getValue().isJsonPrimitive() ? texture.getValue().getAsString() : "#";
+                        Identifier id = name.startsWith("#") ? null : Identifier.tryParse(name);
+                        if (id != null) {
+                            textures.add(id);
+                        }
+                    }
+                } else {
+                    collect(value);
+                }
+            }
+        }
     }
 
     /** Every model id the loaded scenes use, for warnings about models that were not loaded. */
