@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import com.pockyl.diegesis.api.Diegesis;
 import com.pockyl.diegesis.api.state.StationSchema;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -38,7 +39,7 @@ import java.util.function.Supplier;
 public final class StationType {
     private final ResourceLocation id;
     private final Set<Block> blocks;
-    private final List<Supplier<? extends Block>> lateBlocks;
+    private final List<Supplier<? extends Collection<? extends Block>>> lateBlocks;
     private volatile Set<Block> resolvedLateBlocks;
     private final Anchor anchor;
     private final List<TagKey<Block>> tags;
@@ -145,7 +146,7 @@ public final class StationType {
         return blocks;
     }
 
-    /** Whether the station also names blocks through suppliers ({@link Builder#block(Supplier)}). */
+    /** Whether the station also names blocks through suppliers ({@link Builder#block(Supplier)}, {@link Builder#blocks(Supplier)}). */
     public boolean hasLateBlocks() {
         return !lateBlocks.isEmpty();
     }
@@ -157,17 +158,22 @@ public final class StationType {
             return resolved;
         }
         Set<Block> found = new LinkedHashSet<>();
-        for (Supplier<? extends Block> supplier : lateBlocks) {
-            Block block;
+        for (Supplier<? extends Collection<? extends Block>> supplier : lateBlocks) {
+            Collection<? extends Block> some;
             try {
-                block = supplier.get();
+                some = supplier.get();
             } catch (RuntimeException notYet) {
                 return Set.of();
             }
-            if (block == null) {
+            if (some == null) {
                 return Set.of();
             }
-            found.add(block);
+            for (Block block : some) {
+                if (block == null) {
+                    return Set.of();
+                }
+                found.add(block);
+            }
         }
         resolvedLateBlocks = Set.copyOf(found);
         return resolvedLateBlocks;
@@ -323,7 +329,7 @@ public final class StationType {
         private boolean idleLogic;
         private final ResourceLocation id;
         private final Set<Block> blocks = new LinkedHashSet<>();
-        private final List<Supplier<? extends Block>> lateBlocks = new java.util.ArrayList<>();
+        private final List<Supplier<? extends Collection<? extends Block>>> lateBlocks = new java.util.ArrayList<>();
         private Anchor anchor = Anchor.SELF;
         private final List<TagKey<Block>> tags = new java.util.ArrayList<>();
         private Predicate<BlockState> condition = state -> true;
@@ -353,7 +359,21 @@ public final class StationType {
          * built (a Forge {@code RegistryObject}, a Fabric field filled in the mod initializer).
          */
         public Builder block(Supplier<? extends Block> value) {
-            lateBlocks.add(Objects.requireNonNull(value));
+            Objects.requireNonNull(value);
+            lateBlocks.add(() -> {
+                Block block = value.get();
+                return block == null ? null : List.of(block);
+            });
+            return this;
+        }
+
+        /**
+         * Blocks that open this station, all looked up together when first needed: for a set that is only known once every block is
+         * registered, such as every block of a kind another mod adds (its own twins of other mods' blocks). The supplier is asked
+         * until it answers: null, a null block or an exception means "not yet". An empty collection is an answer.
+         */
+        public Builder blocks(Supplier<? extends Collection<? extends Block>> values) {
+            lateBlocks.add(Objects.requireNonNull(values));
             return this;
         }
 
