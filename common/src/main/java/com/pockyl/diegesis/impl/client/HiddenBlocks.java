@@ -1,5 +1,6 @@
 package com.pockyl.diegesis.impl.client;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
@@ -16,6 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class HiddenBlocks {
     private static final Set<BlockPos> HIDDEN = ConcurrentHashMap.newKeySet();
+    /**
+     * {@link #HIDDEN} packed, never changed once published: Sodium's mesh builder asks for every block of a section by its
+     * coordinates, and went through every hidden block for each.
+     */
+    private static volatile LongOpenHashSet hiddenPacked = new LongOpenHashSet();
     /**
      * Blocks shown again whose chunk is not built with them yet: chunks are built on other threads and come a few frames later, so
      * the scene keeps standing in for such a block until its own model has been built and put on screen.
@@ -36,7 +42,8 @@ public final class HiddenBlocks {
     }
 
     public static boolean isHidden(BlockPos pos) {
-        return !HIDDEN.isEmpty() && HIDDEN.contains(pos);
+        LongOpenHashSet packed = hiddenPacked;
+        return !packed.isEmpty() && packed.contains(pos.asLong());
     }
 
     /**
@@ -86,15 +93,8 @@ public final class HiddenBlocks {
 
     /** {@link #isHidden(BlockPos)} by coordinates, for a mesh builder that reads every block of a section: no position is made. */
     public static boolean isHidden(int x, int y, int z) {
-        if (HIDDEN.isEmpty()) {
-            return false;
-        }
-        for (BlockPos pos : HIDDEN) {
-            if (pos.getX() == x && pos.getY() == y && pos.getZ() == z) {
-                return true;
-            }
-        }
-        return false;
+        LongOpenHashSet packed = hiddenPacked;
+        return !packed.isEmpty() && packed.contains(BlockPos.asLong(x, y, z));
     }
 
     /**
@@ -118,6 +118,9 @@ public final class HiddenBlocks {
         }
         HIDDEN.retainAll(wanted);
         HIDDEN.addAll(wanted);
+        LongOpenHashSet packed = new LongOpenHashSet(wanted.size());
+        wanted.forEach(pos -> packed.add(pos.asLong()));
+        hiddenPacked = packed;
         Minecraft minecraft = Minecraft.getInstance();
         for (BlockPos pos : changed) {
             if (minecraft.level != null) {

@@ -19,12 +19,12 @@
     "client.KeyboardInputMixin",
     "client.LevelRendererAccessor",
     "client.LevelRendererMixin",
+    "client.LightColorMixin",
     "client.MultiPlayerGameModeMixin",
     "client.ParticleEngineMixin",
     "client.RenderChunkRegionMixin",
     "client.ShaderTransparencyMixin",
     "client.SingleQuadParticleMixin",
-    "client.SodiumOcclusionMixin",
     "client.SodiumWorldSliceMixin",
     "client.TextureSheetParticleGpuMixin"
   ],

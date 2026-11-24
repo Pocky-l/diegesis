@@ -16,7 +16,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.ColorResolver;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.lighting.LevelLightEngine;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -63,6 +70,7 @@ final class BlockLit {
         if (level == null) {
             return;
         }
+        BlockAndTintGetter meshed = AsMeshed.of(level);
         Matrix4f world = new Matrix4f(toWorld).mul(poseStack.last().pose());
         Vector3f x = world.transformDirection(new Vector3f(1.0F, 0.0F, 0.0F)).normalize();
         Vector3f y = world.transformDirection(new Vector3f(0.0F, 1.0F, 0.0F)).normalize();
@@ -77,7 +85,7 @@ final class BlockLit {
             poseStack.last().pose().rotateY(-quarters * Mth.HALF_PI);
             poseStack.last().normal().rotateY(-quarters * Mth.HALF_PI);
             poseStack.translate(-0.5F, 0.0F, -0.5F);
-            minecraft.getBlockRenderer().getModelRenderer().tesselateBlock(level, turned(model, quarters), state, pos, poseStack, consumer,
+            minecraft.getBlockRenderer().getModelRenderer().tesselateBlock(meshed, turned(model, quarters), state, pos, poseStack, consumer,
                     false, RandomSource.create(), 42L, OverlayTexture.NO_OVERLAY);
             poseStack.popPose();
             return;
@@ -88,7 +96,7 @@ final class BlockLit {
             for (BakedQuad quad : model.getQuads(state, side, random)) {
                 Vector3f normal = world.transformDirection(new Vector3f(quad.getDirection().step())).normalize();
                 float shade = quad.isShade() ? diffuse(normal) : 1.0F;
-                int light = faceLight(level, quad, world, camera, normal, pos);
+                int light = faceLight(meshed, quad, world, camera, normal, pos);
                 consumer.putBulkData(poseStack.last(), quad, shade, shade, shade, 1.0F, light, OverlayTexture.NO_OVERLAY);
             }
         }
@@ -96,9 +104,10 @@ final class BlockLit {
 
     /**
      * The light of a turned face: of the block just in front of its middle, where it stands now. Where that one is solid (no
-     * light inside), or the face's place is not known, the block {@code pos} looks into that way, or {@code pos} itself.
+     * light inside), or the face's place is not known, the block {@code pos} looks into that way, or {@code pos} itself. A block
+     * in the camera's way or a hidden station block is open there ({@link OpenLight}).
      */
-    private static int faceLight(ClientLevel level, BakedQuad quad, Matrix4f world, Vec3 camera, Vector3f normal, BlockPos pos) {
+    private static int faceLight(BlockAndTintGetter level, BakedQuad quad, Matrix4f world, Vec3 camera, Vector3f normal, BlockPos pos) {
         if (camera != null) {
             int[] data = quad.getVertices();
             int vertices = data.length / STRIDE;
@@ -110,12 +119,73 @@ final class BlockLit {
             world.transformPosition(middle.div(Math.max(1, vertices)));
             BlockPos front = BlockPos.containing(camera.x + middle.x + normal.x * IN_FRONT, camera.y + middle.y + normal.y * IN_FRONT,
                     camera.z + middle.z + normal.z * IN_FRONT);
-            if (!level.getBlockState(front).isSolidRender(level, front)) {
+            if (open(level, front)) {
                 return LevelRenderer.getLightColor(level, front);
             }
         }
         BlockPos lit = pos.relative(Direction.getNearest(normal.x, normal.y, normal.z));
-        return LevelRenderer.getLightColor(level, level.getBlockState(lit).isSolidRender(level, lit) ? pos : lit);
+        return LevelRenderer.getLightColor(level, open(level, lit) ? lit : pos);
+    }
+
+    private static boolean open(BlockAndTintGetter level, BlockPos pos) {
+        return OpenLight.isOpen(pos) || !level.getBlockState(pos).isSolidRender(level, pos);
+    }
+
+    /**
+     * The level as the chunk meshes see it: the blocks in the camera's way are air. The scene's copy of a block beside one
+     * then gets the light and corner shade the blocks around it get in the chunk, not the shadow of a wall that is gone.
+     */
+    private record AsMeshed(ClientLevel level) implements BlockAndTintGetter {
+        private static AsMeshed last;
+
+        static AsMeshed of(ClientLevel level) {
+            AsMeshed view = last;
+            if (view == null || view.level != level) {
+                view = new AsMeshed(level);
+                last = view;
+            }
+            return view;
+        }
+
+        @Override
+        public BlockState getBlockState(BlockPos pos) {
+            return ClearBlocks.hides(pos) ? Blocks.AIR.defaultBlockState() : level.getBlockState(pos);
+        }
+
+        @Override
+        public FluidState getFluidState(BlockPos pos) {
+            return ClearBlocks.hides(pos) ? Fluids.EMPTY.defaultFluidState() : level.getFluidState(pos);
+        }
+
+        @Override
+        public BlockEntity getBlockEntity(BlockPos pos) {
+            return level.getBlockEntity(pos);
+        }
+
+        @Override
+        public float getShade(Direction direction, boolean shade) {
+            return level.getShade(direction, shade);
+        }
+
+        @Override
+        public LevelLightEngine getLightEngine() {
+            return level.getLightEngine();
+        }
+
+        @Override
+        public int getBlockTint(BlockPos pos, ColorResolver resolver) {
+            return level.getBlockTint(pos, resolver);
+        }
+
+        @Override
+        public int getHeight() {
+            return level.getHeight();
+        }
+
+        @Override
+        public int getMinBuildHeight() {
+            return level.getMinBuildHeight();
+        }
     }
 
     private static final Direction[] SIDES = {Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST,
