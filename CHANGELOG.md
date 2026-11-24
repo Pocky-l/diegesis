@@ -6,9 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-beta.19+1.20.1] - Unreleased
 ### Fixed
-- With Fabulous graphics, slime, honey, ice and stained glass show again on a station's page (such as a recipe in [Hands-On Delight](https://www.curseforge.com/minecraft/mc-mods/hands-on-delight)'s book), and the rest of the page no longer jumps out four times larger over the station.
+- With Fabulous graphics, a book page showing a slime block, honey, ice or stained glass no longer leaves that cell empty and draws the rest of the page large across the screen.
 - A nether star or an enchanted item on a station's page no longer makes every page lose its smooth edges for the rest of the session, and it shows with its glint.
-- The faces next to a block that leaves the camera's way at a station, or next to a station block, are no longer black: they get the light of the open air around them, at the station and while the block fades.
+- Blocks beside a station block, or beside one that moves out of the camera's way, no longer show black faces at the station and while the camera flies.
 - Models for stations of mods that are not installed are no longer loaded: no more pages of missing texture warnings in the log.
 - A station's screen stays where it is clicked when another mod's HUD drawing leaves its position changed.
 
