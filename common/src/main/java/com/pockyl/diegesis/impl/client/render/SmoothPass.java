@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.client.Minecraft;
@@ -70,6 +71,8 @@ public final class SmoothPass {
     /** Drawing straight over the frame failed too: painters are drawn with the scene. */
     private static boolean broken;
     private static boolean drawing;
+    /** The target the painters are drawn into now: the fine one, or the frame. */
+    private static RenderTarget drawingInto;
     private static MultiBufferSource.BufferSource buffers;
 
     private SmoothPass() {
@@ -129,6 +132,7 @@ public final class SmoothPass {
             DiegesisMod.LOGGER.error("Drawing over the frame failed; smooth painters are drawn with the scene from now on", e);
         } finally {
             drawing = false;
+            drawingInto = null;
             PENDING.clear();
             Minecraft.getInstance().getMainRenderTarget().bindWrite(true);
         }
@@ -141,6 +145,7 @@ public final class SmoothPass {
     private static void drawStraight() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         main.bindWrite(true);
+        drawingInto = main;
         RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         try {
             withMatrices(PROJECTION, () -> {
@@ -169,6 +174,7 @@ public final class SmoothPass {
 
     private static void drawPending() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
+        drawingInto = main;
         Set<RenderType> measured = new LinkedHashSet<>();
         int[] box = measure(main.width, main.height, measured);
         if (box == null) {
@@ -201,6 +207,7 @@ public final class SmoothPass {
         fine.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
         fine.clear(Minecraft.ON_OSX);
         fine.bindWrite(true);
+        drawingInto = fine;
         withMatrices(narrowed, () -> {
             MultiBufferSource source = buffers();
             for (Pending pending : PENDING) {
@@ -218,6 +225,7 @@ public final class SmoothPass {
             last = half;
         }
         main.bindWrite(true);
+        drawingInto = main;
         composite(last, left, right, bottom, top);
     }
 
@@ -250,9 +258,46 @@ public final class SmoothPass {
         if (buffers == null) {
             SequencedMap<RenderType, ByteBufferBuilder> glints = new LinkedHashMap<>();
             DiegesisRenderTypes.keepGlints(glints);
-            buffers = MultiBufferSource.immediateWithBuffers(glints, new ByteBufferBuilder(1 << 16));
+            buffers = new OwnTarget(new ByteBufferBuilder(1 << 16), glints);
         }
         return buffers;
+    }
+
+    /**
+     * A source that binds the pass's target again, with its viewport, after each batch it draws. A render state that binds a
+     * target of its own without asking {@code useShaderTransparency} (the outline target, a mod's) then loses only its own
+     * draw, instead of moving every later draw into the frame four times as large.
+     */
+    private static final class OwnTarget extends MultiBufferSource.BufferSource {
+        OwnTarget(ByteBufferBuilder shared, SequencedMap<RenderType, ByteBufferBuilder> fixed) {
+            super(shared, fixed);
+        }
+
+        @Override
+        public VertexConsumer getBuffer(RenderType type) {
+            // A type that cannot run on from its own last batch ends it here, not through endBatch(type).
+            boolean ends = !type.canConsolidateConsecutiveGeometry() && startedBuilders.containsKey(type);
+            VertexConsumer consumer = super.getBuffer(type);
+            if (ends) {
+                bindTarget();
+            }
+            return consumer;
+        }
+
+        @Override
+        public void endBatch(RenderType type) {
+            boolean started = startedBuilders.containsKey(type);
+            super.endBatch(type);
+            if (started) {
+                bindTarget();
+            }
+        }
+
+        private static void bindTarget() {
+            if (drawingInto != null) {
+                drawingInto.bindWrite(true);
+            }
+        }
     }
 
     /** Draws the types measuring took from the painters, then everything: see KeptTypes. */
