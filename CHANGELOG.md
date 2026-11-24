@@ -4,6 +4,14 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.19+1.21.1] - Unreleased
+### Fixed
+- An enchanted item on a station's book page no longer crashes the game with "Not building!" (Fabric with [Continuity](https://modrinth.com/mod/continuity) and an emissive resource pack) or makes the book lose its smooth edges.
+- With [Effective](https://modrinth.com/mod/effective) installed, a station's hotbar and slot rows are drawn where they are clicked again.
+- With Fabulous graphics, a book page showing a slime block, honey, ice or stained glass no longer leaves that cell empty and draws the rest of the page large across the screen.
+- Blocks beside a station block, or beside one that moves out of the camera's way, no longer show black faces at the station and while the camera flies.
+- Block models made for mods that are not installed are no longer loaded, which takes well over a hundred warnings out of the log.
+
 ## [1.0.0-beta.18+1.21.1] - 2026-11-23
 ### Changed
 - Blocks in the camera's way at a station, such as a wall cabinet over a counter, now fade out smoothly as the camera flies in and fade back as it flies out, instead of vanishing and popping back.
