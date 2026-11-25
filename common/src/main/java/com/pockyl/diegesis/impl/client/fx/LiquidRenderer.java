@@ -18,6 +18,7 @@ import org.joml.Vector3fc;
 
 import com.pockyl.diegesis.api.client.LiquidLook;
 import com.pockyl.diegesis.api.scene.Box;
+import com.pockyl.diegesis.api.scene.MassLook;
 import com.pockyl.diegesis.api.scene.TankBinding;
 import com.pockyl.diegesis.api.state.TankContents;
 import com.pockyl.diegesis.impl.client.ClientRegistry;
@@ -56,11 +57,11 @@ public final class LiquidRenderer {
     private static final float NEAR_PATH_DEEP = 0.7F;
     private static final float FAR_PATH = 0.35F;
     private static final float FAR_PATH_DEEP = 0.35F;
-    private static final float SURFACE_PATH = 0.85F;
+    static final float SURFACE_PATH = 0.85F;
     /** The sprite covers this many node pixels, or the whole tank if that is bigger. */
     private static final float SPRITE_SIZE = 16.0F;
     /** Sprite coordinates stay this far inside its edge: at the very edge the atlas' next sprite shows through in specks. */
-    private static final float SPRITE_INSET = 0.02F;
+    static final float SPRITE_INSET = 0.02F;
     /** An uneven surface is one sheet of cells, so nothing has to sort against it: how many along a side, how level it must lie. */
     private static final int MOTTLE_CELLS = LiquidSim.WAKE_CELLS;
     /**
@@ -71,10 +72,10 @@ public final class LiquidRenderer {
     private static final float QUARTER_CELLS_FROM = 28.0F;
     private static final float MOTTLE_UPRIGHT = 0.985F;
     /** The patches: how big, and how many steps of shade, for the look of a texture rather than of a blur. */
-    private static final float MOTTLE_SCALE = 0.6F;
-    private static final float MOTTLE_DETAIL = 2.2F;
-    private static final float MOTTLE_STEPS = 7.0F;
-    private static final float MOTTLE_STRENGTH = 0.24F;
+    static final float MOTTLE_SCALE = 0.6F;
+    static final float MOTTLE_DETAIL = 2.2F;
+    static final float MOTTLE_STEPS = 7.0F;
+    static final float MOTTLE_STRENGTH = 0.24F;
     /** Foam along the walls: how many cells deep it reaches, how often a cell changes (per second), the chance of foam by the wall and one further in. */
     private static final int SEETHE_CELLS = 2;
     private static final float SEETHE_BEAT = 5.0F;
@@ -87,8 +88,8 @@ public final class LiquidRenderer {
     private static final float FOAM_SHADE = 0.14F;
     private static final float FOAM_EDGE = 0.07F;
     /** A trail shades the liquid's own colour, in steps, so it stays pixels and stays food; only its lit side has a little gloss. */
-    private static final float WAKE_STEPS = 8.0F;
-    private static final float WAKE_GLOSS = 0.3F;
+    static final float WAKE_STEPS = 8.0F;
+    static final float WAKE_GLOSS = 0.3F;
     /** Tanks narrower than this (node pixels) are too small for waves to be seen. */
     private static final float MIN_WAVE_SIZE = 3.0F;
     /** The most of its box a liquid fills as drawn. */
@@ -139,13 +140,24 @@ public final class LiquidRenderer {
         if (look == null || fraction < 0.002F) {
             return;
         }
+        MassLook mass = sim.massLook();
+        float thick = sim.thickness();
+        boolean massy = mass != null && thick > MassRenderer.THINNEST;
+        int color = sim.color();
+        if (massy) {
+            // A mass does not slosh: as it thickens its surface keeps to the vessel, and the liquid takes the mass's colour.
+            up = new Vector3f(up).lerp(new Vector3f(0.0F, 1.0F, 0.0F), thick).normalize();
+            color = MassRenderer.toward(color, mass, thick);
+        }
         Box inner = binding.inner();
         float cx = (inner.from().x() + inner.to().x()) / 2.0F;
         float cy = (inner.from().y() + inner.to().y()) / 2.0F;
         float cz = (inner.from().z() + inner.to().z()) / 2.0F;
-        float hx = (inner.to().x() - inner.from().x()) / 2.0F;
+        // Kept a hair off the sides: a liquid as wide as the vessel's inside shows through its walls where they meet. A mass across a
+        // wall gap stops as far short of the walls.
+        float hx = Math.max(0.05F, (inner.to().x() - inner.from().x()) / 2.0F - binding.inset());
         float hy = (inner.to().y() - inner.from().y()) / 2.0F;
-        float hz = (inner.to().z() - inner.from().z()) / 2.0F;
+        float hz = Math.max(0.05F, (inner.to().z() - inner.from().z()) / 2.0F - binding.inset());
         // A full tank stands a hair under its top: at the top itself the box's lid would be drawn for the surface, plain, without
         // its foam, patches or rings.
         float level = LiquidVolume.level(hx, hy, hz, up.x(), up.y(), up.z(), Math.min(fraction, FULLEST));
@@ -164,7 +176,7 @@ public final class LiquidRenderer {
         }
         TextureAtlasSprite sprite = com.pockyl.diegesis.impl.client.render.SceneDraw.blockSprite(look.sprite());
         Pass pass = new Pass(buffers.getBuffer(com.pockyl.diegesis.impl.client.render.DiegesisRenderTypes.translucentCullBlockSheet()), poseStack.last(), sprite,
-                look.emissive() ? LightTexture.FULL_BRIGHT : light, sim.color(), cx, cy, cz, Math.max(hy, 0.5F), up, level,
+                look.emissive() ? LightTexture.FULL_BRIGHT : light, color, cx, cy, cz, Math.max(hy, 0.5F), up, level,
                 Math.max(SPRITE_SIZE, (hx + hz / 2.0F) * 2.0F), Math.max(SPRITE_SIZE, (hz + hy) * 2.0F));
         pass.eye = poseStack.last().pose().invert(new Matrix4f()).transformPosition(new Vector3f()).sub(cx, cy, cz);
         pass.sheen = 1.0F - 0.75F * look.viscosity();
@@ -173,39 +185,46 @@ public final class LiquidRenderer {
         pass.hz = hz;
         pass.round = binding.round();
 
-        // The walls the eye meets; the far ones behind them are mixed into their colour.
-        for (int i = 0; i < count; i++) {
-            int j = (i + 1) % count;
-            set(POLY_A, 0, RING_X[i], -hy, RING_Z[i]);
-            set(POLY_A, 1, RING_X[i], hy, RING_Z[i]);
-            set(POLY_A, 2, RING_X[j], hy, RING_Z[j]);
-            set(POLY_A, 3, RING_X[j], -hy, RING_Z[j]);
-            int points = clip(POLY_A, 4, POLY_B, up, level);
-            float nx = (RING_X[i] + RING_X[j]) / 2.0F;
-            float nz = (RING_Z[i] + RING_Z[j]) / 2.0F;
-            float length = Math.max(1.0e-4F, (float) Math.hypot(nx, nz));
-            // How far the eye stands out from the wall's plane, against how far it is from the wall. A wall turned away is never
-            // seen, and one seen all but edge-on shows nothing of itself: but the layer offset of the see-through sheet grows with
-            // a face's slope, and drew such a wall as a dark line over what stands before it, down the front of a pan.
-            float out = ((pass.eye.x - nx) * nx + (pass.eye.z - nz) * nz) / length;
-            float reach = (float) Math.sqrt((pass.eye.x - nx) * (pass.eye.x - nx) + pass.eye.y * pass.eye.y
-                    + (pass.eye.z - nz) * (pass.eye.z - nz));
-            if (out <= GRAZING * reach) {
-                continue;
+        // A mass that meets the vessel's walls across a gap shows no sides of its own: they would lie inside the mass, behind the walls.
+        if (!massy || binding.wallGap() <= 0.0F) {
+            // The walls the eye meets; the far ones behind them are mixed into their colour.
+            for (int i = 0; i < count; i++) {
+                int j = (i + 1) % count;
+                set(POLY_A, 0, RING_X[i], -hy, RING_Z[i]);
+                set(POLY_A, 1, RING_X[i], hy, RING_Z[i]);
+                set(POLY_A, 2, RING_X[j], hy, RING_Z[j]);
+                set(POLY_A, 3, RING_X[j], -hy, RING_Z[j]);
+                int points = clip(POLY_A, 4, POLY_B, up, level);
+                float nx = (RING_X[i] + RING_X[j]) / 2.0F;
+                float nz = (RING_Z[i] + RING_Z[j]) / 2.0F;
+                float length = Math.max(1.0e-4F, (float) Math.hypot(nx, nz));
+                // How far the eye stands out from the wall's plane, against how far it is from the wall. A wall turned away is never
+                // seen, and one seen all but edge-on shows nothing of itself: but the layer offset of the see-through sheet grows with
+                // a face's slope, and drew such a wall as a dark line over what stands before it, down the front of a pan.
+                float out = ((pass.eye.x - nx) * nx + (pass.eye.z - nz) * nz) / length;
+                float reach = (float) Math.sqrt((pass.eye.x - nx) * (pass.eye.x - nx) + pass.eye.y * pass.eye.y
+                        + (pass.eye.z - nz) * (pass.eye.z - nz));
+                if (out <= GRAZING * reach) {
+                    continue;
+                }
+                pass.wall(POLY_B, points, nx / length, 0.0F, nz / length);
             }
-            pass.wall(POLY_B, points, nx / length, 0.0F, nz / length);
+            for (int i = 0; i < count; i++) {
+                set(POLY_A, i, RING_X[i], -hy, RING_Z[i]);
+            }
+            pass.wall(POLY_B, clip(POLY_A, count, POLY_B, up, level), 0.0F, -1.0F, 0.0F);
+            for (int i = 0; i < count; i++) {
+                set(POLY_A, i, RING_X[count - 1 - i], hy, RING_Z[count - 1 - i]);
+            }
+            pass.wall(POLY_B, clip(POLY_A, count, POLY_B, up, level), 0.0F, 1.0F, 0.0F);
         }
-        for (int i = 0; i < count; i++) {
-            set(POLY_A, i, RING_X[i], -hy, RING_Z[i]);
-        }
-        pass.wall(POLY_B, clip(POLY_A, count, POLY_B, up, level), 0.0F, -1.0F, 0.0F);
-        for (int i = 0; i < count; i++) {
-            set(POLY_A, i, RING_X[count - 1 - i], hy, RING_Z[count - 1 - i]);
-        }
-        pass.wall(POLY_B, clip(POLY_A, count, POLY_B, up, level), 0.0F, 1.0F, 0.0F);
 
         int cuts = surfacePoints(count, hy, up, level);
-        if (cuts >= 3) {
+        // A liquid that turns into a mass is drawn on the mass's mesh while it is still thin too: that mesh also lies in a round tank,
+        // where the flat mottled surface does not, so the furrows show from the first stroke and nothing changes as it thickens.
+        if (cuts >= 3 && mass != null && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
+            MassRenderer.draw(pass, binding, sim, mass, thick, lightDir, buffers, light, distance);
+        } else if (cuts >= 3) {
             boolean waves = sim.isRippling() && Math.min(hx, hz) * 2.0F >= MIN_WAVE_SIZE;
             if ((sim.mottle() > 0.01F || sim.edgeBoil() > 0.01F || sim.foam() > 0.01F || sim.hasWake()) && !binding.round() && up.y() > MOTTLE_UPRIGHT && pass.eye.y > 0.0F) {
                 int cells = distance < HALF_CELLS_FROM ? MOTTLE_CELLS : distance < QUARTER_CELLS_FROM ? MOTTLE_CELLS / 2 : MOTTLE_CELLS / 4;
@@ -291,37 +310,37 @@ public final class LiquidRenderer {
     }
 
     /** One tank being drawn. Points are relative to the inner box's centre. */
-    private static final class Pass {
-        private final VertexConsumer consumer;
-        private final PoseStack.Pose pose;
+    static final class Pass {
+        final VertexConsumer consumer;
+        final PoseStack.Pose pose;
         private final float u0;
         private final float uSpan;
         private final float v0;
         private final float vSpan;
-        private final int light;
-        private final float red;
-        private final float green;
-        private final float blue;
+        final int light;
+        final float red;
+        final float green;
+        final float blue;
         /** Log of what one unit of liquid lets through. */
         private final float clearness;
-        private final float cx;
-        private final float cy;
-        private final float cz;
+        final float cx;
+        final float cy;
+        final float cz;
         private final float depthScale;
-        private final Vector3fc up;
-        private final float level;
+        final Vector3fc up;
+        final float level;
         private final float spriteWidth;
         private final float spriteHeight;
-        private Vector3f eye;
+        Vector3f eye;
         /** How much of the light a wave catches: a thick liquid shows its waves softly. */
         private float sheen = 1.0F;
         /** Half the inner box, and whether the tank is round: where a line of sight leaves the liquid. */
-        private float hx;
-        private float hy;
-        private float hz;
+        float hx;
+        float hy;
+        float hz;
         private boolean round;
         /** The colour and opacity {@link #behind} worked out last. */
-        private final float[] mixed = MIXED;
+        final float[] mixed = MIXED;
         /** The deepest a point of the volume lies under the surface, once {@link #farSide} has filled its tables for this tank. */
         private float farDeepest = -1.0F;
 
@@ -381,7 +400,7 @@ public final class LiquidRenderer {
         }
 
         /** Opacity of a layer of liquid: light falls off exponentially with the path through it. */
-        private float thickness(float path) {
+        float thickness(float path) {
             return 1.0F - (float) Math.exp(clearness * path);
         }
 
@@ -391,7 +410,7 @@ public final class LiquidRenderer {
          * sight leaves the liquid, darker and thicker the deeper that is. A line that leaves through the surface has nothing of the
          * liquid behind it, and the face stays as it is.
          */
-        private void behind(float x, float y, float z, float r, float g, float b, float a) {
+        void behind(float x, float y, float z, float r, float g, float b, float a) {
             float front = Mth.clamp(a, 0.0F, 1.0F);
             if (front >= OPAQUE) {
                 mixed[0] = r;
@@ -473,7 +492,7 @@ public final class LiquidRenderer {
             }
         }
 
-        private void emit(float x, float y, float z, float nx, float ny, float nz, float r, float g, float b, float a) {
+        void emit(float x, float y, float z, float nx, float ny, float nz, float r, float g, float b, float a) {
             pose.pose().transformPosition(x + cx, y + cy, z + cz, POINT);
             pose.normal().transform(nx, ny, nz, NORMAL);
             // The sprite cannot repeat within a polygon; a tank bigger than it shows it stretched rather than cut.
@@ -591,7 +610,7 @@ public final class LiquidRenderer {
         }
 
         /** Smooth noise, 0 to 1, the same every frame for the same point. */
-        private static float noise(float x, float z) {
+        static float noise(float x, float z) {
             int ix = Mth.floor(x);
             int iz = Mth.floor(z);
             float fx = x - ix;
@@ -603,7 +622,7 @@ public final class LiquidRenderer {
             return Mth.lerp(fz, near, far);
         }
 
-        private static float hash(int x, int z) {
+        static float hash(int x, int z) {
             int h = x * 374761393 + z * 668265263;
             h = (h ^ h >>> 13) * 1274126177;
             return ((h ^ h >>> 16) & 0xFFFF) / 65535.0F;

@@ -174,7 +174,7 @@ extras (tank, emitter, light). Children move, turn and scale with their parent -
 | `slot` | none | Role: shows a station slot's item. |
 | `output` | none | Role: shows a station output; clicking takes it. |
 | `control` | none | Role: a button, toggle, knob or slider. |
-| `tank` | none | Shows a station tank as liquid in the node. |
+| `tank` | none | Shows a station tank as liquid (or a thick mass) in the node. |
 | `emitter` | none | Gives off particles. |
 | `light` | none | Shines on what is near. |
 | `hidden` | `false` | Starts invisible; code shows it with `NodeView.setVisible(true)`. |
@@ -344,6 +344,36 @@ zone is the tank itself plus `pour_range`. The server paces pouring at the tanks
 | `pour_angle` | `100` | How far the node tips at most, 0..135; it stops earlier once the liquid reaches the spout. Above 90 a bottle with a neck empties completely. |
 | `opening` | top of `inner` | Where poured liquid goes in: the top of a flask's neck. |
 | `pour_height` | `3` | How high over the other tank's opening the spout is held, 0..32: the stream is in plain view. |
+| `mass` | none | Shows what the tank holds as a thick mass instead of a runny liquid: see [`tank.mass`](#tankmass). |
+| `wall_gap` | `0` | How far (pixels, 0..8) the vessel's walls stand outside `inner`. A mass reaches across the gap and meets them with a little rise; the liquid stays inside `inner`, where its sides cannot show through the walls. |
+| `inset` | `0.05` | How far (pixels, 0..2) the drawn liquid keeps off the sides of `inner`, and a mass off the walls: a liquid as wide as the vessel's inside shows through its walls where they meet. |
+
+### tank.mass
+
+A thick mass in the tank: a batter, a porridge, a dough, whipped butter, ice cream. Whatever moves through it
+(`NodeView.leaveWake`, a whisk, a spoon) leaves its trail behind it, shaded on the flat surface as on a liquid's, fading as
+`setWakeLook` says. With `relief` above 0 it pushes the mass aside instead into a real furrow with a ridge at each side and a
+heap where the stroke stops, which flows back as firmly as it is made: a batter levels in a second or two, a porridge keeps
+the furrows, ice cream keeps its peaks. A swirl (`setCurrent`) carries the relief and the texture round. It is lit by the
+scene's light, rises a little and darkens where it meets the walls, and holds what floats in it (`setFloating`) partly sunk.
+The level is the liquid's. Code shows a mass with `NodeView.setMass` and lets a liquid turn into it with `setThickness`
+(lumps of the mass form in the liquid and grow together); a mass from the scene file is whole from the start.
+
+```json
+"tank": {"tank": "bowl", "inner": {"from": [3.3, 0.1, 3.3], "to": [12.7, 7.5, 12.7]}, "wall_gap": 0.3,
+         "mass": {"texture": "mymod:block/porridge", "firmness": 0.45, "gloss": 0.3, "grain": 0.5}}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `texture` | required | A block-atlas sprite with the mass's own colours, drawn without light or shade (the relief makes those), repeated over the surface from the tank's middle. |
+| `tint` | `#FFFFFF` | Multiplied into the texture. |
+| `firmness` | `0.5` | How well it keeps its shape, 0..1: 0 a batter that levels in about a second, 0.5 a porridge that keeps a spoon's furrows, 1 ice cream or whipped butter that keep peaks and swirls. |
+| `gloss` | `0.3` | How glossy, 0..1: 0 dough or mince, 1 butter or ice cream with soft highlights on the ridges turned to the light. |
+| `grain` | `0.3` | How lumpy at a small scale, 0..1: 0 smooth, 1 oat flakes, crumbs, chopped leaves. |
+| `tile` | `16` | How many pixels one repeat of the texture covers, 1..256: 16 is one texel a pixel, the density of the scene's models. |
+| `cell` | `0` | How many pixels one cell of its surface covers, 0..16: the finest step its relief bends at. 0 is one texel of its texture (`tile / 16`), so the relief is as coarse as the pixels drawn on it. |
+| `relief` | `0` | How far what moves through it shapes its surface, 0..1: 0 keeps it flat and shades the trail behind whatever moved through it, as on a liquid; 1 digs real furrows with a ridge at each side, which flow back as firmly as it is made. Grain and the lumps of a thickening liquid stand up only as far. |
 
 ### emitter
 
