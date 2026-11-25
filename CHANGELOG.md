@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `StationType.Builder.blocks(Supplier<Collection<Block>>)`: one station for a set of blocks looked up when first needed, such as every block of one kind another mod adds.
 
+### Fixed
+- A crash or a moved HUD when a station opened or closed while another mod's HUD left a pose pushed and popped it later.
+
 ## [1.0.0-beta.19+26.1.2] - 2026-11-24
 ### Fixed
 - Blocks beside a station block, or beside one that moves out of the camera's way, no longer show black faces at the station and while the camera flies.
