@@ -22,6 +22,7 @@
     "client.LightColorMixin",
     "client.MultiPlayerGameModeMixin",
     "client.ParticleEngineMixin",
+    "client.PoseStackAccessor",
     "client.RenderChunkRegionMixin",
     "client.ShaderTransparencyMixin",
     "client.SingleQuadParticleMixin",
