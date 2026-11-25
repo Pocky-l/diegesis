@@ -137,6 +137,7 @@ public final class FocusController {
             // From where the camera is: the way in eases differently from the way back.
             progress = Easing.flightInverse(at);
             hudLeaves(minecraft);
+            HotbarLayout.reset();
             lastFrameNanos = Util.getNanos();
             if (confirmed) {
                 station.setFocusedInternal(true);
@@ -162,6 +163,8 @@ public final class FocusController {
         FocusInput.get().look().reset();
         FocusInput.get().neighbors().reset();
         FocusInput.get().gains().reset();
+        // The rows over the hotbar take the order of the inventory as it is now, not as it was the last time here.
+        HotbarLayout.reset();
         snapBaseShot();
         lookBefore = new float[] {player.getYRot(), player.getXRot()};
         lookAtStation(player);
@@ -205,6 +208,7 @@ public final class FocusController {
         flightTime = seconds;
         lookBefore = null;
         station = target;
+        HotbarLayout.reset();
         confirmed = !awaitServer;
         phase = Phase.ENTERING;
         progress = 0.0F;
