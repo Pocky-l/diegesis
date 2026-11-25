@@ -88,6 +88,10 @@ public final class NeoForgeClient {
      * cancels is never begun, and every begun one ends in its Post.
      */
     private static void registerHud(IEventBus bus) {
+        bus.addListener(EventPriority.HIGHEST, RenderGuiEvent.Pre.class, event -> HudSlide.frameStart());
+        // First of all listeners: where a layer's pose begins, to take back what others pushed for one this mod then hides.
+        bus.addListener(EventPriority.HIGHEST, true, RenderGuiLayerEvent.Pre.class,
+                event -> HudSlide.partListeners(event.getGuiGraphics()));
         bus.addListener(EventPriority.LOWEST, RenderGuiLayerEvent.Pre.class, event -> {
             Identifier id = event.getName();
             if (NOT_SLIDING.contains(id)) {
@@ -98,6 +102,7 @@ public final class NeoForgeClient {
             // The crosshair is where the player aims, and the player no longer aims.
             if (hides && (HudSlide.gone() || id.equals(VanillaGuiLayers.CROSSHAIR))) {
                 event.setCanceled(true);
+                HudSlide.hidden(event.getGuiGraphics());
                 return;
             }
             slid.add(id);
@@ -115,6 +120,7 @@ public final class NeoForgeClient {
                 HudSlide.end(event.getGuiGraphics());
             }
             slid.clear();
+            HudSlide.settle(event.getGuiGraphics());
             slidAfter = true;
             HudSlide.begin("neoforge:after_hud", event.getGuiGraphics());
         });
