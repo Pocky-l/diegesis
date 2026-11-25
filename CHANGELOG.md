@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - A crash or a moved HUD when a station opened or closed while another mod's HUD left a pose pushed and popped it later.
+- A mod that moves its part of the HUD and puts it back after drawing no longer shifts a station's screen, such as its slot row off the bottom edge, while the HUD is hidden at the station.
 
 ## [1.0.0-beta.19+1.21.11] - 2026-11-24
 ### Fixed

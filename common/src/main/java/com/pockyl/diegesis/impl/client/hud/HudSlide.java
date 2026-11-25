@@ -58,6 +58,14 @@ public final class HudSlide {
     private static boolean measured;
     /** How deep the pose stack was when {@link #begin} pushed the slide's level for the part being drawn. */
     private static int below;
+    /** How many pose levels the part's listeners found, before any of them ran ({@link #partListeners}). */
+    private static int partBase;
+    /**
+     * Pose levels that listeners pushed for parts the library then hid ({@link #hidden}), to be popped in a Post that a cancelled
+     * part never gets, and how many levels the pose had under them.
+     */
+    private static int owed;
+    private static int owedBase;
     private static final Vector2f CORNER = new Vector2f();
 
     private HudSlide() {
@@ -161,6 +169,51 @@ public final class HudSlide {
             BOXES.put(current, new float[] {minX, minY, maxX, maxY});
         }
         current = null;
+    }
+
+    /** The HUD starts to be drawn: nothing is owed yet. */
+    public static void frameStart() {
+        owed = 0;
+    }
+
+    /**
+     * Before the first listener of a part: pays what hidden parts left ({@link #settle}) and notes where the part's pose begins.
+     */
+    public static void partListeners(GuiGraphics graphics) {
+        settle(graphics);
+        partBase = StackDepth.of(graphics.pose());
+    }
+
+    /**
+     * The library hid the part after other listeners of it ran. A mod that moves its part pushes a pose level there and pops it
+     * in the part's Post, which a cancelled part never gets: those levels are owed, else everything drawn after them, the
+     * station's screen too, is moved (Souls Combat HUD, on Forge 1.20.1 and NeoForge 1.21.1, lifts the status bars this way:
+     * the screen's slot row went off its bottom edge).
+     */
+    public static void hidden(GuiGraphics graphics) {
+        int left = StackDepth.of(graphics.pose()) - partBase;
+        if (left > 0) {
+            if (owed == 0) {
+                owedBase = partBase;
+            }
+            owed += left;
+        }
+    }
+
+    /**
+     * Pops what hidden parts left, before the next part and at the end of the HUD; never more than the pose has over where the
+     * first of them began, so a level a mod took back itself when it saw the part cancelled is not popped twice.
+     */
+    public static void settle(GuiGraphics graphics) {
+        if (owed == 0) {
+            return;
+        }
+        Matrix3x2fStack pose = graphics.pose();
+        for (int extra = StackDepth.of(pose) - owedBase; extra > 0 && owed > 0; extra--) {
+            pose.popMatrix();
+            owed--;
+        }
+        owed = 0;
     }
 
     /**
