@@ -692,7 +692,7 @@ file has no node per item.
 | `scale_step` | 0.1 | What one notch of the wheel changes the size by. |
 | `turn_speed` | 1.2 | Degrees an item turns per GUI pixel of a drag. |
 | `stacking` | true | Items can stand on each other; what stood on an item comes down when it is taken away. |
-| `block_models` | true | A block item with a flat icon (a lantern, a torch, a flower pot) stands there as the block. |
+| `block_models` | true | A block item with a flat icon (a lantern, a torch, a flower pot) stands there as the block; one whose block model draws nothing (it is drawn by a block entity renderer) keeps its icon. |
 | `item_light` | true | Items of blocks that give light shine on the scene, candles and torches burn. |
 | `light_radius` | 11 | How far their light reaches, in pixels. |
 | `light_color` | `#C0FFC888` | Colour of the pool of light they throw; alpha is its strength. |

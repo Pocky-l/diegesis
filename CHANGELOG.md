@@ -4,6 +4,10 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.19.3+1.20.1] - 2026-11-25
+### Fixed
+- Items of blocks that are drawn only by their block entity (Vinery's wine bottles) are no longer invisible when placed in a scene: they show their icon.
+
 ## [1.0.0-beta.19.2+1.20.1] - 2026-11-25
 ### Added
 - Thick masses in tanks (`tank.mass`, `tank.wall_gap`): a porridge, a dough or whipped butter that a whisk furrows and pushes aside, with what lies in it held there.
