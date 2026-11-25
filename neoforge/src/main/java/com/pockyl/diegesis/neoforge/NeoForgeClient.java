@@ -82,6 +82,10 @@ public final class NeoForgeClient {
         // While the player works at a station its interface replaces the HUD: every layer slides off to its nearest edge, then is
         // not drawn (the chat is hidden by a mixin on both loaders). Last of all listeners, so a layer another mod cancels is never
         // begun, and every begun one ends in its Post.
+        bus.addListener(EventPriority.HIGHEST, RenderGuiEvent.Pre.class, event -> HudSlide.frameStart());
+        // First of all listeners: where a layer's pose begins, to take back what others pushed for one this mod then hides.
+        bus.addListener(EventPriority.HIGHEST, true, RenderGuiLayerEvent.Pre.class,
+                event -> HudSlide.partListeners(event.getGuiGraphics()));
         bus.addListener(EventPriority.LOWEST, RenderGuiLayerEvent.Pre.class, event -> {
             FocusController focus = FocusController.get();
             ResourceLocation id = event.getName();
@@ -90,6 +94,7 @@ public final class NeoForgeClient {
             // The crosshair is where the player aims, and the player no longer aims.
             if (hides && (HudSlide.gone() || id.equals(VanillaGuiLayers.CROSSHAIR))) {
                 event.setCanceled(true);
+                HudSlide.hidden(event.getGuiGraphics());
                 return;
             }
             if (chat && focus.isActive() && !focus.options().hideChat()) {
@@ -110,6 +115,7 @@ public final class NeoForgeClient {
                 HudSlide.end(event.getGuiGraphics());
             }
             slid.clear();
+            HudSlide.settle(event.getGuiGraphics());
             slidAfter = true;
             HudSlide.begin("neoforge:after_hud", event.getGuiGraphics());
         });
