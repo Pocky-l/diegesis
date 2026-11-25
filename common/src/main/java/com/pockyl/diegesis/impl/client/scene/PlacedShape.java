@@ -11,6 +11,8 @@ import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.ItemTransform;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.SpriteContents;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -46,6 +48,8 @@ public final class PlacedShape implements Placing.Shape {
     private static final Map<BakedModel, PlacedShape> CACHE = new ConcurrentHashMap<>();
     /** Shapes of 3D item models standing as modelled (no frame transform). */
     private static final Map<BakedModel, PlacedShape> MODELLED = new ConcurrentHashMap<>();
+    /** Whether a block model draws any pixel. */
+    private static final Map<BakedModel, Boolean> SHOWS = new ConcurrentHashMap<>();
 
     private final BakedModel model;
     private final BlockState block;
@@ -101,6 +105,7 @@ public final class PlacedShape implements Placing.Shape {
     static void clearCache() {
         CACHE.clear();
         MODELLED.clear();
+        SHOWS.clear();
     }
 
     /** As {@link #of(ItemStack, ClientLevel, boolean, boolean)}, every item as an item frame shows it. */
@@ -139,7 +144,39 @@ public final class PlacedShape implements Placing.Shape {
     /** Seeds, string and the like are items of a block that looks like nothing the player holds; doors are half a door. */
     private static boolean standsAsBlock(ItemStack stack, BakedModel icon, BlockState state) {
         return state != null && !icon.isGui3d() && !(stack.getItem() instanceof ItemNameBlockItem) && state.getRenderShape() == RenderShape.MODEL
-                && !state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF);
+                && !state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) && shows(Minecraft.getInstance().getBlockRenderer().getBlockModel(state), state);
+    }
+
+    /**
+     * Whether a block model draws anything: some mods give a block a fully transparent model and draw it with a block entity
+     * renderer (Vinery's wine bottles), and such an item is shown by its icon.
+     */
+    private static boolean shows(BakedModel model, BlockState state) {
+        return SHOWS.computeIfAbsent(model, key -> {
+            RandomSource random = RandomSource.create(42L);
+            java.util.Set<TextureAtlasSprite> seen = new java.util.HashSet<>();
+            for (Direction side : new Direction[] {null, Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST}) {
+                for (BakedQuad quad : key.getQuads(state, side, random)) {
+                    if (seen.add(quad.getSprite()) && drawn(quad.getSprite())) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+    }
+
+    /** Whether a sprite has a pixel that is not fully transparent. */
+    private static boolean drawn(TextureAtlasSprite sprite) {
+        SpriteContents contents = sprite.contents();
+        for (int y = 0; y < contents.height(); y++) {
+            for (int x = 0; x < contents.width(); x++) {
+                if (!contents.isTransparent(0, x, y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static Box3 blockBox(BakedModel model, BlockState state) {
