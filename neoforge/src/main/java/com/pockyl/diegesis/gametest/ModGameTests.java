@@ -727,6 +727,58 @@ public final class ModGameTests {
         helper.succeed();
     }
 
+    public static void aMassIsReadFromTheScene(GameTestHelper helper) {
+        String inner = "\"inner\": {\"from\": [0, 0, 0], \"to\": [8, 6, 8]}";
+        SceneDefinition scene = parse("{\"nodes\": [{\"id\": \"bowl\", \"tank\": {\"tank\": \"t\", " + inner + ", \"wall_gap\": 0.3,"
+                + " \"mass\": {\"texture\": \"mymod:block/porridge\", \"firmness\": 0.4}}}]}").result().orElseThrow();
+        com.pockyl.diegesis.api.scene.TankBinding tank = scene.nodes().get(0).tank().orElseThrow();
+        com.pockyl.diegesis.api.scene.MassLook mass = tank.mass().orElseThrow();
+        check(helper, mass.firmness() == 0.4F && mass.gloss() == 0.3F && mass.grain() == 0.3F && mass.tile() == 16.0F
+                && mass.tint() == Visual.WHITE, "a mass's fields and defaults: " + mass);
+        check(helper, Math.abs(tank.wallGap() - 0.3F) < 1.0e-6F, "the wall gap");
+        SceneDefinition plain = parse("{\"nodes\": [{\"id\": \"bowl\", \"tank\": {\"tank\": \"t\", " + inner + "}}]}").result()
+                .orElseThrow();
+        com.pockyl.diegesis.api.scene.TankBinding liquid = plain.nodes().get(0).tank().orElseThrow();
+        check(helper, liquid.mass().isEmpty() && liquid.wallGap() == 0.0F, "a tank without a mass is a runny liquid, its walls on its box");
+        check(helper, parse("{\"nodes\": [{\"id\": \"b\", \"tank\": {\"tank\": \"t\", " + inner + ", \"mass\": {\"texture\": \"x:y\","
+                + " \"firmnes\": 1}}}]}").error().isPresent(), "a typo in a mass is an error");
+        check(helper, parse("{\"nodes\": [{\"id\": \"b\", \"tank\": {\"tank\": \"t\", " + inner + ", \"mass\": {\"gloss\": 1}}}]}")
+                .error().isPresent(), "a mass needs its texture");
+        helper.succeed();
+    }
+
+    public static void aMassKeepsItsFurrowsAsFirmlyAsItIsMade(GameTestHelper helper) {
+        float step = 1.0F / 60.0F;
+        float[] floors = new float[3];
+        float[] firmness = {0.0F, 0.5F, 1.0F};
+        for (int k = 0; k < firmness.length; k++) {
+            com.pockyl.diegesis.impl.client.fx.MassSim mass = new com.pockyl.diegesis.impl.client.fx.MassSim();
+            mass.update(0.0F, 0.0F, 10.0F, false, firmness[k]);
+            // One stroke across the middle, left to right, as a whisk 2.8 px wide in a bowl 10 px wide.
+            for (int i = 0; i <= 20; i++) {
+                mass.update(step, 0.0F, 10.0F, false, firmness[k]);
+                mass.push(0.25F + 0.025F * i, 0.5F, 0.28F, 1.0F, 0.0F);
+            }
+            float floor = mass.height(0.0F, 0.0F, 1.0F, 0.0F);
+            float ridge = 0.0F;
+            for (float z = 0.1F; z <= 0.3F; z += 0.02F) {
+                ridge = Math.max(ridge, Math.max(mass.height(0.0F, z, 1.0F, 0.0F), mass.height(0.0F, -z, 1.0F, 0.0F)));
+            }
+            check(helper, floor < -0.3F && ridge > 0.05F, "a furrow with a ridge at its sides, firmness " + firmness[k] + ": " + floor + ", "
+                    + ridge);
+            check(helper, Math.abs(mass.volume()) < 1.0F, "pushed aside, not lost: " + mass.volume());
+            for (int i = 0; i < 180; i++) {
+                mass.update(step, 0.0F, 10.0F, false, firmness[k]);
+            }
+            floors[k] = mass.height(0.0F, 0.0F, 1.0F, 0.0F);
+            check(helper, Math.abs(mass.volume()) < 1.0F, "flowing back keeps it: " + mass.volume());
+        }
+        check(helper, Math.abs(floors[0]) < 0.1F, "a batter levels in three seconds: " + floors[0]);
+        check(helper, floors[1] < -0.18F, "a porridge keeps the furrow: " + floors[1]);
+        check(helper, floors[2] < floors[1] + 0.03F && floors[2] < -0.35F, "ice cream keeps it best: " + floors[2]);
+        helper.succeed();
+    }
+
     public static void nodeTemplatesExpand(GameTestHelper helper) {
         Map<Identifier, JsonObject> templates = new HashMap<>();
         for (String name : List.of("lever", "switch", "button", "knob", "slider")) {
