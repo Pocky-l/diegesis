@@ -4,6 +4,10 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.19.4+26.3] - 2026-11-25
+### Fixed
+- The slots over the hotbar at a station no longer keep the order of the last visit: opening a station again showed old places, other items among them, in a shuffled order. Each opening now starts from the inventory as it is, and the order holds while you work there.
+
 ## [1.0.0-beta.19.3+26.3] - 2026-11-25
 ### Added
 - Thick masses in tanks (`tank.mass`, `tank.wall_gap`): a porridge, a dough or whipped butter that a whisk furrows and pushes aside, with what lies in it held there.
