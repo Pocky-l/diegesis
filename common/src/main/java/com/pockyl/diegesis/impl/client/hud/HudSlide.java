@@ -2,6 +2,7 @@ package com.pockyl.diegesis.impl.client.hud;
 
 import net.minecraft.util.Util;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix3x2fc;
 import org.joml.Vector2f;
@@ -145,9 +146,9 @@ public final class HudSlide {
     }
 
     /**
-     * The part {@link #begin} started is drawn. The pose goes back to where it was before {@link #begin}: what the part pushed
-     * and left goes with the slide's own level, else the slide stayed on the pose the screen draws with next, and the
-     * station's hotbar was drawn away from where it is clicked.
+     * The part {@link #begin} started is drawn. Only the slide's own level is taken off the pose: what the part pushed and left
+     * stays (another mod may pop it in a later part), but without the slide's move, else the station's hotbar was drawn away
+     * from where it is clicked.
      */
     public static void end(GuiGraphicsExtractor graphics) {
         if (depth == 0 || --depth > 0) {
@@ -163,12 +164,34 @@ public final class HudSlide {
     }
 
     /**
-     * Pops the slide's own level and every one above it. Where the part popped the slide's level itself (one pop too many),
-     * the stack is back where {@link #begin} found it and nothing more is popped: never below that.
+     * Takes the slide's own level out of the pose and the slide's move out of every level the part left above it; the pose ends
+     * one level lower than the part left it. Popping those levels too broke a mod that pops its own later, outside a part: its
+     * pop then took a level of the HUD's, or found the stack at its bottom. Where the part popped the slide's level itself (one
+     * pop too many), nothing is done. JOML gives no way into the middle of the stack: the levels above the slide's are popped,
+     * kept, and pushed back.
      */
     private static void unwind(Matrix3x2fStack pose) {
-        for (int above = StackDepth.of(pose) - below; above > 0; above--) {
+        int above = StackDepth.of(pose) - below - 1;
+        if (above < 0) {
+            return;
+        }
+        Matrix3x2f[] left = new Matrix3x2f[above];
+        for (int i = above - 1; i >= 0; i--) {
+            left[i] = new Matrix3x2f(pose);
             pose.popMatrix();
+        }
+        pose.popMatrix();
+        if (above == 0) {
+            return;
+        }
+        // A level left on the slide's is under * move * own: it becomes under * own.
+        Matrix3x2f undo = null;
+        if (pose.determinant() != 0.0F) {
+            undo = new Matrix3x2f(pose).translate(-shiftX, -shiftY).mul(new Matrix3x2f(pose).invert());
+        }
+        for (Matrix3x2f level : left) {
+            pose.pushMatrix();
+            pose.set(undo != null ? level.mulLocal(undo) : level);
         }
     }
 
