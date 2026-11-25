@@ -6,6 +6,7 @@ import org.joml.Vector3fc;
 
 import com.pockyl.diegesis.api.client.LiquidLook;
 import com.pockyl.diegesis.api.scene.Box;
+import com.pockyl.diegesis.api.scene.MassLook;
 import com.pockyl.diegesis.api.state.TankContents;
 import com.pockyl.diegesis.impl.client.anim.Easing;
 
@@ -54,6 +55,8 @@ public final class LiquidSim {
     private static final float SHEET_SPAN = 1.5F;
     private static final float WAKE_WIDTH = 0.07F;
     private static final float WAKE_MIN_RADIUS = 2.7F;
+    /** How fast a liquid thickens into its mass and back: the half-life, seconds. */
+    private static final float THICKENING = 0.12F;
     /** What is left of a trail after its life. */
     private static final float WAKE_FADE = 3.0F;
     private static final float WAKE_GONE = 0.01F;
@@ -107,6 +110,13 @@ public final class LiquidSim {
     private float turned;
     private TankContents contents;
     private LiquidLook look;
+    /** The mass the liquid turns into, if any, and how far it has (wanted, shown); its relief, once it has a mass. */
+    private MassLook massLook;
+    private boolean massRound;
+    private float thicknessWanted = 1.0F;
+    private float thickness = 1.0F;
+    private MassSim mass;
+    private float width = 10.0F;
 
     /**
      * Advances the liquid by {@code dt} seconds.
@@ -129,11 +139,13 @@ public final class LiquidSim {
                 look = LiquidRenderer.look(contents);
             }
         }
+        width = Math.max(inner.to().x() - inner.from().x(), inner.to().z() - inner.from().z());
         if (!primed || dt <= 0.0F) {
             matrix.getTranslation(lastPos);
             matrix.transformDirection(lastAxis.set(0.0F, 1.0F, 0.0F)).normalize();
             lastVelocity.zero();
             fraction = wanted;
+            thickness = thicknessWanted;
             if (look != null) {
                 setColor(shownTarget());
             }
@@ -159,6 +171,14 @@ public final class LiquidSim {
         }
         if (look != null) {
             easeColor(shownTarget(), dt);
+        }
+        thickness = Easing.approach(thickness, thicknessWanted, THICKENING, dt);
+        if (mass != null) {
+            if (fraction < 0.002F) {
+                // Emptied: the next mass in it starts level.
+                mass.clear();
+            }
+            mass.update(dt, turned, width, massRound, massLook == null ? 0.0F : massLook.firmness() * thickness());
         }
         rock(dt, matrix, inner);
         boil(dt, agitation);
@@ -243,6 +263,60 @@ public final class LiquidSim {
             }
         }
         wakeShown = true;
+        if (mass != null && massLook != null && massLook.relief() > 0.0F) {
+            mass.push(u, v, width, strength * massLook.relief(), turned);
+        }
+    }
+
+    /**
+     * Shows the liquid as a thick mass, {@code null} as a runny liquid again; {@code round} says the tank is round. The relief stays while
+     * the look changes.
+     */
+    public void setMass(MassLook look, boolean round) {
+        massLook = look;
+        massRound = round;
+        if (look != null && mass == null) {
+            mass = new MassSim();
+        }
+    }
+
+    /** How far the liquid should have turned into its mass, 0 to 1; it drifts there. */
+    public void setThickness(float amount) {
+        thicknessWanted = Math.max(0.0F, Math.min(1.0F, amount));
+    }
+
+    /** The mass the liquid shows as, or null for a runny liquid. */
+    public MassLook massLook() {
+        return massLook;
+    }
+
+    /** How far the liquid has turned into its mass now, 0 to 1; 0 without a mass. */
+    public float thickness() {
+        return massLook == null ? 0.0F : thickness;
+    }
+
+    /** A mound in the mass at {@code u, v} (0 to 1 across the tank), {@code radius} a part of its width, {@code height} pixels. */
+    public void mound(float u, float v, float radius, float height) {
+        if (mass != null && massLook != null) {
+            mass.mound(u, v, radius, height, turned);
+        }
+    }
+
+    /**
+     * How high the mass's relief stands over the level at {@code x, z} (-0.5 to 0.5 across the tank), node pixels, grown in as far as the
+     * liquid has thickened; 0 without a mass.
+     */
+    public float relief(float x, float z) {
+        float thick = thickness();
+        if (thick <= 0.0F || mass == null || !mass.isShaped()) {
+            return 0.0F;
+        }
+        return mass.height(x, z, (float) Math.cos(turned), (float) Math.sin(turned)) * thick;
+    }
+
+    /** The mass's relief, for drawing many points: null while it is flat or there is no mass. */
+    MassSim relief() {
+        return thickness() > 0.0F && mass != null && mass.isShaped() ? mass : null;
     }
 
     /** How long trails stay, in seconds, and how clearly they stand out, 0 to 1: thin water forgets a stir at once, a thick soup keeps it. */
@@ -333,6 +407,26 @@ public final class LiquidSim {
         return near + (far - near) * fz;
     }
 
+    /**
+     * How deep the trails are at {@code u, v} (0 to 1 across the tank), 0 (none) to about 1, read between the sheet's cells: for a
+     * surface drawn finer than {@link #wakeShade}'s cells.
+     */
+    public float trail(float u, float v) {
+        if (sheet == null || !wakeShown) {
+            return 0.0F;
+        }
+        float cos = (float) Math.cos(turned);
+        float sin = (float) Math.sin(turned);
+        float x = u - 0.5F;
+        float z = v - 0.5F;
+        return sheetAt(sheetCell(x * cos + z * sin), sheetCell(z * cos - x * sin));
+    }
+
+    /** How clearly the trails show, as {@code setWakeLook} last said. */
+    public float wakeContrast() {
+        return wakeContrast;
+    }
+
     public boolean hasWake() {
         return wakeShown;
     }
@@ -407,9 +501,9 @@ public final class LiquidSim {
         return turned;
     }
 
-    /** How thick the liquid moves, 0 to 1. */
+    /** How thick the liquid moves, 0 to 1: a mass moves as thickly as it has turned into one. */
     private float viscosity() {
-        return look == null ? 0.0F : look.viscosity();
+        return Math.max(look == null ? 0.0F : look.viscosity(), thickness());
     }
 
     /** A boil throws up the surface here and there. */

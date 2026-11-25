@@ -129,6 +129,7 @@ public final class NodeInstance implements NodeView {
         this.emitting = definition.emitter().map(emitter -> emitter.enabled()).orElse(false);
         this.lightLevel = definition.light().map(light -> light.level()).orElse(0);
         this.liquid = definition.tank().isPresent() ? new LiquidSim() : null;
+        definition.tank().ifPresent(binding -> binding.mass().ifPresent(look -> liquid.setMass(look, binding.round())));
         for (NodeDefinition child : definition.children()) {
             children.add(new NodeInstance(scene, child, this));
         }
@@ -440,6 +441,31 @@ public final class NodeInstance implements NodeView {
     }
 
     @Override
+    public void setMass(com.pockyl.diegesis.api.scene.MassLook look) {
+        if (liquid != null) {
+            TankBinding binding = definition.tank().get();
+            liquid.setMass(look != null ? look : binding.mass().orElse(null), binding.round());
+        }
+    }
+
+    @Override
+    public void setThickness(float amount) {
+        if (liquid != null) {
+            liquid.setThickness(amount);
+        }
+    }
+
+    @Override
+    public void mound(float x, float z, float radius, float height) {
+        if (liquid != null) {
+            Box inner = definition.tank().get().inner();
+            float spanX = Math.max(0.01F, inner.to().x() - inner.from().x());
+            liquid.mound((x - inner.from().x()) / spanX, (z - inner.from().z()) / Math.max(0.01F, inner.to().z() - inner.from().z()),
+                    radius / spanX, height);
+        }
+    }
+
+    @Override
     public void setFloatingWake(float strength) {
         if (liquid != null) {
             pieces().setWake(Math.max(0.0F, Math.min(1.0F, strength)));
@@ -492,6 +518,13 @@ public final class NodeInstance implements NodeView {
     public void setFloatingObstacles(float... xzRadius) {
         if (liquid != null) {
             pieces().setObstacles(xzRadius);
+        }
+    }
+
+    @Override
+    public void setFloatingClearance(float share) {
+        if (liquid != null) {
+            pieces().setClearance(share);
         }
     }
 
@@ -832,6 +865,7 @@ public final class NodeInstance implements NodeView {
         if (shownLiquid != null) {
             liquid.update(dt, matrix, binding.inner(), shownLiquid, shownFraction, agitation);
             if (floating != null) {
+                floating.setHeld(liquid.thickness());
                 floating.update(dt);
             }
             return;
@@ -840,6 +874,7 @@ public final class NodeInstance implements NodeView {
         if (spec != null) {
             liquid.update(dt, matrix, binding.inner(), scene.station().state().getTank(binding.tank()), spec.capacity(), agitation);
             if (floating != null) {
+                floating.setHeld(liquid.thickness());
                 floating.update(dt);
             }
         }
