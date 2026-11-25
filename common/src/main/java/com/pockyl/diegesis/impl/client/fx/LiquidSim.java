@@ -263,8 +263,8 @@ public final class LiquidSim {
             }
         }
         wakeShown = true;
-        if (mass != null && massLook != null) {
-            mass.push(u, v, width, strength, turned);
+        if (mass != null && massLook != null && massLook.relief() > 0.0F) {
+            mass.push(u, v, width, strength * massLook.relief(), turned);
         }
     }
 
@@ -405,6 +405,26 @@ public final class LiquidSim {
         float near = sheet[cell] + (sheet[cell + 1] - sheet[cell]) * fx;
         float far = sheet[cell + SHEET_CELLS] + (sheet[cell + SHEET_CELLS + 1] - sheet[cell + SHEET_CELLS]) * fx;
         return near + (far - near) * fz;
+    }
+
+    /**
+     * How deep the trails are at {@code u, v} (0 to 1 across the tank), 0 (none) to about 1, read between the sheet's cells: for a
+     * surface drawn finer than {@link #wakeShade}'s cells.
+     */
+    public float trail(float u, float v) {
+        if (sheet == null || !wakeShown) {
+            return 0.0F;
+        }
+        float cos = (float) Math.cos(turned);
+        float sin = (float) Math.sin(turned);
+        float x = u - 0.5F;
+        float z = v - 0.5F;
+        return sheetAt(sheetCell(x * cos + z * sin), sheetCell(z * cos - x * sin));
+    }
+
+    /** How clearly the trails show, as {@code setWakeLook} last said. */
+    public float wakeContrast() {
+        return wakeContrast;
     }
 
     public boolean hasWake() {

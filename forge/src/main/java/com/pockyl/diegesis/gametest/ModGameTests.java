@@ -790,7 +790,7 @@ public final class ModGameTests {
             for (float z = 0.1F; z <= 0.3F; z += 0.02F) {
                 ridge = Math.max(ridge, Math.max(mass.height(0.0F, z, 1.0F, 0.0F), mass.height(0.0F, -z, 1.0F, 0.0F)));
             }
-            check(helper, floor < -0.5F && ridge > 0.1F, "a furrow with a ridge at its sides, firmness " + firmness[k] + ": " + floor + ", "
+            check(helper, floor < -0.3F && ridge > 0.05F, "a furrow with a ridge at its sides, firmness " + firmness[k] + ": " + floor + ", "
                     + ridge);
             check(helper, Math.abs(mass.volume()) < 1.0F, "pushed aside, not lost: " + mass.volume());
             for (int i = 0; i < 180; i++) {
@@ -799,9 +799,9 @@ public final class ModGameTests {
             floors[k] = mass.height(0.0F, 0.0F, 1.0F, 0.0F);
             check(helper, Math.abs(mass.volume()) < 1.0F, "flowing back keeps it: " + mass.volume());
         }
-        check(helper, Math.abs(floors[0]) < 0.15F, "a batter levels in three seconds: " + floors[0]);
-        check(helper, floors[1] < -0.3F, "a porridge keeps the furrow: " + floors[1]);
-        check(helper, floors[2] < floors[1] + 0.05F && floors[2] < -0.6F, "ice cream keeps it best: " + floors[2]);
+        check(helper, Math.abs(floors[0]) < 0.1F, "a batter levels in three seconds: " + floors[0]);
+        check(helper, floors[1] < -0.18F, "a porridge keeps the furrow: " + floors[1]);
+        check(helper, floors[2] < floors[1] + 0.03F && floors[2] < -0.35F, "ice cream keeps it best: " + floors[2]);
         helper.succeed();
     }
 

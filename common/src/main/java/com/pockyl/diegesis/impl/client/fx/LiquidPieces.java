@@ -45,11 +45,18 @@ public final class LiquidPieces {
     private static final float RISE_DEPTH = 2.2F;
     private static final float RISE_TIME = 0.55F;
     private static final float RISE_RING = 0.14F;
-    /** How fast a piece pushed aside drifts back to its way. */
+    /** How fast a piece pushed aside drifts back to its way, afloat and held in a mass (half-lives, seconds); how much slower leaning on another. */
     private static final float PUSH_HALF_LIFE = 0.6F;
+    private static final float HELD_PUSH_HALF_LIFE = 1.5F;
+    private static final float LEANING_SLOWER = 2.0F;
     /** How far round a piece's middle others keep off, as a part of its size, and how many times a frame the crowd sorts itself out. */
     private static final float CLEARANCE = 0.36F;
     private static final int SEPARATE_PASSES = 3;
+    /**
+     * Held in a mass, a piece gives way to what stands in it over this long (seconds), not at once: the whisk wades through a salad
+     * and moves its leaves aside instead of flinging them off.
+     */
+    private static final float HELD_YIELD = 0.15F;
     /** A moving piece's trail: how clear unless told otherwise, how far apart its points lie (pixels), from what speed it shows and how much more it takes to be full (pixels per second). */
     private static final float WAKE = 0.7F;
     private static final float WAKE_STEP = 0.4F;
@@ -100,6 +107,9 @@ public final class LiquidPieces {
     private int made;
     /** How far the liquid has turned into a mass that holds what is in it, 0 (afloat) to 1 (held). */
     private float held;
+    /** How far round its middle others keep off, as a part of its size; the last step's length, seconds. */
+    private float clearance = CLEARANCE;
+    private float lastStep = 1.0F / 60.0F;
 
     /** What floats from now on; pieces of other things leave, new ones come until there are {@code count}. */
     public void set(List<Floater> floaters, int count) {
@@ -129,12 +139,18 @@ public final class LiquidPieces {
      * How far the liquid has turned into a mass, 0 to 1: a mass holds what is in it partly sunk, where it is pushed to, going round with
      * it; nothing bobs, drifts back or turns over in it.
      */
+    /** How far round its middle others keep off, as a part of its size: about half keeps sprites from lying over each other. */
+    public void setClearance(float share) {
+        clearance = Math.max(0.1F, Math.min(1.0F, share));
+    }
+
     public void setHeld(float amount) {
         held = Math.max(0.0F, Math.min(1.0F, amount));
     }
 
     public void update(float dt) {
         time += dt;
+        lastStep = dt;
         int staying = 0;
         for (Piece piece : pieces) {
             if (!piece.leaving) {
@@ -163,12 +179,12 @@ public final class LiquidPieces {
                     && random.nextFloat() < dt * TUMBLE_RATE * Math.abs(current)) {
                 piece.tumble = 0.001F;
             }
-            // What leans on something stays where it is pushed to; only free, it drifts back to its way.
-            if (!piece.touching) {
-                float settle = Mth.lerp(held, (float) Math.pow(0.5F, dt / PUSH_HALF_LIFE), 1.0F);
-                piece.pushX *= settle;
-                piece.pushZ *= settle;
-            }
+            // Pushed aside, it drifts back to its way: slower held in a mass, slower still leaning on something, so that whatever the
+            // whisk moves is not left heaped against the walls.
+            float halfLife = Mth.lerp(held, PUSH_HALF_LIFE, HELD_PUSH_HALF_LIFE) * (piece.touching ? LEANING_SLOWER : 1.0F);
+            float settle = (float) Math.pow(0.5F, dt / halfLife);
+            piece.pushX *= settle;
+            piece.pushZ *= settle;
             piece.touching = false;
             if (piece.leaving && piece.grown < GONE) {
                 iterator.remove();
@@ -210,14 +226,17 @@ public final class LiquidPieces {
             piece.u = cos * stretch;
             piece.v = sin * stretch;
             float size = piece.floater.size() * piece.grown;
-            piece.radius = size * CLEARANCE;
+            piece.radius = size * clearance;
             piece.wayX = centerX + piece.u * (halfX - size * 0.3F);
             piece.wayZ = centerZ + piece.v * (halfZ - size * 0.3F);
             piece.x = piece.wayX + piece.pushX;
             piece.z = piece.wayZ + piece.pushZ;
         }
+        // How much of its way out of what stands in it a piece goes in one pass: all of it afloat, a share a step held in a mass.
+        float frameGive = 1.0F - (float) Math.exp(-lastStep / HELD_YIELD);
+        float give = Mth.lerp(held, 1.0F, 1.0F - (float) Math.pow(1.0F - frameGive, 1.0F / SEPARATE_PASSES));
         for (int pass = 0; pass < SEPARATE_PASSES; pass++) {
-            separate(centerX, centerZ, halfX, halfZ);
+            separate(centerX, centerZ, halfX, halfZ, give);
         }
         Quaternionf turn = new Quaternionf();
         boolean flat = distance >= (inMass ? HELD_FLAT_FROM : FLAT_FROM);
@@ -287,7 +306,7 @@ public final class LiquidPieces {
     }
 
     /** What floats pushes what floats out of its way, gives way to what stands in the liquid, and stays between the walls. */
-    private void separate(float centerX, float centerZ, float halfX, float halfZ) {
+    private void separate(float centerX, float centerZ, float halfX, float halfZ, float give) {
         for (int i = 0; i < pieces.size(); i++) {
             Piece one = pieces.get(i);
             for (int j = i + 1; j < pieces.size(); j++) {
@@ -319,15 +338,17 @@ public final class LiquidPieces {
                 if (squared < clear * clear) {
                     float apart = Mth.sqrt(squared);
                     float out = clear / Math.max(apart, 0.01F);
-                    one.x = obstacles[o] + dx * out;
-                    one.z = obstacles[o + 1] + dz * out;
+                    one.x += (obstacles[o] + dx * out - one.x) * give;
+                    one.z += (obstacles[o + 1] + dz * out - one.z) * give;
                     one.touching = true;
                 }
             }
         }
         for (Piece piece : pieces) {
-            float roomX = halfX - piece.radius * 0.8F;
-            float roomZ = halfZ - piece.radius * 0.8F;
+            // Its whole sprite stays inside the walls, not under them.
+            float half = piece.floater.size() * piece.grown * 0.5F;
+            float roomX = Math.max(0.0F, halfX - half);
+            float roomZ = Math.max(0.0F, halfZ - half);
             piece.x = Mth.clamp(piece.x, centerX - roomX, centerX + roomX);
             piece.z = Mth.clamp(piece.z, centerZ - roomZ, centerZ + roomZ);
         }

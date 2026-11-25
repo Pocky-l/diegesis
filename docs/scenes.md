@@ -346,13 +346,15 @@ zone is the tank itself plus `pour_range`. The server paces pouring at the tanks
 | `pour_height` | `3` | How high over the other tank's opening the spout is held, 0..32: the stream is in plain view. |
 | `mass` | none | Shows what the tank holds as a thick mass instead of a runny liquid: see [`tank.mass`](#tankmass). |
 | `wall_gap` | `0` | How far (pixels, 0..8) the vessel's walls stand outside `inner`. A mass reaches across the gap and meets them with a little rise; the liquid stays inside `inner`, where its sides cannot show through the walls. |
+| `inset` | `0.05` | How far (pixels, 0..2) the drawn liquid keeps off the sides of `inner`, and a mass off the walls: a liquid as wide as the vessel's inside shows through its walls where they meet. |
 
 ### tank.mass
 
-A thick mass in the tank: a batter, a porridge, a dough, whipped butter, ice cream. Its surface has relief. Whatever moves
-through it (`NodeView.leaveWake`, a whisk, a spoon) pushes it aside into a furrow with a ridge at each side and a heap where
-the stroke stops, and it flows back as firmly as it is made: a batter levels in a second or two, a porridge keeps the
-furrows, ice cream keeps its peaks. A swirl (`setCurrent`) carries the relief and the texture round. It is lit by the
+A thick mass in the tank: a batter, a porridge, a dough, whipped butter, ice cream. Whatever moves through it
+(`NodeView.leaveWake`, a whisk, a spoon) leaves its trail behind it, shaded on the flat surface as on a liquid's, fading as
+`setWakeLook` says. With `relief` above 0 it pushes the mass aside instead into a real furrow with a ridge at each side and a
+heap where the stroke stops, which flows back as firmly as it is made: a batter levels in a second or two, a porridge keeps
+the furrows, ice cream keeps its peaks. A swirl (`setCurrent`) carries the relief and the texture round. It is lit by the
 scene's light, rises a little and darkens where it meets the walls, and holds what floats in it (`setFloating`) partly sunk.
 The level is the liquid's. Code shows a mass with `NodeView.setMass` and lets a liquid turn into it with `setThickness`
 (lumps of the mass form in the liquid and grow together); a mass from the scene file is whole from the start.
@@ -371,6 +373,7 @@ The level is the liquid's. Code shows a mass with `NodeView.setMass` and lets a 
 | `grain` | `0.3` | How lumpy at a small scale, 0..1: 0 smooth, 1 oat flakes, crumbs, chopped leaves. |
 | `tile` | `16` | How many pixels one repeat of the texture covers, 1..256: 16 is one texel a pixel, the density of the scene's models. |
 | `cell` | `0` | How many pixels one cell of its surface covers, 0..16: the finest step its relief bends at. 0 is one texel of its texture (`tile / 16`), so the relief is as coarse as the pixels drawn on it. |
+| `relief` | `0` | How far what moves through it shapes its surface, 0..1: 0 keeps it flat and shades the trail behind whatever moved through it, as on a liquid; 1 digs real furrows with a ridge at each side, which flow back as firmly as it is made. Grain and the lumps of a thickening liquid stand up only as far. |
 
 ### emitter
 

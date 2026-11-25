@@ -522,6 +522,13 @@ public final class NodeInstance implements NodeView {
     }
 
     @Override
+    public void setFloatingClearance(float share) {
+        if (liquid != null) {
+            pieces().setClearance(share);
+        }
+    }
+
+    @Override
     public void setCurrent(float radiansPerSecond) {
         if (liquid != null) {
             pieces().setCurrent(radiansPerSecond);

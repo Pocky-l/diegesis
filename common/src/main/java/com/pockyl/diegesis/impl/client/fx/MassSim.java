@@ -25,9 +25,9 @@ public final class MassSim {
      * A furrow: how deep for its width at full strength; how far out its ridge reaches, in the furrow's radius; the highest a ridge piles,
      * pixels. A pass that goes on in one direction pushes most to its sides, a little ahead and nothing back where it came from.
      */
-    private static final float DEPTH = 0.36F;
+    private static final float DEPTH = 0.3F;
     private static final float RIDGE_REACH = 0.8F;
-    private static final float HIGHEST = 1.5F;
+    private static final float HIGHEST = 1.3F;
     private static final float TO_SIDES = 1.0F;
     private static final float AHEAD = 0.45F;
     private static final float ALL_ROUND = 0.2F;
@@ -36,6 +36,14 @@ public final class MassSim {
     private static final float STROKE_JUMP = 4.0F;
     /** The most any cell moves in a step while the mass still flows, pixels. */
     private static final float ASLEEP = 1.0e-4F;
+    /**
+     * While something still works the mass (a push this recently, seconds), what it shaped before settles, so that the newest furrow
+     * reads as the trail behind it and the strokes do not pile into one churned surface: how long that takes, a batter and the firmest
+     * mass, seconds. Left alone, the mass keeps what it has.
+     */
+    private static final float WORKED_FOR = 0.3F;
+    private static final float SETTLE_RUNNY = 0.8F;
+    private static final float SETTLE_FIRM = 2.5F;
     /** How far the mass turns (radians) before what lies inside the walls is worked out again. */
     private static final float MASK_TURN = 0.02F;
 
@@ -75,10 +83,19 @@ public final class MassSim {
             flowing = shaped;
         }
         this.firmness = firmness;
-        if (!flowing) {
+        boolean worked = shaped && !Float.isNaN(lastX) && clock - lastClock < WORKED_FOR;
+        if (!flowing && !worked) {
             return;
         }
         mask(turned);
+        if (worked) {
+            float firm = Math.max(0.0F, Math.min(1.0F, firmness));
+            float keep = (float) Math.exp(-dt / (SETTLE_RUNNY + (SETTLE_FIRM - SETTLE_RUNNY) * firm));
+            for (int i = 0; i < heights.length; i++) {
+                heights[i] *= keep;
+            }
+            flowing = true;
+        }
         stepDebt = Math.min(stepDebt + dt, STEP * MAX_STEPS);
         while (stepDebt >= STEP && flowing) {
             stepDebt -= STEP;

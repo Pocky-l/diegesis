@@ -24,14 +24,19 @@ import com.pockyl.diegesis.impl.codec.StrictCodecs;
  * @param tile     how many pixels one repeat of the texture covers: 16 is one texel a pixel, the density of the scene's models
  * @param cell     how many pixels one cell of its surface covers, the finest step its relief bends at; 0 for one texel of its texture
  *                 ({@code tile / 16}), so that the relief is as coarse as the pixels drawn on it
+ * @param relief   how far what moves through it shapes its surface, 0 to 1: 0 keeps it flat and shades the trail behind whatever
+ *                 moved through it, as a liquid's trail; 1 digs real furrows with ridges that the light shows
  */
-public record MassLook(ResourceLocation texture, int tint, float firmness, float gloss, float grain, float tile, float cell) {
+public record MassLook(ResourceLocation texture, int tint, float firmness, float gloss, float grain, float tile, float cell,
+        float relief) {
     public static final float DEFAULT_FIRMNESS = 0.5F;
     public static final float DEFAULT_GLOSS = 0.3F;
     public static final float DEFAULT_GRAIN = 0.3F;
     public static final float DEFAULT_TILE = 16.0F;
     /** One texel of the texture. */
     public static final float TEXEL_CELL = 0.0F;
+    /** Flat, its trails shaded on it. */
+    public static final float DEFAULT_RELIEF = 0.0F;
 
     public static final Codec<MassLook> CODEC = StrictCodecs.record(instance -> instance.group(
             ResourceLocation.CODEC.fieldOf("texture").forGetter(MassLook::texture),
@@ -40,7 +45,8 @@ public record MassLook(ResourceLocation texture, int tint, float firmness, float
             StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "gloss", DEFAULT_GLOSS).forGetter(MassLook::gloss),
             StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "grain", DEFAULT_GRAIN).forGetter(MassLook::grain),
             StrictCodecs.optional(Codec.floatRange(1.0F, 256.0F), "tile", DEFAULT_TILE).forGetter(MassLook::tile),
-            StrictCodecs.optional(Codec.floatRange(0.0F, 16.0F), "cell", TEXEL_CELL).forGetter(MassLook::cell)
+            StrictCodecs.optional(Codec.floatRange(0.0F, 16.0F), "cell", TEXEL_CELL).forGetter(MassLook::cell),
+            StrictCodecs.optional(Codec.floatRange(0.0F, 1.0F), "relief", DEFAULT_RELIEF).forGetter(MassLook::relief)
     ).apply(instance, MassLook::new));
 
     public MassLook {
@@ -49,6 +55,7 @@ public record MassLook(ResourceLocation texture, int tint, float firmness, float
         grain = Math.max(0.0F, Math.min(1.0F, grain));
         tile = Math.max(1.0F, tile);
         cell = Math.max(0.0F, Math.min(16.0F, cell));
+        relief = Math.max(0.0F, Math.min(1.0F, relief));
     }
 
     /** How many pixels one cell of the surface covers, with {@link #TEXEL_CELL} worked out. */
@@ -58,36 +65,42 @@ public record MassLook(ResourceLocation texture, int tint, float firmness, float
 
     /** A mass of {@code texture}, as drawn, firm as a porridge, a little glossy and grainy. */
     public static MassLook of(ResourceLocation texture) {
-        return new MassLook(texture, Visual.WHITE, DEFAULT_FIRMNESS, DEFAULT_GLOSS, DEFAULT_GRAIN, DEFAULT_TILE, TEXEL_CELL);
+        return new MassLook(texture, Visual.WHITE, DEFAULT_FIRMNESS, DEFAULT_GLOSS, DEFAULT_GRAIN, DEFAULT_TILE, TEXEL_CELL,
+                DEFAULT_RELIEF);
     }
 
     /** The same mass with {@code rgb} multiplied into its texture. */
     public MassLook tinted(int rgb) {
-        return new MassLook(texture, 0xFF000000 | rgb, firmness, gloss, grain, tile, cell);
+        return new MassLook(texture, 0xFF000000 | rgb, firmness, gloss, grain, tile, cell, relief);
     }
 
     /** The same mass keeping its shape as well as {@code amount}, 0 (a batter) to 1 (ice cream). */
     public MassLook firm(float amount) {
-        return new MassLook(texture, tint, amount, gloss, grain, tile, cell);
+        return new MassLook(texture, tint, amount, gloss, grain, tile, cell, relief);
     }
 
     /** The same mass as glossy as {@code amount}, 0 to 1. */
     public MassLook glossy(float amount) {
-        return new MassLook(texture, tint, firmness, amount, grain, tile, cell);
+        return new MassLook(texture, tint, firmness, amount, grain, tile, cell, relief);
     }
 
     /** The same mass as lumpy as {@code amount}, 0 to 1. */
     public MassLook grainy(float amount) {
-        return new MassLook(texture, tint, firmness, gloss, amount, tile, cell);
+        return new MassLook(texture, tint, firmness, gloss, amount, tile, cell, relief);
     }
 
     /** The same mass with its texture repeated every {@code pixels}. */
     public MassLook tiled(float pixels) {
-        return new MassLook(texture, tint, firmness, gloss, grain, pixels, cell);
+        return new MassLook(texture, tint, firmness, gloss, grain, pixels, cell, relief);
     }
 
     /** The same mass with its surface bending at steps of {@code pixels}; {@link #TEXEL_CELL} for one texel of its texture. */
     public MassLook celled(float pixels) {
-        return new MassLook(texture, tint, firmness, gloss, grain, tile, pixels);
+        return new MassLook(texture, tint, firmness, gloss, grain, tile, pixels, relief);
+    }
+
+    /** The same mass shaped by what moves through it {@code amount}, 0 (flat, its trails shaded) to 1 (real furrows and ridges). */
+    public MassLook shaped(float amount) {
+        return new MassLook(texture, tint, firmness, gloss, grain, tile, cell, amount);
     }
 }

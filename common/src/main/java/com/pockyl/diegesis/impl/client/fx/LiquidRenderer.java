@@ -152,9 +152,11 @@ public final class LiquidRenderer {
         float cx = (inner.from().x() + inner.to().x()) / 2.0F;
         float cy = (inner.from().y() + inner.to().y()) / 2.0F;
         float cz = (inner.from().z() + inner.to().z()) / 2.0F;
-        float hx = (inner.to().x() - inner.from().x()) / 2.0F;
+        // Kept a hair off the sides: a liquid as wide as the vessel's inside shows through its walls where they meet. A mass across a
+        // wall gap stops as far short of the walls.
+        float hx = Math.max(0.05F, (inner.to().x() - inner.from().x()) / 2.0F - binding.inset());
         float hy = (inner.to().y() - inner.from().y()) / 2.0F;
-        float hz = (inner.to().z() - inner.from().z()) / 2.0F;
+        float hz = Math.max(0.05F, (inner.to().z() - inner.from().z()) / 2.0F - binding.inset());
         // A full tank stands a hair under its top: at the top itself the box's lid would be drawn for the surface, plain, without
         // its foam, patches or rings.
         float level = LiquidVolume.level(hx, hy, hz, up.x(), up.y(), up.z(), Math.min(fraction, FULLEST));

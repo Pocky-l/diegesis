@@ -215,6 +215,14 @@ public interface NodeView {
      */
     void setFloatingObstacles(float... xzRadius);
 
+    /**
+     * How far round its middle each floating thing keeps the others off, as a part of its size, 0.1 to 1: at the default 0.36 they lie
+     * partly over each other as things crowded on a soup do; about 0.5 keeps them side by side, as the leaves of a salad. Held in a mass
+     * they also give way to what stands in it over a moment instead of at once.
+     */
+    default void setFloatingClearance(float share) {
+    }
+
     /** How fast the node's liquid turns, radians per second, the sign saying which way round: it carries what floats on it. */
     void setCurrent(float radiansPerSecond);
 

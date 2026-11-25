@@ -56,10 +56,10 @@ final class MassRenderer {
      * furrow reads under a light from high above; a flat mass keeps the texture's own colours, at {@code BASE} of them, so that slopes
      * turned to the light come out lighter.
      */
-    private static final float RELIEF_SIDE = 4.5F;
+    private static final float RELIEF_SIDE = 2.5F;
     private static final float AMBIENT = 0.4F;
     private static final float DIFFUSE = 0.6F;
-    private static final float DARKEST = 0.5F;
+    private static final float DARKEST = 0.65F;
     private static final float BRIGHTEST = 1.2F;
     private static final float BASE = 0.94F;
     /** Below its level the mass darkens (a furrow's floor), by this much a pixel, at most; a ridge lightens a little less. */
@@ -72,8 +72,6 @@ final class MassRenderer {
     private static final float MENISCUS = 0.28F;
     private static final float MENISCUS_WIDTH = 1.0F;
     private static final float MENISCUS_CLIMB = 0.6F;
-    /** How far the mass reaches into the walls over a gap, pixels: so that no crack is left where it meets them. */
-    private static final float INTO_WALL = 0.06F;
     /** Grain: how high, pixels, and how fine (a cell's share), in two sizes. */
     private static final float GRAIN = 0.2F;
     private static final float GRAIN_SCALE = 1.3F;
@@ -91,6 +89,8 @@ final class MassRenderer {
     private static final float HIGHLIGHT_R = 1.0F;
     private static final float HIGHLIGHT_G = 0.98F;
     private static final float HIGHLIGHT_B = 0.93F;
+    /** How much darker the deepest trail is, at a trail contrast of 1 ({@code setWakeLook}). */
+    private static final float TRAIL = 0.35F;
 
     // Scratch space: rendering happens on one thread.
     private static final float[] PX = new float[MOST_POINTS];
@@ -197,13 +197,14 @@ final class MassRenderer {
         MassSim relief = sim.relief();
         float thin = 1.0F - thick;
         float waves = sim.isRippling() ? thin * thin : 0.0F;
-        float grain = detailed ? look.grain() * GRAIN * thick : 0.0F;
+        // Flat unless it is shaped: grain and lumps are relief too.
+        float grain = detailed ? look.grain() * GRAIN * thick * look.relief() : 0.0F;
         float tile = look.tile();
         // Too few cells for lumps: the mass once it is mostly made, the liquid before.
         boolean whole = thick >= 0.999F || !detailed && thick >= 0.5F;
         // A cell is the mass where its lumps' noise is under this: none at the start, all of it at the end.
         float threshold = -0.12F + 1.24F * thick;
-        float lumpRise = LUMP_RISE * thin;
+        float lumpRise = LUMP_RISE * thin * look.relief();
 
         for (int j = 0; j < side; j++) {
             float b = j * 2.0F / cells - 1.0F;
@@ -217,7 +218,7 @@ final class MassRenderer {
                     // The square of cells laid onto the circle, its edge on the circle's edge.
                     float sa = a * (float) Math.sqrt(Math.max(0.0F, 1.0F - b * b / 2.0F));
                     float sb = b * (float) Math.sqrt(Math.max(0.0F, 1.0F - a * a / 2.0F));
-                    float out = edge && gap > 0.0F ? gap + INTO_WALL : 0.0F;
+                    float out = edge && gap > 0.0F ? gap : 0.0F;
                     x = sa * (hx + out);
                     z = sb * (hz + out);
                     wall = edge && gap > 0.0F ? -gap : (1.0F - (float) Math.sqrt(sa * sa + sb * sb)) * half;
@@ -226,8 +227,8 @@ final class MassRenderer {
                     z = b * hz;
                     wall = Math.min(hx - Math.abs(x), hz - Math.abs(z));
                     if (edge && gap > 0.0F) {
-                        x = i == 0 ? -hx - gap - INTO_WALL : i == cells ? hx + gap + INTO_WALL : x;
-                        z = j == 0 ? -hz - gap - INTO_WALL : j == cells ? hz + gap + INTO_WALL : z;
+                        x = i == 0 ? -hx - gap : i == cells ? hx + gap : x;
+                        z = j == 0 ? -hz - gap : j == cells ? hz + gap : z;
                         wall = -gap;
                     }
                 }
@@ -351,10 +352,16 @@ final class MassRenderer {
                 if (mass) {
                     float baseU = Mth.floor((TU[k00] + TU[k11]) / 2.0F);
                     float baseV = Mth.floor((TV[k00] + TV[k11]) / 2.0F);
-                    solidVertex(solid, pose, pass, sprite, k00, baseU, baseV, red, green, blue, light);
-                    solidVertex(solid, pose, pass, sprite, k01, baseU, baseV, red, green, blue, light);
-                    solidVertex(solid, pose, pass, sprite, k11, baseU, baseV, red, green, blue, light);
-                    solidVertex(solid, pose, pass, sprite, k10, baseU, baseV, red, green, blue, light);
+                    // The trail behind what moved through it: a darker path, a cell at a time, in steps.
+                    float trail = 1.0F - Math.round(Math.min(1.0F, trailDepth(sim, k00, k11, hx, hz)) * LiquidRenderer.WAKE_STEPS)
+                            / LiquidRenderer.WAKE_STEPS * TRAIL * sim.wakeContrast();
+                    float cr = red * trail;
+                    float cg = green * trail;
+                    float cb = blue * trail;
+                    solidVertex(solid, pose, pass, sprite, k00, baseU, baseV, cr, cg, cb, light);
+                    solidVertex(solid, pose, pass, sprite, k01, baseU, baseV, cr, cg, cb, light);
+                    solidVertex(solid, pose, pass, sprite, k11, baseU, baseV, cr, cg, cb, light);
+                    solidVertex(solid, pose, pass, sprite, k10, baseU, baseV, cr, cg, cb, light);
                     if (Math.max(Math.max(SHINE[k00], SHINE[k01]), Math.max(SHINE[k11], SHINE[k10])) > SHINE_FROM) {
                         shine(pass, k00, whiteU, whiteV, light);
                         shine(pass, k01, whiteU, whiteV, light);
@@ -378,13 +385,12 @@ final class MassRenderer {
                 float r = pass.red * body;
                 float g = pass.green * body;
                 float bl = pass.blue * body;
-                int column = Mth.clamp((int) ((mx / (2.0F * hx) + 0.5F) * LiquidSim.WAKE_CELLS), 0, LiquidSim.WAKE_CELLS - 1);
-                int row = Mth.clamp((int) ((mz / (2.0F * hz) + 0.5F) * LiquidSim.WAKE_CELLS), 0, LiquidSim.WAKE_CELLS - 1);
-                float wake = Math.round(sim.wakeShade(column, row) * LiquidRenderer.WAKE_STEPS) / LiquidRenderer.WAKE_STEPS;
-                float shine = Math.max(0.0F, wake) * LiquidRenderer.WAKE_GLOSS;
-                r = r * (1.0F + wake) + (1.0F - r) * shine;
-                g = g * (1.0F + wake) + (1.0F - g) * shine;
-                bl = bl * (1.0F + wake) + (1.0F - bl) * shine;
+                // The same darker path as on the mass, so that the trail does not change as the liquid thickens.
+                float wake = 1.0F - Math.round(Math.min(1.0F, trailDepth(sim, k00, k11, hx, hz)) * LiquidRenderer.WAKE_STEPS)
+                        / LiquidRenderer.WAKE_STEPS * TRAIL * sim.wakeContrast();
+                r *= wake;
+                g *= wake;
+                bl *= wake;
                 pass.behind(mx, my, mz, r, g, bl, surfaceAlpha);
                 float mr = pass.mixed[0];
                 float mg = pass.mixed[1];
@@ -396,6 +402,13 @@ final class MassRenderer {
                 liquidVertex(pass, k10, mr, mg, mb, ma);
             }
         }
+    }
+
+    /** How deep the trails are at the middle of the cell from corner {@code k00} to {@code k11}, 0 to about 1. */
+    private static float trailDepth(LiquidSim sim, int k00, int k11, float hx, float hz) {
+        float mx = (PX[k00] + PX[k11]) / 2.0F;
+        float mz = (PZ[k00] + PZ[k11]) / 2.0F;
+        return sim.trail(mx / (2.0F * hx) + 0.5F, mz / (2.0F * hz) + 0.5F);
     }
 
     /** A corner of a cell of the mass: its texture where the mass has turned to, wrapped into the sprite round the cell's middle. */

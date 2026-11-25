@@ -2082,6 +2082,13 @@
           "maximum": 8,
           "description": "How far (pixels) the vessel's walls stand outside inner: a mass reaches across the gap to them, the liquid stays inside inner.",
           "default": 0
+        },
+        "inset": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "How far (pixels) the drawn liquid keeps off the sides of inner, and a mass off the walls: a liquid as wide as the vessel's inside shows through its walls.",
+          "default": 0.05
         }
       },
       "patternProperties": {
@@ -2139,6 +2146,13 @@
           "minimum": 0,
           "maximum": 16,
           "description": "How many pixels one cell of its surface covers, the finest step its relief bends at; 0 for one texel of its texture (tile / 16).",
+          "default": 0
+        },
+        "relief": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How far what moves through it shapes its surface: 0 keeps it flat and shades the trail behind whatever moved through it; 1 digs real furrows with ridges.",
           "default": 0
         }
       },
@@ -6307,6 +6321,21 @@
             }
           ],
           "description": "How far (pixels) the vessel's walls stand outside inner: a mass reaches across the gap to them, the liquid stays inside inner."
+        },
+        "inset": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "How far (pixels) the drawn liquid keeps off the sides of inner, and a mass off the walls: a liquid as wide as the vessel's inside shows through its walls.",
+              "default": 0.05
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far (pixels) the drawn liquid keeps off the sides of inner, and a mass off the walls: a liquid as wide as the vessel's inside shows through its walls."
         }
       },
       "patternProperties": {
@@ -6417,6 +6446,21 @@
             }
           ],
           "description": "How many pixels one cell of its surface covers, the finest step its relief bends at; 0 for one texel of its texture (tile / 16)."
+        },
+        "relief": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "How far what moves through it shapes its surface: 0 keeps it flat and shades the trail behind whatever moved through it; 1 digs real furrows with ridges.",
+              "default": 0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far what moves through it shapes its surface: 0 keeps it flat and shades the trail behind whatever moved through it; 1 digs real furrows with ridges."
         }
       },
       "patternProperties": {

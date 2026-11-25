@@ -499,6 +499,8 @@ obj("tank", "TankBinding", "Shows a station tank as liquid inside the node.", {
     "mass": field({"$ref": "#/definitions/mass"}, "Shows what the tank holds as a thick mass instead of a runny liquid."),
     "wall_gap": field(num(0, 8), "How far (pixels) the vessel's walls stand outside inner: a mass reaches across the gap to"
                                  " them, the liquid stays inside inner.", 0),
+    "inset": field(num(0, 2), "How far (pixels) the drawn liquid keeps off the sides of inner, and a mass off the walls: a liquid"
+                              " as wide as the vessel's inside shows through its walls.", 0.05),
 }, required=["tank", "inner"])
 
 obj("mass", "MassLook", "A thick mass in a tank: a batter, a porridge, a dough, whipped butter, ice cream. It has relief that"
@@ -513,6 +515,8 @@ obj("mass", "MassLook", "A thick mass in a tank: a batter, a porridge, a dough, 
     "tile": field(num(1, 256), "How many pixels one repeat of the texture covers; 16 is one texel a pixel.", 16),
     "cell": field(num(0, 16), "How many pixels one cell of its surface covers, the finest step its relief bends at; 0 for"
                               " one texel of its texture (tile / 16).", 0),
+    "relief": field(num(0, 1), "How far what moves through it shapes its surface: 0 keeps it flat and shades the trail behind"
+                               " whatever moved through it; 1 digs real furrows with ridges.", 0),
 }, required=["texture"])
 
 obj("emitter", "EmitterDefinition", "Gives off scene particles; code can switch it (NodeView.setEmitting).", {
