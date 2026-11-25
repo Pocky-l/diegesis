@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - A crash when a station opened or closed while another mod's HUD left a pose pushed and popped it later (`NoSuchElementException` in `HudSlide.begin`).
+- With Souls Combat HUD, a station's slot row (the ingredients under a stove or a skillet) is shown again instead of being pushed off the bottom of the screen.
 
 ## [1.0.0-beta.19+1.20.1] - 2026-11-24
 ### Fixed

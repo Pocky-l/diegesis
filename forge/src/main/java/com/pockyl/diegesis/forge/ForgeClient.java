@@ -82,6 +82,10 @@ final class ForgeClient {
         // While the player works at a station its interface replaces the HUD: every overlay slides off to its nearest edge, then
         // is not drawn (the chat is hidden by a mixin on both loaders). Last of all listeners, so an overlay another mod cancels
         // is never begun, and every begun one ends in its Post.
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, (RenderGuiEvent.Pre event) -> HudSlide.frameStart());
+        // First of all listeners: where an overlay's pose begins, to take back what others pushed for one this mod then hides.
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, true,
+                RenderGuiOverlayEvent.Pre.class, event -> HudSlide.partListeners(event.getGuiGraphics()));
         MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, (RenderGuiOverlayEvent.Pre event) -> {
             FocusController focus = FocusController.get();
             ResourceLocation id = event.getOverlay().id();
@@ -93,6 +97,7 @@ final class ForgeClient {
                     event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight()));
             if (hides && (id.equals(VanillaGuiOverlay.CROSSHAIR.id()) || HudSlide.gone() && !stays)) {
                 event.setCanceled(true);
+                HudSlide.hidden(event.getGuiGraphics());
                 return;
             }
             if (chat && focus.isActive() && !focus.options().hideChat()) {
@@ -114,6 +119,7 @@ final class ForgeClient {
                 HudSlide.end(event.getGuiGraphics());
             }
             slid.clear();
+            HudSlide.settle(event.getGuiGraphics());
             slidAfter = true;
             HudSlide.begin("forge:after_hud", event.getGuiGraphics());
         });
