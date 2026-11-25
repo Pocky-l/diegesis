@@ -25,7 +25,8 @@ import java.util.Optional;
  * @param scaleStep    what one notch of the wheel changes the size by
  * @param turnSpeed    degrees an item turns per GUI pixel of a drag
  * @param stacking     items can stand on each other; what stood on an item comes down when it is taken away
- * @param blockModels  a block item with a flat icon (a lantern, a torch, a flower pot) stands there as the block
+ * @param blockModels  a block item with a flat icon (a lantern, a torch, a flower pot) stands there as the block, unless its block
+ *                     model draws nothing (it is drawn by a block entity renderer)
  * @param itemLight    items of blocks that give light shine on the scene, candles and torches burn
  * @param lightRadius  how far their light reaches, in pixels
  * @param lightColor   ARGB colour of the pool of light they throw (alpha: its strength)
