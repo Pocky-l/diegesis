@@ -7,8 +7,13 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.pockyl.diegesis.api.scene.HudOptions;
+import com.pockyl.diegesis.mixin.client.PoseStackAccessor;
 
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -53,9 +58,8 @@ public final class HudSlide {
     private static float maxX;
     private static float maxY;
     private static boolean measured;
-    /** The pose level {@link #begin} pushed for the slide, and the one under it. */
-    private static PoseStack.Pose slideLevel;
-    private static PoseStack.Pose underSlide;
+    /** The pose entry {@link #begin} pushed for the part being drawn. */
+    private static PoseStack.Pose pushed;
     private static final Vector3f CORNER = new Vector3f();
 
     private HudSlide() {
@@ -137,14 +141,24 @@ public final class HudSlide {
             shiftY = 0.0F;
             return;
         }
+        if (poses(graphics.pose()).isEmpty()) {
+            // Popped empty by what was drawn before: nothing to push on, the part is drawn where it is.
+            moved = false;
+            shiftX = 0.0F;
+            shiftY = 0.0F;
+            return;
+        }
         offset(key, graphics.guiWidth(), graphics.guiHeight());
-        underSlide = graphics.pose().last();
         graphics.pose().pushPose();
-        slideLevel = graphics.pose().last();
+        pushed = graphics.pose().last();
         graphics.pose().translate(shiftX, shiftY, 0.0F);
     }
 
-    /** The part {@link #begin} started is drawn. */
+    /**
+     * The part {@link #begin} started is drawn. Only the slide's own entry is taken off the pose: what the part pushed and left
+     * stays (Veil, in Effective, leaves one pushed on most frames; another mod may pop it in a later part), but without the
+     * slide's move, else the station's hotbar was drawn away from where it is clicked.
+     */
     public static void end(GuiGraphics graphics) {
         if (depth == 0 || --depth > 0) {
             return;
@@ -159,20 +173,39 @@ public final class HudSlide {
     }
 
     /**
-     * Takes the slide off the pose. A part may push a level and return without popping it (Veil's tooltip in Effective, drawn
-     * through Fabric's HUD hook): popping one level then took that one, and the slide stayed on the pose the screen is drawn
-     * with after the HUD, so a station's screen was drawn moved away from where it is clicked. Every level above the slide's
-     * goes with it; if a part popped the slide's own level already, nothing under it is touched.
+     * Takes the slide's own entry out of the pose and the slide's move out of every entry the part left above it; nothing else
+     * is popped. Popping those entries too emptied the pose once a mod popped its own later, outside a part: the loader's HUD then
+     * popped its base entry, and the next part found no pose at all. Where the part popped the slide's entry itself (one pop
+     * too many), nothing is done.
      */
     private static void unwind(PoseStack pose) {
-        while (pose.last() != slideLevel && pose.last() != underSlide && !pose.clear()) {
-            pose.popPose();
+        Deque<PoseStack.Pose> stack = poses(pose);
+        List<PoseStack.Pose> left = new ArrayList<>();
+        Iterator<PoseStack.Pose> entries = stack.descendingIterator();
+        while (entries.hasNext()) {
+            PoseStack.Pose entry = entries.next();
+            if (entry != pushed) {
+                left.add(entry);
+                continue;
+            }
+            entries.remove();
+            if (!left.isEmpty() && entries.hasNext()) {
+                // An entry left on the slide's is under * move * own: it becomes under * own.
+                Matrix4f under = entries.next().pose();
+                if (under.determinant() != 0.0F) {
+                    Matrix4f undo = new Matrix4f(under).translate(-shiftX, -shiftY, 0.0F).mul(new Matrix4f(under).invert());
+                    for (PoseStack.Pose kept : left) {
+                        kept.pose().mulLocal(undo);
+                    }
+                }
+            }
+            break;
         }
-        if (pose.last() == slideLevel) {
-            pose.popPose();
-        }
-        slideLevel = null;
-        underSlide = null;
+        pushed = null;
+    }
+
+    private static Deque<PoseStack.Pose> poses(PoseStack pose) {
+        return ((PoseStackAccessor) pose).diegesis$poses();
     }
 
     /** Whether part {@code key} covered most of the screen when it was drawn last: a vignette, not a part of the HUD. */

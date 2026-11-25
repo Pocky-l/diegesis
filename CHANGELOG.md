@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `StationType.Builder.blocks(Supplier<Collection<Block>>)`: one station for a set of blocks looked up when first needed, such as every block of one kind another mod adds.
 
+### Fixed
+- A crash when a station opened or closed while another mod's HUD left a pose pushed and popped it later (`NoSuchElementException` in `HudSlide.begin`).
+
 ## [1.0.0-beta.19+1.20.1] - 2026-11-24
 ### Fixed
 - With Fabulous graphics, a book page showing a slime block, honey, ice or stained glass no longer leaves that cell empty and draws the rest of the page large across the screen.
