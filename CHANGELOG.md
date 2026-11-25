@@ -5,7 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.0-beta.19.3+26.3] - 2026-11-25
+### Added
+- Thick masses in tanks (`tank.mass`, `tank.wall_gap`): a porridge, a dough or whipped butter that a whisk furrows and pushes aside, with what lies in it held there.
+- `NodeView.setFloatingClearance`: how far floating things keep the others off, as a share of their size.
+- Scene `tank.inset`: how far a liquid is drawn inside its vessel.
+
 ### Fixed
+- A liquid as wide as the inside of its vessel no longer shows through the vessel's walls.
 - Items of blocks that are drawn only by their block entity (Vinery's wine bottles) are no longer invisible when placed in a scene: they show their icon.
 
 ## [1.0.0-beta.19.1+26.3] - 2026-11-25
