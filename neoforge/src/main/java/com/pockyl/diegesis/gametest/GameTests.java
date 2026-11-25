@@ -80,6 +80,8 @@ public final class GameTests {
         test("session_returns_items_on_close", ModGameTests::sessionReturnsItemsOnClose, BOX);
         test("walking_away_or_logging_out_gives_items_back", ModGameTests::walkingAwayOrLoggingOutGivesItemsBack, BOX);
         test("many_stations_stay_cheap", ModGameTests::manyStationsStayCheap, BOX, 200);
+        test("a_mass_is_read_from_the_scene", ModGameTests::aMassIsReadFromTheScene, EMPTY);
+        test("a_mass_keeps_its_furrows_as_firmly_as_it_is_made", ModGameTests::aMassKeepsItsFurrowsAsFirmlyAsItIsMade, EMPTY);
 
         // PlacingGameTests
         test("physics_rests_where_things_are_put", PlacingGameTests::physicsRestsWhereThingsArePut, EMPTY);
