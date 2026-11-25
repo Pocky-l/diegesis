@@ -4,6 +4,10 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.19.4+1.21.1] - 2026-11-25
+### Fixed
+- The slots over the hotbar at a station no longer keep the order of the last visit: opening a station again showed old places, other items among them, in a shuffled order. Each opening now starts from the inventory as it is, and the order holds while you work there.
+
 ## [1.0.0-beta.19.3+1.21.1] - 2026-11-25
 ### Fixed
 - Items of blocks that are drawn only by their block entity (Vinery's wine bottles) are no longer invisible when placed in a scene: they show their icon.
