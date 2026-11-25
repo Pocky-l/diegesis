@@ -187,7 +187,7 @@ final class ActiveStation implements StationContext {
         subscribers.add(player.getUUID());
         // What onOpen changed goes out first: the snapshot below forgets what is pending, and the others would never hear of it.
         flush();
-        byte[] full = DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, true));
+        byte[] full = encodeState(player, true);
         Platform.INSTANCE.send(player, new Packets.Opened(pos, type.id(), facing, full, seats.getOrDefault(player.getUUID(), "")));
         refreshWatchers();
     }
@@ -237,13 +237,21 @@ final class ActiveStation implements StationContext {
         state.pollStorages();
         boolean dirty = state.isDirty();
         if (dirty) {
-            byte[] delta = DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, false));
-            Packets.StateSync packet = new Packets.StateSync(pos, type.id(), facing, false, delta);
+            List<ServerPlayer> subscribed = new ArrayList<>();
             forEachRecipient(player -> {
                 if (subscribers.contains(player.getUUID())) {
-                    Platform.INSTANCE.send(player, packet);
+                    subscribed.add(player);
                 }
             });
+            if (subscribed.isEmpty()) {
+                // Nobody to tell: the changes are forgotten unwritten, as writing them would only throw them away.
+                state.takeChanges();
+            } else {
+                Packets.StateSync packet = new Packets.StateSync(pos, type.id(), facing, false, encodeState(subscribed.get(0), false));
+                for (ServerPlayer player : subscribed) {
+                    Platform.INSTANCE.send(player, packet);
+                }
+            }
             if (hosted) {
                 BlockEntity blockEntity = level.getBlockEntity(pos);
                 if (blockEntity != null) {
@@ -260,13 +268,22 @@ final class ActiveStation implements StationContext {
             }
         });
         if (!newcomers.isEmpty()) {
-            byte[] full = DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, true));
-            Packets.StateSync packet = new Packets.StateSync(pos, type.id(), facing, true, full);
+            Packets.StateSync packet = new Packets.StateSync(pos, type.id(), facing, true, encodeState(newcomers.get(0), true));
             for (ServerPlayer player : newcomers) {
                 subscribers.add(player.getUUID());
                 Platform.INSTANCE.send(player, packet);
             }
         }
+    }
+
+    /**
+     * The state's changes (all of it with {@code full}) as bytes for a message to {@code player}. They are written as that
+     * player's connection would write them: mods that change items per connection (Polymer on Fabric) need to know whom
+     * they go to, and throw without it. Bytes shared by several players are written for the first; they all have Diegesis.
+     */
+    private byte[] encodeState(ServerPlayer player, boolean full) {
+        return Platform.INSTANCE.encodeFor(player,
+                () -> DiegesisNetwork.toBytes(level.registryAccess(), buf -> state.writeChanges(buf, full)));
     }
 
     void relayPresence(ServerPlayer from, Presence presence) {

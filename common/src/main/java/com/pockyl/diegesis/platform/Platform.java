@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import com.pockyl.diegesis.impl.network.Packets;
 
 import java.util.ServiceLoader;
+import java.util.function.Supplier;
 
 /**
  * What the common code needs from the mod loader, on both sides. Each loader project provides one implementation,
@@ -20,6 +21,14 @@ public interface Platform {
     boolean hasChannel(ServerPlayer player);
 
     void send(ServerPlayer player, Packets.ServerPacket packet);
+
+    /**
+     * Runs {@code encoder}, which writes part of a message to {@code player} ahead of the packet, as that player's
+     * connection would run it: on Fabric, mods that change items per connection (Polymer) read the packet context.
+     */
+    default <T> T encodeFor(ServerPlayer player, Supplier<T> encoder) {
+        return encoder.get();
+    }
 
     /**
      * Whether the loader's block-use event lets the player use the block at {@code pos}, as a right-click on it would: claim and
