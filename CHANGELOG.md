@@ -4,6 +4,10 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.19.3+26.1.2] - 2026-11-25
+### Fixed
+- Items of blocks that are drawn only by their block entity (Vinery's wine bottles) are no longer invisible when placed in a scene: they show their icon.
+
 ## [1.0.0-beta.19.1+26.1.2] - 2026-11-25
 ### Added
 - `StationType.Builder.blocks(Supplier<Collection<Block>>)`: one station for a set of blocks looked up when first needed, such as every block of one kind another mod adds.
