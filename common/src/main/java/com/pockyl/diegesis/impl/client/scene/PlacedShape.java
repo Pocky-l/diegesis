@@ -8,6 +8,8 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.block.model.BlockStateModel;
 import net.minecraft.client.renderer.item.TrackingItemStackRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.SpriteContents;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -40,6 +42,8 @@ public final class PlacedShape implements Placing.Shape {
     private static final Map<Object, PlacedShape> CACHE = new ConcurrentHashMap<>();
     /** Shapes of 3D item models standing as modelled (no frame transform). */
     private static final Map<Object, PlacedShape> MODELLED = new ConcurrentHashMap<>();
+    /** Whether a block model draws any pixel. */
+    private static final Map<BlockStateModel, Boolean> SHOWS = new ConcurrentHashMap<>();
 
     /** The block's model, for an item standing as its block; null for an item drawn as an item. */
     private final BlockStateModel model;
@@ -94,6 +98,7 @@ public final class PlacedShape implements Placing.Shape {
     static void clearCache() {
         CACHE.clear();
         MODELLED.clear();
+        SHOWS.clear();
     }
 
     /** As {@link #of(ItemStack, ClientLevel, boolean, boolean)}, every item as an item frame shows it. */
@@ -143,7 +148,38 @@ public final class PlacedShape implements Placing.Shape {
     private static boolean standsAsBlock(ItemStack stack, boolean gui3d, BlockState state) {
         // An item named as an item, not after its block (seeds, string), is one of those: since 1.21.4 it says so in its name.
         return state != null && !gui3d && !stack.getItem().getDescriptionId().startsWith("item.") && state.getRenderShape() == RenderShape.MODEL
-                && !state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF);
+                && !state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
+                && shows(com.pockyl.diegesis.impl.client.render.SceneDraw.blockModel(state));
+    }
+
+    /**
+     * Whether a block model draws anything: some mods give a block a fully transparent model and draw it with a block entity
+     * renderer (Vinery's wine bottles), and such an item is shown by its icon.
+     */
+    private static boolean shows(BlockStateModel model) {
+        return SHOWS.computeIfAbsent(model, key -> {
+            boolean[] shown = {false};
+            java.util.Set<TextureAtlasSprite> seen = new java.util.HashSet<>();
+            com.pockyl.diegesis.impl.client.render.SceneDraw.forEachQuad(key, quad -> {
+                if (!shown[0] && seen.add(quad.sprite()) && drawn(quad.sprite())) {
+                    shown[0] = true;
+                }
+            });
+            return shown[0];
+        });
+    }
+
+    /** Whether a sprite has a pixel that is not fully transparent. */
+    private static boolean drawn(TextureAtlasSprite sprite) {
+        SpriteContents contents = sprite.contents();
+        for (int y = 0; y < contents.height(); y++) {
+            for (int x = 0; x < contents.width(); x++) {
+                if (!contents.isTransparent(0, x, y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static Box3 blockBox(BlockStateModel model) {
