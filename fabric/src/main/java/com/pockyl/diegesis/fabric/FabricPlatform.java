@@ -1,6 +1,7 @@
 package com.pockyl.diegesis.fabric;
 
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -12,6 +13,8 @@ import net.minecraft.world.phys.Vec3;
 
 import com.pockyl.diegesis.impl.network.Packets;
 import com.pockyl.diegesis.platform.Platform;
+
+import java.util.function.Supplier;
 
 public final class FabricPlatform implements Platform {
     @Override
@@ -29,6 +32,11 @@ public final class FabricPlatform implements Platform {
         if (hasChannel(player)) {
             FabricNetwork.send(player, packet);
         }
+    }
+
+    @Override
+    public <T> T encodeFor(ServerPlayer player, Supplier<T> encoder) {
+        return PacketContext.supplyWithContext(player, encoder);
     }
 
     @Override
