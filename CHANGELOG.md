@@ -4,7 +4,7 @@ All notable changes to this mod are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-beta.19.4+1.21.1] - Unreleased
+## [1.0.0-beta.19.4+1.21.1] - 2026-11-26
 ### Fixed
 - Opening a station again starts the slots over the hotbar from the inventory as it is, instead of the shuffled order of the last visit.
 - With coloured-light mods a station block that gives light keeps its coloured glow while you work at it, also with [Sodium](https://modrinth.com/mod/sodium), and so does a lamp in the camera's way.
