@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0-beta.19.4+26.3] - 2026-11-25
 ### Fixed
 - The slots over the hotbar at a station no longer keep the order of the last visit: opening a station again showed old places, other items among them, in a shuffled order. Each opening now starts from the inventory as it is, and the order holds while you work there.
+- While you work at a station, other mods that look at the blocks around it once they are drawn (coloured-light mods looking for lamps, for one) see the station block and the blocks in the camera's way as they are: until now these looked like air to them, so a lit furnace or a lamp in the way lost its light.
 
 ## [1.0.0-beta.19.3+26.3] - 2026-11-25
 ### Added

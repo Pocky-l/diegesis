@@ -17,14 +17,17 @@ import com.pockyl.diegesis.impl.client.render.ClearBlocks;
  * for ({@code StationType.Builder.hidesBlock}): to the mesh builder they are air, so the faces of their neighbours are built too
  * (a door on its way shut over a block whose state already says shut no longer shows the caves through the floor under it). The
  * mesh builder reads every block of a section here, so this is also where a block shown again is first built with its own model.
- * No loader has a hook on what the mesh builder reads.
+ * No loader has a hook on what the mesh builder reads. Only while the mesh is built ({@code SectionCompilerMixin}): what reads the
+ * region after it sees the world as it is.
  */
 @Mixin(RenderSectionRegion.class)
 abstract class RenderChunkRegionMixin {
     @Inject(method = "getBlockState", at = @At("HEAD"), cancellable = true)
     private void diegesis$clearBlock(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (ClearBlocks.hides(pos) || HiddenBlocks.isHidden(pos)) {
-            cir.setReturnValue(Blocks.AIR.defaultBlockState());
+            if (ClearBlocks.meshing()) {
+                cir.setReturnValue(Blocks.AIR.defaultBlockState());
+            }
         } else {
             HiddenBlocks.built(pos);
         }
