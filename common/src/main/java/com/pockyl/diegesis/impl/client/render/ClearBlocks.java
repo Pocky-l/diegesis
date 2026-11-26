@@ -85,6 +85,12 @@ public final class ClearBlocks {
     /** Below this a fading block is not drawn at all. */
     private static final float UNSEEN = 1.0F / 255.0F;
 
+    /**
+     * Whether this thread builds a section's mesh now. Only the mesh builder reads the blocks left out as air: a mod that reads
+     * the same copy of the world once the mesh is built (coloured light, looking for the section's light sources) sees them as
+     * they are, or a lamp in the camera's way would lose its light.
+     */
+    private static final ThreadLocal<Boolean> MESHING = ThreadLocal.withInitial(() -> Boolean.FALSE);
     /** The blocks left out; never changed once published, as the chunk builders read it on their own threads. */
     private static volatile LongOpenHashSet hidden = NONE;
     /** Of {@link #hidden}: the blocks in the way of the station worked at, and of the one the camera flies over from. */
@@ -118,6 +124,19 @@ public final class ClearBlocks {
     public static boolean hides(int x, int y, int z) {
         LongOpenHashSet set = hidden;
         return !set.isEmpty() && set.contains(BlockPos.asLong(x, y, z));
+    }
+
+    /** Called by the mesh builders' mixins as this thread starts and ends building a section's mesh. */
+    public static void meshing(boolean building) {
+        MESHING.set(building);
+    }
+
+    /**
+     * Whether this thread builds a section's mesh now: only then is a block left out, or hidden for its scene, read as air. Asked
+     * after {@link #hides}, which is cheaper and almost always false.
+     */
+    public static boolean meshing() {
+        return MESHING.get();
     }
 
     /**
