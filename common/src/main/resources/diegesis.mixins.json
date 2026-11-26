@@ -30,7 +30,8 @@
     "client.SodiumLightDataMixin",
     "client.SodiumMeshingTaskMixin",
     "client.SodiumOcclusionMixin",
-    "client.SodiumWorldSliceMixin"
+    "client.SodiumWorldSliceMixin",
+    "client.SpatialGuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1

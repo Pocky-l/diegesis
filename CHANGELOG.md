@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The slots over the hotbar at a station no longer keep the order of the last visit: opening a station again showed old places, other items among them, in a shuffled order. Each opening now starts from the inventory as it is, and the order holds while you work there.
 - Mods that colour the light of lamps by reading the blocks around you no longer lose a lamp that stands in the camera's way at a station, nor, on Fabric with Sodium, the station's own block: their coloured light stays while you work there instead of turning plain white.
+- With Spatial GUI, screens at a station stay flat in front of you: a recipe viewer's page opened at a station (EMI's recipes) no longer hangs out of view at a strange angle where you cannot turn to it, and with "All Screens" on, a station's recipe book keeps its contents. Away from stations Spatial GUI works as you set it.
 
 ## [1.0.0-beta.19.3+1.20.1] - 2026-11-25
 ### Fixed
