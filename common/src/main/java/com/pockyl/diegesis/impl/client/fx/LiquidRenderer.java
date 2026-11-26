@@ -116,8 +116,6 @@ public final class LiquidRenderer {
     private static final float[] FAR_OPACITY = new float[FAR_STEPS + 1];
     /** A face this opaque hides what lies behind it. */
     private static final float OPAQUE = 0.985F;
-    /** A wall is drawn when the eye stands this far out from its plane, as a share of its distance: the sine of 3 degrees. */
-    private static final float GRAZING = 0.052F;
 
     private LiquidRenderer() {
     }
@@ -197,13 +195,9 @@ public final class LiquidRenderer {
                 float nx = (RING_X[i] + RING_X[j]) / 2.0F;
                 float nz = (RING_Z[i] + RING_Z[j]) / 2.0F;
                 float length = Math.max(1.0e-4F, (float) Math.hypot(nx, nz));
-                // How far the eye stands out from the wall's plane, against how far it is from the wall. A wall turned away is never
-                // seen, and one seen all but edge-on shows nothing of itself: but the layer offset of the see-through sheet grows with
-                // a face's slope, and drew such a wall as a dark line over what stands before it, down the front of a pan.
+                // A wall turned away from the eye is never seen.
                 float out = ((pass.eye.x - nx) * nx + (pass.eye.z - nz) * nz) / length;
-                float reach = (float) Math.sqrt((pass.eye.x - nx) * (pass.eye.x - nx) + pass.eye.y * pass.eye.y
-                        + (pass.eye.z - nz) * (pass.eye.z - nz));
-                if (out <= GRAZING * reach) {
+                if (out <= 0.0F) {
                     continue;
                 }
                 pass.wall(POLY_B, points, nx / length, 0.0F, nz / length);

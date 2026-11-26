@@ -99,10 +99,25 @@ final class DiegesisRenderTypes extends RenderType {
      * translucent entity type, sorted back to front, but it writes no depth: a big pane cannot cut away what is sorted
      * after it, however the two lie. A polygon offset settles it for what lies on something solid, a glass standing on a table
      * or a liquid against the walls of a sink: the depth test would flicker between the two, now the see-through layer wins.
+     * The offset is a few steps of the depth buffer, the same at any slope ({@link #CLEAR_OFFSET}).
      */
     static RenderType clearBlockSheet() {
         return of("diegesis_clear", DefaultVertexFormat.NEW_ENTITY, true, List.of(RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
                 new RenderStateShard.TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, false), TRANSLUCENT_TRANSPARENCY, CULL, LIGHTMAP,
-                OVERLAY, LEQUAL_DEPTH_TEST, COLOR_WRITE, POLYGON_OFFSET_LAYERING));
+                OVERLAY, LEQUAL_DEPTH_TEST, COLOR_WRITE, CLEAR_OFFSET));
     }
+
+    /**
+     * The see-through sheet's offset: the game's layering offset without its share of a face's slope. That share is a whole
+     * pixel of the face's depth, and a face seen nearly edge-on gains more depth in a pixel than a vessel's wall is thick: a
+     * liquid's surface seen from the side with the eye near its level showed through the pot's wall as a thin line at its
+     * height, dashed where waves and foam tilt it. The steps alone still win over a solid face in the same place.
+     */
+    private static final LayeringStateShard CLEAR_OFFSET = new LayeringStateShard("diegesis_clear_offset", () -> {
+        RenderSystem.polygonOffset(0.0F, -10.0F);
+        RenderSystem.enablePolygonOffset();
+    }, () -> {
+        RenderSystem.polygonOffset(0.0F, 0.0F);
+        RenderSystem.disablePolygonOffset();
+    });
 }
