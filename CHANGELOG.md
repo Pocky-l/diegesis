@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0-beta.19.4+1.21.1] - 2026-11-25
 ### Fixed
 - The slots over the hotbar at a station no longer keep the order of the last visit: opening a station again showed old places, other items among them, in a shuffled order. Each opening now starts from the inventory as it is, and the order holds while you work there.
+- With Gleam (coloured light) and Sodium, a station block that gives light, such as a lit furnace, keeps its coloured glow while you work at it instead of falling back to plain white light. A lamp that stands in the camera's way keeps its colour too, with or without Sodium.
 
 ## [1.0.0-beta.19.3+1.21.1] - 2026-11-25
 ### Fixed

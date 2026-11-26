@@ -24,8 +24,10 @@
     "client.ParticleEngineMixin",
     "client.PoseStackAccessor",
     "client.RenderChunkRegionMixin",
+    "client.SectionCompilerMixin",
     "client.ShaderTransparencyMixin",
     "client.SingleQuadParticleMixin",
+    "client.SodiumMeshingTaskMixin",
     "client.SodiumWorldSliceMixin",
     "client.TextureSheetParticleGpuMixin"
   ],
