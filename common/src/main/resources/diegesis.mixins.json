@@ -29,6 +29,7 @@
     "client.SingleQuadParticleMixin",
     "client.SodiumMeshingTaskMixin",
     "client.SodiumWorldSliceMixin",
+    "client.SpatialGuiMixin",
     "client.TextureSheetParticleGpuMixin"
   ],
   "injectors": {
