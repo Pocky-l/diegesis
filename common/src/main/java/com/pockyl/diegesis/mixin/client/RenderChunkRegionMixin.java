@@ -13,13 +13,14 @@ import com.pockyl.diegesis.impl.client.render.ClearBlocks;
 
 /**
  * The game's chunk meshes are built without the blocks in the camera's way at a station: to the mesh builder they are air, so
- * the faces of their neighbours are built too. No loader has a hook on what the mesh builder reads.
+ * the faces of their neighbours are built too. No loader has a hook on what the mesh builder reads. Only while the mesh is
+ * built ({@code RebuildTaskMixin}): what reads the region after it sees the world as it is.
  */
 @Mixin(RenderChunkRegion.class)
 abstract class RenderChunkRegionMixin {
     @Inject(method = "getBlockState", at = @At("HEAD"), cancellable = true)
     private void diegesis$clearBlock(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
-        if (ClearBlocks.hides(pos)) {
+        if (ClearBlocks.hides(pos) && ClearBlocks.meshing()) {
             cir.setReturnValue(Blocks.AIR.defaultBlockState());
         }
     }

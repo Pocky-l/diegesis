@@ -22,11 +22,13 @@
     "client.OpenLightMixin",
     "client.ParticleEngineMixin",
     "client.PoseStackAccessor",
+    "client.RebuildTaskMixin",
     "client.RenderChunkRegionMixin",
     "client.ShaderTransparencyMixin",
     "client.SingleQuadParticleMixin",
     "client.TextureSheetParticleGpuMixin",
     "client.SodiumLightDataMixin",
+    "client.SodiumMeshingTaskMixin",
     "client.SodiumOcclusionMixin",
     "client.SodiumWorldSliceMixin"
   ],

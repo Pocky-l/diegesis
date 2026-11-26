@@ -16,7 +16,8 @@ import com.pockyl.diegesis.impl.client.render.OpenLight;
 
 /**
  * Embeddium (Forge) and Sodium (Fabric) build chunk meshes from their own copy of the world: the blocks in the camera's way at a
- * station are air there too. Every block their mesh builder reads, by position or by coordinates, goes through this method.
+ * station are air there too, while the mesh is built ({@code SodiumMeshingTaskMixin}); what reads the slice after it sees the
+ * world as it is. Every block their mesh builder reads, by position or by coordinates, goes through this method.
  * Without either mod the class is missing and nothing is applied. The descriptor names Mojang's classes, as Forge and Fabric
  * development runs do; Loom leaves a target outside Minecraft as it is, so a Fabric jar has its own copy with intermediary names.
  * Sodium reads the light from here too: such a block is lit as open air ({@link OpenLight}). Embeddium asks
@@ -28,7 +29,7 @@ abstract class SodiumWorldSliceMixin {
     @Inject(method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;", at = @At("HEAD"), cancellable = true,
             require = 0)
     private void diegesis$clearBlock(int x, int y, int z, CallbackInfoReturnable<BlockState> cir) {
-        if (ClearBlocks.hides(x, y, z)) {
+        if (ClearBlocks.hides(x, y, z) && ClearBlocks.meshing()) {
             cir.setReturnValue(Blocks.AIR.defaultBlockState());
         }
     }
