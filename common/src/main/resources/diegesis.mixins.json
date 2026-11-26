@@ -24,7 +24,8 @@
     "client.RenderTypeAccessor",
     "client.SectionCompilerMixin",
     "client.SodiumMeshingTaskMixin",
-    "client.SodiumWorldSliceMixin"
+    "client.SodiumWorldSliceMixin",
+    "client.SpatialGuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1
