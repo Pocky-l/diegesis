@@ -23,6 +23,8 @@
     "client.RenderChunkRegionMixin",
     "client.RenderPipelinesAccessor",
     "client.RenderTypeAccessor",
+    "client.SectionCompilerMixin",
+    "client.SodiumMeshingTaskMixin",
     "client.SodiumWorldSliceMixin"
   ],
   "injectors": {
